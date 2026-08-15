@@ -1,0 +1,507 @@
+"""arch_lib -- a modular architecture kit for the vinyl-toon town.
+
+Same philosophy as kh_lib: every piece is generated from parameters, and the
+COLLISION DATA IS EMITTED BY THE CODE THAT PLACES THE GEOMETRY.  A wall and the
+box that blocks you are two outputs of one call, so they cannot drift apart --
+which is the failure mode that makes hand-authored collision miserable.
+
+Conventions (Blender, Z-up), shared with kh_lib:
+    +Z  up
+    -Y  the direction a facade FACES; buildings are assembled front-to--Y and
+        then yawed into place, so every piece is authored in one orientation
+    +X  to the right of that facade
+
+Sizes are SEMI-axes everywhere, matching kh_lib.  Bevels are small and always
+present: a chamfer that catches the rim light is most of what makes a plain box
+read as a vinyl-toy building rather than as a programmer's cube.
+
+glTF export turns Blender (x, y, z) into three.js (x, z, -y); `Town.manifest`
+does the same conversion for the collision boxes.
+"""
+import bpy
+import math
+from mathutils import Vector
+
+import kh_lib as K
+
+FLOOR_H = 3.05          # storey height
+GROUND_H = 3.45         # ground floor is taller -- shopfronts need the room
+
+
+# ------------------------------------------------------------------ palette
+
+def palette():
+    """Warm plaster and terracotta against a cool sky.  Values are the toon
+    ramp's MIDTONE, so they run brighter and more saturated than a PBR albedo
+    would: the ramp darkens the shadow band hard and mud is unrecoverable."""
+    spec = {
+        "plaster_a": (0.95, 0.87, 0.73),
+        "plaster_b": (0.93, 0.75, 0.58),
+        "plaster_c": (0.80, 0.84, 0.86),
+        "plaster_d": (0.88, 0.70, 0.66),
+        "timber":    (0.40, 0.26, 0.18),
+        "roof_a":    (0.80, 0.36, 0.26),
+        "roof_b":    (0.36, 0.44, 0.58),
+        "roof_c":    (0.72, 0.44, 0.30),
+        "stone":     (0.78, 0.75, 0.70),
+        # paving runs DARKER than instinct suggests: it fills most of the frame,
+        # and a light grey ground under a strong key blows to white and drags
+        # every facade toward pastel with it
+        "cobble":    (0.52, 0.50, 0.53),
+        "cobble_b":  (0.60, 0.57, 0.55),
+        "door":      (0.20, 0.44, 0.46),
+        "glass":     (0.52, 0.74, 0.86),
+        "lamp":      (1.00, 0.86, 0.52),
+        "brass":     (0.86, 0.68, 0.30),
+        "awning":    (0.84, 0.30, 0.28),
+        "leaf":      (0.42, 0.64, 0.34),
+        "water":     (0.38, 0.72, 0.84),
+        "cloth":     (0.90, 0.88, 0.80),
+    }
+    mats = {}
+    for name, color in spec.items():
+        mats[name] = K.material(
+            name, color,
+            roughness=0.35 if name in ("glass", "water", "brass") else 0.75,
+            metallic=0.7 if name == "brass" else 0.0,
+            emission=2.2 if name == "lamp" else 0.0)
+    return mats
+
+
+# --------------------------------------------------------------- collector
+
+class Town:
+    """Visual parts, walkable surfaces, and collision boxes, gathered as built."""
+
+    def __init__(self, mats):
+        self.M = mats
+        self.parts = []
+        self.floors = []
+        self.solids = []
+
+    def add(self, *objs):
+        for o in objs:
+            if o is not None:
+                self.parts.append(o)
+        return objs[0] if objs else None
+
+    def walk(self, *objs):
+        """A surface the player can stand on: it is visual AND raycast target."""
+        for o in objs:
+            if o is not None:
+                self.parts.append(o)
+                self.floors.append(o)
+        return objs[0] if objs else None
+
+    def solid(self, cx, cy, hx, hy, yaw=0.0, top=3.0):
+        """`top` is how tall the box is.  The camera collision needs it: without
+        a height every prop is an infinite pillar and the camera refuses to rise
+        over a barrel."""
+        self.solids.append((cx, cy, hx, hy, math.radians(yaw), top))
+
+    def manifest(self):
+        """Collision boxes in THREE.JS space (Blender x,y -> three x,-y).
+
+        A yaw about Blender +Z maps to the same yaw about three +Y, and the
+        half-extent along Blender Y becomes the half-extent along three Z."""
+        return {"solids": [
+            {"x": round(cx, 4), "z": round(-cy, 4),
+             "hx": round(hx, 4), "hz": round(hy, 4),
+             "yaw": round(yaw, 5), "top": round(top, 3)}
+            for cx, cy, hx, hy, yaw, top in self.solids]}
+
+
+# ------------------------------------------------------------------ pieces
+
+def box(name, center, size, mat, bevel=0.035, seg=2, smooth=True):
+    """Bevelled box; `size` is semi-axes."""
+    b = min(bevel, min(size) * 0.6)
+    return K.rounded_box(name, center, size, b, None, mat, segments=seg,
+                         smooth=smooth)
+
+
+def prism(name, center, w, d, h, mat, over_y=0.0, over_x=0.0):
+    """A gable roof: triangular section in Y-Z, ridge running along X.
+
+    Flat-shaded on purpose -- a roof wants crisp planes, and smoothing a
+    six-vertex prism just rounds the ridge into mush."""
+    hw, hd = w / 2 + over_x, d / 2 + over_y
+    cx, cy, cz = center
+    v = [(-hw, -hd, 0), (hw, -hd, 0), (hw, hd, 0), (-hw, hd, 0),
+         (-hw, 0.0, h), (hw, 0.0, h)]
+    verts = [(cx + a, cy + b, cz + c) for a, b, c in v]
+    faces = [(0, 1, 5, 4),        # front slope
+             (2, 3, 4, 5),        # back slope
+             (0, 4, 3),           # left gable
+             (1, 2, 5),           # right gable
+             (0, 3, 2, 1)]        # underside
+    return K._new_obj(name, [Vector(p) for p in verts], faces, mat=mat,
+                      smooth=False)
+
+
+def window(t, x, y0, z, w=0.62, h=0.92, shutters=True, sill=True,
+           glass="glass", frame="timber"):
+    """A recessed window on a facade whose outer face is the plane y = y0.
+
+    Built from the outside in: shutters proud of the wall, frame on the wall
+    plane, glass set back.  The depth is what sells it -- a window painted flat
+    on a wall reads as a sticker under a toon ramp."""
+    M, out = t.M, []
+    yg = y0 + 0.13                                  # glass, set back
+    yf = y0 + 0.02                                  # frame, on the plane
+    out.append(box("win_glass", (x, yg, z), (w / 2, 0.02, h / 2), M[glass],
+                   bevel=0.01, seg=1))
+    out.append(box("win_rev", (x, y0 + 0.08, z), (w / 2 + 0.05, 0.08, h / 2 + 0.05),
+                   M["stone"], bevel=0.02, seg=1))
+    bar = 0.045
+    out.append(box("win_mullion_v", (x, yf, z), (bar, 0.035, h / 2), M[frame],
+                   bevel=0.012, seg=1))
+    out.append(box("win_mullion_h", (x, yf, z), (w / 2, 0.035, bar), M[frame],
+                   bevel=0.012, seg=1))
+    for sx, sz, sw, sh in ((0, h / 2, w / 2 + 0.05, bar),
+                           (0, -h / 2, w / 2 + 0.05, bar),
+                           (w / 2, 0, bar, h / 2 + 0.05),
+                           (-w / 2, 0, bar, h / 2 + 0.05)):
+        out.append(box("win_frame", (x + sx, yf, z + sz), (sw, 0.04, sh),
+                       M[frame], bevel=0.012, seg=1))
+    if sill:
+        out.append(box("win_sill", (x, y0 - 0.03, z - h / 2 - 0.08),
+                       (w / 2 + 0.14, 0.11, 0.05), M["stone"], bevel=0.02, seg=1))
+    if shutters:
+        for s in (-1, 1):
+            out.append(box("win_shutter", (x + s * (w / 2 + 0.20), y0 - 0.06, z),
+                           (0.15, 0.035, h / 2 + 0.02), M["door"],
+                           bevel=0.018, seg=1))
+    return t.add(*out) and out
+
+
+def doorway(t, x, y0, z0, w=0.70, h=1.95, mat="door"):
+    """A door on the facade plane y = y0, sitting on the floor at z0."""
+    M, out = t.M, []
+    out.append(box("door_rev", (x, y0 + 0.10, z0 + h / 2), (w / 2 + 0.07, 0.10, h / 2 + 0.05),
+                   M["stone"], bevel=0.02, seg=1))
+    out.append(box("door_slab", (x, y0 + 0.02, z0 + h / 2), (w / 2, 0.05, h / 2),
+                   M[mat], bevel=0.02, seg=1))
+    out.append(box("door_lintel", (x, y0 - 0.04, z0 + h + 0.11),
+                   (w / 2 + 0.22, 0.11, 0.09), M["stone"], bevel=0.025, seg=1))
+    out.append(K.blob("door_knob", (x + w / 2 - 0.13, y0 - 0.04, z0 + h * 0.52),
+                      (0.045, 0.045, 0.045), None, M["brass"], seg=10, rings=7))
+    out.append(box("door_step", (x, y0 - 0.16, z0 + 0.05), (w / 2 + 0.18, 0.20, 0.05),
+                   M["stone"], bevel=0.02, seg=1))
+    return t.add(*out) and out
+
+
+def awning(t, x, y0, z, w=1.5, drop=0.55, reach=0.85):
+    """A shop awning: a tilted slab plus a scalloped valance."""
+    M, out = t.M, []
+    cy = y0 - reach / 2
+    slab = box("awning", (x, cy, z), (w / 2, reach / 2, 0.05), M["awning"],
+               bevel=0.03, seg=1)
+    K.transform(slab, rotate=(-22, 0, 0), around=(x, y0, z + 0.12))
+    out.append(slab)
+    n = max(3, int(w / 0.34))
+    for i in range(n):
+        px = x - w / 2 + w * (i + 0.5) / n
+        out.append(K.blob("awning_scallop", (px, y0 - reach + 0.02, z - drop * 0.52),
+                          (w / n * 0.5, 0.05, 0.13), None, M["awning"],
+                          seg=10, rings=7, squircle=2.2))
+    for s in (-1, 1):
+        out.append(box("awning_arm", (x + s * (w / 2 - 0.04), cy, z - 0.16),
+                       (0.03, reach / 2, 0.03), M["timber"], bevel=0.01, seg=1))
+    return t.add(*out) and out
+
+
+def lantern(t, x, y, z0=0.0, h=3.1, wall=False):
+    """A post lantern, or a bracket lamp when `wall` is set.  Emissive material;
+    the runtime turns each of these into an actual point light."""
+    M, out = t.M, []
+    if not wall:
+        out.append(box("lamp_base", (x, y, z0 + 0.09), (0.17, 0.17, 0.09),
+                       M["stone"], bevel=0.03, seg=1))
+        out.append(K.tube("lamp_post", K.dome([
+            {"p": Vector((x, y, z0 + 0.12)), "r": (0.065, 0.065), "n": 2.6},
+            {"p": Vector((x, y, z0 + h * 0.62)), "r": (0.052, 0.052), "n": 2.6},
+            {"p": Vector((x, y, z0 + h - 0.30)), "r": (0.048, 0.048), "n": 2.6},
+        ], at="both", steps=2, height=0.04), seg=10, mat=M["timber"], squircle=2.6))
+    zz = z0 + h
+    out.append(box("lamp_cage", (x, y, zz - 0.12), (0.135, 0.135, 0.155),
+                   M["lamp"], bevel=0.035, seg=1))
+    out.append(box("lamp_cap", (x, y, zz + 0.07), (0.175, 0.175, 0.045),
+                   M["brass"], bevel=0.025, seg=1))
+    out.append(K.blob("lamp_finial", (x, y, zz + 0.15), (0.055, 0.055, 0.075),
+                      None, M["brass"], seg=10, rings=7))
+    t.add(*out)
+    return (x, y, zz - 0.12)          # where the runtime should hang a light
+
+
+def arch(t, cx, cy, span=3.2, height=4.2, depth=1.4, thick=0.42, yaw=0.0):
+    """A gateway arch over an alley mouth: two piers and a swept semicircle.
+
+    The curve is a tube swept along the arc, which is the one shape a bevelled
+    box genuinely cannot fake."""
+    M, out = t.M, []
+    r = span / 2
+    straight = height - r
+    for s in (-1, 1):
+        out.append(box("arch_pier", (cx + s * (r + thick / 2), cy, straight / 2),
+                       (thick / 2, depth / 2, straight / 2), M["stone"],
+                       bevel=0.05, seg=2))
+        out.append(box("arch_plinth", (cx + s * (r + thick / 2), cy, 0.14),
+                       (thick / 2 + 0.07, depth / 2 + 0.07, 0.14), M["stone"],
+                       bevel=0.04, seg=1))
+    sec = []
+    steps = 14
+    for i in range(steps + 1):
+        a = math.pi * i / steps
+        sec.append({"p": Vector((cx - (r + thick / 2) * math.cos(a), cy,
+                                 straight + (r + thick / 2) * math.sin(a))),
+                    "r": (thick / 2, depth / 2), "n": 3.0})
+    # up=+Y so `ry` is the arch's DEPTH and `rx` its radial thickness; the
+    # unseeded frame put them the other way round and the gate came out a fat
+    # donut half a metre deep.
+    out.append(K.tube("arch_curve", sec, seg=12, mat=M["stone"], squircle=3.0,
+                      up=(0, 1, 0)))
+    out.append(box("arch_key", (cx, cy, straight + r + thick / 2),
+                   (0.16, depth / 2 + 0.05, 0.20), M["stone"], bevel=0.03, seg=1))
+
+    for o in out:
+        if yaw:
+            K.transform(o, rotate=(0, 0, yaw), around=(cx, cy, 0))
+    t.add(*out)
+    for s in (-1, 1):
+        px, py = cx + s * (r + thick / 2), cy
+        if yaw:
+            a = math.radians(yaw)
+            dx, dy = px - cx, py - cy
+            px, py = cx + dx * math.cos(a) - dy * math.sin(a), \
+                     cy + dx * math.sin(a) + dy * math.cos(a)
+        t.solid(px, py, thick / 2, depth / 2, yaw, top=height)
+    return out
+
+
+def stairs(t, cx, cy, w, rise, run, steps, yaw=0.0, mat="stone"):
+    """A flight of steps, registered as WALKABLE so the runtime's ground
+    raycast finds each tread."""
+    M, out = t.M, []
+    for i in range(steps):
+        h = rise * (i + 1)
+        y = cy + run * (i + 0.5)
+        out.append(box(f"floor_step{i}", (cx, y, h / 2),
+                       (w / 2, run / 2 + 0.01, h / 2), M[mat], bevel=0.03, seg=1))
+    for o in out:
+        if yaw:
+            K.transform(o, rotate=(0, 0, yaw), around=(cx, cy, 0))
+    t.walk(*out)
+    return out
+
+
+def planter(t, x, y, r=0.55, h=0.5):
+    M, out = t.M, []
+    out.append(K.tube("planter", [
+        {"p": Vector((x, y, 0.02)), "r": (r * 0.86, r * 0.86), "n": 3.0},
+        {"p": Vector((x, y, h)), "r": (r, r), "n": 3.0},
+        {"p": Vector((x, y, h + 0.07)), "r": (r * 1.06, r * 1.06), "n": 3.0},
+    ], seg=14, mat=M["stone"], squircle=3.0))
+    out.append(K.blob("planter_soil", (x, y, h - 0.02), (r * 0.9, r * 0.9, 0.06),
+                      None, M["timber"], seg=14, rings=8))
+    for dx, dy, dz, rr in ((0, 0, 0.34, 0.42), (0.22, 0.12, 0.24, 0.30),
+                           (-0.20, -0.14, 0.26, 0.28)):
+        out.append(K.blob("planter_bush", (x + dx, y + dy, h + dz),
+                          (rr, rr, rr * 0.85), None, M["leaf"], seg=12, rings=8,
+                          squircle=2.2))
+    t.add(*out)
+    t.solid(x, y, r, r, top=h + 0.6)
+    return out
+
+
+def barrel(t, x, y, r=0.34, h=0.82):
+    M = t.M
+    # capped at both ends: an uncapped tube reads as an open bucket
+    o = K.tube("barrel", K.dome([
+        {"p": Vector((x, y, 0.02)), "r": (r * 0.88, r * 0.88), "n": 2.6},
+        {"p": Vector((x, y, h * 0.5)), "r": (r, r), "n": 2.6},
+        {"p": Vector((x, y, h)), "r": (r * 0.88, r * 0.88), "n": 2.6},
+    ], at="both", steps=2, height=0.05), seg=12, mat=M["timber"], squircle=2.6)
+    # a swept ring, not a box -- a square plate through a round barrel reads as
+    # a plank nailed to it
+    band = K.tube("barrel_band", [
+        {"p": Vector((x, y, h * 0.5 - 0.05)), "r": (r * 1.04, r * 1.04), "n": 2.6},
+        {"p": Vector((x, y, h * 0.5 + 0.05)), "r": (r * 1.04, r * 1.04), "n": 2.6},
+    ], seg=12, mat=M["brass"], squircle=2.6)
+    t.add(o, band)
+    t.solid(x, y, r, r, top=h)
+    return [o, band]
+
+
+def crate(t, x, y, s=0.42, yaw=0.0):
+    M = t.M
+    o = box("crate", (x, y, s), (s, s, s), M["timber"], bevel=0.05, seg=2)
+    if yaw:
+        K.transform(o, rotate=(0, 0, yaw), around=(x, y, 0))
+    t.add(o)
+    t.solid(x, y, s * 1.25, s * 1.25, yaw, top=s * 2)
+    return [o]
+
+
+def fountain(t, cx, cy, r=2.6):
+    """The plaza landmark.  A swept ring for the basin wall, a disc of water,
+    and a tiered centre -- the one place in town worth a silhouette."""
+    M, out = t.M, []
+    ring = []
+    steps = 40
+    for i in range(steps + 1):
+        a = 2 * math.pi * i / steps
+        ring.append({"p": Vector((cx + r * math.cos(a), cy + r * math.sin(a), 0.44)),
+                     "r": (0.20, 0.45), "n": 3.0})
+    # up=+Z so `rx` is the wall's radial thickness and `ry` its height
+    out.append(K.tube("fount_wall", ring, seg=12, mat=M["stone"], squircle=3.0,
+                      up=(0, 0, 1)))
+    out.append(K.tube("fount_water", K.dome([
+        {"p": Vector((cx, cy, 0.28)), "r": (r - 0.32, r - 0.32), "n": 2.0},
+        {"p": Vector((cx, cy, 0.60)), "r": (r - 0.32, r - 0.32), "n": 2.0},
+    ], at="end", steps=2, height=0.04), seg=40, mat=M["water"], squircle=2.0))
+    out.append(K.tube("fount_pedestal", K.dome([
+        {"p": Vector((cx, cy, 0.30)), "r": (0.60, 0.60), "n": 3.0},
+        {"p": Vector((cx, cy, 1.05)), "r": (0.34, 0.34), "n": 3.0},
+    ], at="both", steps=2, height=0.05), seg=16, mat=M["stone"], squircle=3.0))
+
+    # THE BOWL MUST BE A CLOSED SOLID.
+    #
+    # It was first authored as a single flaring surface -- geometrically a dish,
+    # but with no underside and no top.  Viewed from above you look straight
+    # through the missing surface, and what is behind it is the INSIDE of its own
+    # inverted-hull outline shell, which paints a solid dark blob over half the
+    # plaza.  An open surface and an outline shell are a bad pair: cap anything
+    # the camera can get behind.
+    out.append(K.tube("fount_bowl", K.dome([
+        {"p": Vector((cx, cy, 1.05)), "r": (0.34, 0.34), "n": 2.6},
+        {"p": Vector((cx, cy, 1.34)), "r": (0.96, 0.96), "n": 2.6},
+        {"p": Vector((cx, cy, 1.50)), "r": (1.04, 1.04), "n": 2.6},
+    ], at="both", steps=2, height=0.07), seg=20, mat=M["stone"], squircle=2.6))
+    out.append(K.tube("fount_dish", K.dome([
+        {"p": Vector((cx, cy, 1.52)), "r": (0.92, 0.92), "n": 2.2},
+        {"p": Vector((cx, cy, 1.58)), "r": (0.92, 0.92), "n": 2.2},
+    ], at="end", steps=2, height=0.03), seg=20, mat=M["water"], squircle=2.2))
+    out.append(K.tube("fount_spout", K.dome([
+        {"p": Vector((cx, cy, 1.50)), "r": (0.16, 0.16), "n": 2.4},
+        {"p": Vector((cx, cy, 2.35)), "r": (0.12, 0.12), "n": 2.4},
+    ], at="both", steps=2, height=0.04), seg=12, mat=M["stone"], squircle=2.4))
+    out.append(K.blob("fount_finial", (cx, cy, 2.52), (0.24, 0.24, 0.26), None,
+                      M["brass"], seg=14, rings=9))
+    t.add(*out)
+    t.solid(cx, cy, r + 0.15, r + 0.15, top=0.9)
+    return out
+
+
+def banner(t, x, y0, z, w=0.55, h=1.5, mat="awning"):
+    M, out = t.M, []
+    out.append(box("banner_pole", (x, y0 - 0.30, z + h * 0.5 + 0.10),
+                   (0.035, 0.32, 0.035), M["timber"], bevel=0.012, seg=1))
+    out.append(box("banner_cloth", (x, y0 - 0.55, z), (w / 2, 0.02, h / 2),
+                   M[mat], bevel=0.015, seg=1))
+    return t.add(*out) and out
+
+
+# ---------------------------------------------------------------- building
+
+def building(t, cx, cy, w, d, storeys=2, yaw=0.0, plaster="plaster_a",
+             roof="roof_a", shop=False, bays=None, roof_h=1.5, seed=0):
+    """Assemble one building, front facing -Y, then yaw it into place.
+
+    Everything is authored in ONE orientation and rotated at the end.  Trying to
+    place windows in world space for eight differently-angled buildings is how
+    facades end up subtly wrong, and it is unnecessary: the rotation is free.
+    """
+    M, out = t.M, []
+    h = GROUND_H + FLOOR_H * (storeys - 1)
+    y0 = -d / 2                                  # the facade plane
+    bays = bays if bays is not None else max(1, int(w / 2.1))
+
+    out.append(box("bld_plinth", (0, 0, 0.16), (w / 2 + 0.10, d / 2 + 0.10, 0.16),
+                   M["stone"], bevel=0.05, seg=2))
+    out.append(box("bld_body", (0, 0, h / 2 + 0.16), (w / 2, d / 2, h / 2),
+                   M[plaster], bevel=0.06, seg=2))
+
+    # storey bands: a shadow line every floor keeps a tall facade from reading
+    # as one undifferentiated slab under flat toon shading
+    for f in range(1, storeys):
+        z = 0.16 + GROUND_H + FLOOR_H * (f - 1)
+        out.append(box("bld_band", (0, 0, z), (w / 2 + 0.06, d / 2 + 0.06, 0.075),
+                       M["timber"], bevel=0.025, seg=1))
+
+    # cornice + roof
+    out.append(box("bld_cornice", (0, 0, h + 0.16), (w / 2 + 0.16, d / 2 + 0.16, 0.11),
+                   M["stone"], bevel=0.04, seg=1))
+    out.append(prism("bld_roof", (0, 0, h + 0.27), w, d, roof_h, M[roof],
+                     over_y=0.30, over_x=0.26))
+
+    # chimney, offset so the roofline is never symmetrical
+    chx = (0.22 if seed % 2 else -0.28) * w
+    out.append(box("bld_chimney", (chx, 0.10 * d, h + 0.30 + roof_h * 0.72),
+                   (0.24, 0.24, roof_h * 0.62), M["stone"], bevel=0.04, seg=1))
+
+    # ground floor: a door, or a shopfront with an awning
+    door_bay = bays // 2
+    for b in range(bays):
+        bx = -w / 2 + w * (b + 0.5) / bays
+        if b == door_bay:
+            out += doorway(t, bx, y0, 0.16)
+            if shop:
+                out += awning(t, bx, y0, 0.16 + 2.35, w=min(1.9, w / bays * 0.95))
+        elif shop:
+            out += window(t, bx, y0, 0.16 + 1.65, w=min(1.15, w / bays * 0.7),
+                          h=1.35, shutters=False)
+        else:
+            out += window(t, bx, y0, 0.16 + 1.75)
+
+    # upper storeys, front and back
+    for f in range(1, storeys):
+        z = 0.16 + GROUND_H + FLOOR_H * (f - 1) + FLOOR_H * 0.52
+        for b in range(bays):
+            bx = -w / 2 + w * (b + 0.5) / bays
+            out += window(t, bx, y0, z)
+            out += window(t, bx, d / 2, z)          # rear elevation
+        # side elevations get one window per storey so alleys are not blank
+        for s in (-1, 1):
+            wob = window(t, 0, -d * 0, z, w=0.5, h=0.8, shutters=False)
+            for o in wob:
+                K.transform(o, rotate=(0, 0, 90 * s), around=(0, 0, 0),
+                            translate=(s * (w / 2), 0, 0))
+            out += wob
+
+    if storeys >= 2:
+        out += banner(t, w * 0.30, y0, 0.16 + GROUND_H + 0.55,
+                      mat="awning" if seed % 2 else "roof_b")
+
+    for o in out:
+        if yaw:
+            K.transform(o, rotate=(0, 0, yaw), around=(0, 0, 0))
+        K.transform(o, translate=(cx, cy, 0))
+
+    t.add(*out)
+    t.solid(cx, cy, w / 2 + 0.10, d / 2 + 0.10, yaw, top=h + 0.27 + roof_h)
+    return out
+
+
+# ------------------------------------------------------------------ output
+
+def finish(t, name_town="TOWN", name_floor="FLOOR"):
+    """Join into two objects: everything, and the walkable subset.
+
+    Two objects instead of ~600 keeps the draw call count sane (each keeps its
+    own material slots, so the runtime still gets one primitive per material),
+    and it gives the ground raycast a single cheap target."""
+    # Kit pieces register themselves as they are built AND get re-added by the
+    # assembly that used them, so the parts list carries duplicates.  Dedupe by
+    # identity before joining.
+    walkable = {id(o) for o in t.floors}
+    floors, others, seen = [], [], set()
+    for o in t.parts:
+        if id(o) in seen:
+            continue
+        seen.add(id(o))
+        (floors if id(o) in walkable else others).append(o)
+
+    floor_obj = K.join(floors, name_floor)
+    town_obj = K.join(others, name_town)
+    return town_obj, floor_obj

@@ -1,0 +1,12 @@
+node_modules/
+__pycache__/
+*.pyc
+.DS_Store
+
+# Preview renders are regenerable QA output -- `--render` rewrites them, and the
+# full set is ~15 MB.  A small curated showcase is force-added under docs/shots/.
+docs/qa/
+
+# scratch
+/tmp/
+*.blend1
