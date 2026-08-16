@@ -552,7 +552,7 @@ def build_keyblade():
 # exact same set.
 
 from anim_lib import (NEUTRAL, AIRBORNE, anim_idle, anim_run, anim_attack,
-                      anim_jump, anim_land)  # noqa: E402
+                      anim_attack2, anim_attack3, anim_jump, anim_land)  # noqa: E402
 
 
 # ------------------------------------------------------------------ preview
@@ -697,8 +697,11 @@ def render_poses(prefix, rig):
     cam.rotation_euler = (target - cam.location).to_track_quat('-Z', 'Y').to_euler()
 
     os.makedirs(prefix, exist_ok=True)
+    # one shot at each swing's CONTACT frame, so the three hits of the chain can
+    # be compared as a set -- the whole point of authoring them separately
     shots = [("idle", 12), ("run", 0), ("run", 4), ("run", 8),
-             ("attack", 5), ("attack", 11), ("attack", 16)]
+             ("attack", 5), ("attack2", 5), ("attack3", 8),
+             ("attack3", 4), ("jump", 12)]
     out = []
     for act_name, frame in shots:
         act = bpy.data.actions.get(act_name)
@@ -756,6 +759,8 @@ def main():
     anim_idle(rig)
     anim_run(rig)
     anim_attack(rig)
+    anim_attack2(rig)
+    anim_attack3(rig)
     anim_jump(rig)
     anim_land(rig)
     print(f"[hero] actions: {[a.name for a in bpy.data.actions]}")
@@ -772,7 +777,8 @@ def main():
 
     K.rest(rig)
     path = K.export_glb(out, rig)
-    info = K.verify_glb(path, animations=["idle", "run", "attack", "jump", "land"],
+    info = K.verify_glb(path, animations=["idle", "run", "attack", "attack2", "attack3",
+                                    "jump", "land"],
                         images=1)
     print(f"[hero] exported {path} ({os.path.getsize(path)/1024:.0f} KB)")
     print(f"[hero] verified: clips={info['animations']} images={info['images']}")

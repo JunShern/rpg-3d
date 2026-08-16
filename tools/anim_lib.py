@@ -326,13 +326,142 @@ def anim_attack(rig, weapon=True):
         "head": (-4.0, -6.0, 0.0),
     })
 
+    # TIMED TO THE HITBOX.  combat.js opens hit 1's active window at 0.10 s and
+    # closes it at 0.21 s; at 24 fps that is frames 2.4 to 5.0.  The first
+    # version peaked the strike at frame 11, so damage landed less than halfway
+    # through the wind-up and the hit registered before the blade moved.
     #   frame  pose     hips (x=side, y=up, z=forward) in bone-local units
     for f, p, loc in [
         (0,  neutral, (0.0, -0.008, 0.000)),
-        (5,  windup,  (0.0, -0.030, -0.060)),   # sink and load backwards
-        (11, strike,  (0.0, -0.045,  0.140)),   # lunge through the swing
-        (16, settle,  (0.0, -0.030,  0.110)),
-        (30, neutral, (0.0, -0.008,  0.000)),
+        (2,  windup,  (0.0, -0.030, -0.055)),   # sink and load backwards
+        (5,  strike,  (0.0, -0.045,  0.140)),   # lunge through the swing
+        (9,  settle,  (0.0, -0.030,  0.110)),
+        (22, neutral, (0.0, -0.008,  0.000)),
+    ]:
+        K.key(rig, f, p, loc={"hips": loc})
+    K.interp(act)
+    return act
+
+
+def anim_attack2(rig, weapon=True):
+    """Hit 2: a RISING BACKHAND.
+
+    Deliberately the mirror of hit 1 in every readable way -- it starts where
+    hit 1 finished (blade low and across the body on the off side), sweeps the
+    other way, and travels up instead of down.  A combo whose second swing looks
+    like its first is not a combo, and that was this build's largest fault.
+    """
+    act = K.action(rig, "attack2")
+    n = _neutral(weapon)
+
+    # picks up from hit 1's follow-through: blade low, across to the off side
+    draw = dict(n)
+    draw.update({
+        "hips": (4.0, 18.0, 0.0), "spine": (3.0, 16.0, 0.0),
+        "chest": (6.0, 26.0, 0.0), "neck": (-3.0, -10.0, 0.0),
+        "head": (-5.0, -14.0, 0.0),
+        "shoulder.R": (4.0, 0.0, -6.0),
+        # +Z on the RIGHT arm pulls it ACROSS the body (see the module docstring)
+        "upperarm.R": (42.0, 0.0, 36.0), "forearm.R": (56.0, 0.0, 0.0),
+        "hand.R": (-42.0, 0.0, 0.0),
+        "upperarm.L": (18.0, 0.0, 22.0), "forearm.L": (44.0, 0.0, 0.0),
+        "thigh.L": (16.0, 0.0, 4.0), "shin.L": (-22.0, 0.0, 0.0),
+        "thigh.R": (-8.0, 0.0, -6.0), "shin.R": (-16.0, 0.0, 0.0),
+    })
+
+    # and sweeps OUT and UP to the sword side
+    sweep = dict(n)
+    sweep.update({
+        "hips": (-4.0, -20.0, 0.0), "spine": (-3.0, -18.0, 0.0),
+        "chest": (-8.0, -30.0, 0.0), "neck": (4.0, 12.0, 0.0),
+        "head": (6.0, 16.0, 0.0),
+        "shoulder.R": (-10.0, 0.0, 10.0),
+        "upperarm.R": (-34.0, 0.0, -48.0), "forearm.R": (16.0, 0.0, 0.0),
+        "hand.R": (8.0, 0.0, 0.0),
+        "upperarm.L": (-30.0, 0.0, -34.0), "forearm.L": (40.0, 0.0, 0.0),
+        "thigh.L": (-14.0, 0.0, 4.0), "shin.L": (-6.0, 0.0, 0.0),
+        "thigh.R": (26.0, 0.0, -6.0), "shin.R": (-34.0, 0.0, 0.0),
+        "foot.R": (12.0, 0.0, 0.0),
+    })
+
+    after = dict(sweep)
+    after.update({
+        "chest": (-4.0, -20.0, 0.0), "hips": (-2.0, -12.0, 0.0),
+        "upperarm.R": (-14.0, 0.0, -30.0), "forearm.R": (34.0, 0.0, 0.0),
+    })
+
+    # active window 0.09 s -> 0.20 s == frames 2.2 to 4.8
+    for f, p, loc in [
+        (0,  draw,  (0.0, -0.020, 0.020)),
+        (2,  draw,  (0.0, -0.030, -0.010)),
+        (5,  sweep, (0.0, -0.010, 0.115)),
+        (9,  after, (0.0, -0.020, 0.090)),
+        (22, n,     (0.0, -0.008, 0.000)),
+    ]:
+        K.key(rig, f, p, loc={"hips": loc})
+    K.interp(act)
+    return act
+
+
+def anim_attack3(rig, weapon=True):
+    """Hit 3: the FINISHER.
+
+    Slower to start and bigger everywhere -- a longer load, a two-handed
+    overhead chop straight down the centre line, a deep step-through, and a long
+    recovery that makes the whole chain a commitment rather than a button to
+    mash.  combat.js gives it more than double hit 1's damage and a launch, so
+    the animation has to earn it.
+    """
+    act = K.action(rig, "attack3")
+    n = _neutral(weapon)
+
+    load = dict(n)
+    load.update({
+        "hips": (-12.0, -16.0, 0.0), "spine": (-8.0, -14.0, 0.0),
+        "chest": (-16.0, -20.0, 0.0), "neck": (6.0, 10.0, 0.0),
+        "head": (4.0, 16.0, 0.0),
+        "shoulder.R": (-18.0, 0.0, 14.0),
+        "upperarm.R": (-152.0, 0.0, 18.0), "forearm.R": (58.0, 0.0, 0.0),
+        "hand.R": (-64.0, 0.0, 0.0),
+        # left hand comes up to meet the grip: this one is two-handed
+        "upperarm.L": (-124.0, 0.0, 30.0), "forearm.L": (66.0, 0.0, 0.0),
+        "hand.L": (-30.0, 0.0, 0.0),
+        "thigh.L": (-22.0, 0.0, 4.0), "shin.L": (26.0, 0.0, 0.0),
+        "foot.L": (-10.0, 0.0, 0.0),
+        "thigh.R": (14.0, 0.0, -6.0), "shin.R": (-20.0, 0.0, 0.0),
+        "foot.R": (10.0, 0.0, 0.0),
+    })
+
+    chop = dict(n)
+    chop.update({
+        "hips": (18.0, 4.0, 0.0), "spine": (18.0, 3.0, 0.0),
+        "chest": (28.0, 6.0, 0.0), "neck": (-12.0, 0.0, 0.0),
+        "head": (-18.0, 0.0, 0.0),
+        "shoulder.R": (14.0, 0.0, -8.0),
+        "upperarm.R": (104.0, 0.0, -8.0), "forearm.R": (4.0, 0.0, 0.0),
+        "hand.R": (26.0, 0.0, 0.0),
+        "upperarm.L": (86.0, 0.0, 12.0), "forearm.L": (16.0, 0.0, 0.0),
+        "hand.L": (16.0, 0.0, 0.0),
+        "thigh.L": (52.0, 0.0, 4.0), "shin.L": (-38.0, 0.0, 0.0),
+        "foot.L": (14.0, 0.0, 0.0),
+        "thigh.R": (-38.0, 0.0, -6.0), "shin.R": (-32.0, 0.0, 0.0),
+        "foot.R": (22.0, 0.0, 0.0),
+    })
+
+    hold = dict(chop)
+    hold.update({
+        "chest": (24.0, 5.0, 0.0), "head": (-12.0, 0.0, 0.0),
+        "upperarm.R": (92.0, 0.0, -4.0), "forearm.R": (18.0, 0.0, 0.0),
+        "upperarm.L": (70.0, 0.0, 14.0),
+    })
+
+    # active window 0.17 s -> 0.31 s == frames 4.1 to 7.4
+    for f, p, loc in [
+        (0,  n,    (0.0, -0.008, 0.000)),
+        (4,  load, (0.0, -0.052, -0.085)),   # sink deep and wind back
+        (8,  chop, (0.0, -0.070,  0.230)),   # step THROUGH it
+        (13, hold, (0.0, -0.060,  0.200)),
+        (34, n,    (0.0, -0.008,  0.000)),   # long recovery: this was a commitment
     ]:
         K.key(rig, f, p, loc={"hips": loc})
     K.interp(act)
