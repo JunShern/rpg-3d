@@ -35,7 +35,7 @@ export const TUNE = {
 
 export const SPECIES = {
   nettle: {
-    url: '/assets/nettle.glb',
+    url: '/assets/nettle.glb', far: 42,
     hp: 40,
     radius: 0.42,
     height: 0.45,
@@ -61,7 +61,7 @@ export const SPECIES = {
   // combo is for. Rolls physically -- `roll` spins the mesh while charging,
   // because a ball that also plays a walk cycle looks like two ideas.
   curler: {
-    url: '/assets/curler.glb',
+    url: '/assets/curler.glb', far: 42,
     hp: 78, radius: 0.52, height: 0.55, speed: 2.0,
     notice: 15.0, strikeRange: 3.4, telegraph: 0.62, attackTime: 1.05,
     recoverTime: 1.35, damage: 14,
@@ -75,7 +75,7 @@ export const SPECIES = {
   // damage is high enough that trading is never worth it -- it has the health
   // to survive a full chain, so it is the enemy the finisher exists for.
   bellow: {
-    url: '/assets/bellow.glb',
+    url: '/assets/bellow.glb', far: 46,
     hp: 150, radius: 0.78, height: 1.35, speed: 1.35,
     notice: 14.0, strikeRange: 2.5, telegraph: 1.05, attackTime: 0.42,
     recoverTime: 1.5, damage: 22,
@@ -83,12 +83,36 @@ export const SPECIES = {
             horn: { rimStrength: 1.0, rimColor: 0xfff0c0 } },
     flat: ['eye'], hostile: true,
   },
+
+  // GRAZER, and the only thing out here that does not want to fight. It exists
+  // so the meadow is inhabited before it is dangerous -- and as the palette
+  // control: it is the one pale creature, so "dark shape" reliably means threat.
+  woolt: {
+    url: '/assets/woolt.glb', far: 21,
+    hp: 45, radius: 0.46, height: 0.72, speed: 1.15,
+    spook: 5.2, flee: 4.6, fleeTime: 2.6, startle: 0.45,
+    look: { fleece: { rimStrength: 0.9 }, face: { rimStrength: 0.5 } },
+    flat: ['eye'], hostile: false,
+  },
+
+  // The cheapest sense of consequence in the whole demo. A grazer that startles
+  // is something you happen to notice; a dozen birds going up at once is the
+  // field reacting to you having arrived. One 0.2 m mesh.
+  flitter: {
+    url: '/assets/flitter.glb', far: 16,
+    hp: 8, radius: 0.16, height: 0.20, speed: 2.2,
+    spook: 6.5, flee: 7.0, fleeTime: 3.4, startle: 0.16,
+    flies: true, ceiling: 4.6,
+    look: { coat: { rimStrength: 0.8 }, trim: { rimStrength: 0.9 } },
+    flat: ['eye'], hostile: false,
+  },
 };
 
 // ----------------------------------------------------------------- helpers
 
 const _v = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
+const _fv = new THREE.Vector3();
 
 function pickClip(clips, want, fallback) {
   return clips[want] ? want : (clips[fallback] ? fallback : null);
@@ -152,6 +176,12 @@ export function createCombat(ctx) {
       m.material.opacity = 1;
     }
     const mats = meshes.map((m) => m.material);
+    // Kept so distance can switch them off. glTF splits a mesh per material, so
+    // a four-material creature is four draws, doubled by outlines and again by
+    // the shadow pass -- about twelve. Fifty of them living in the meadow cost
+    // 616 draws and dropped the frame to 41 fps, and most of them were the size
+    // of a fingernail on screen.
+    const outlines = [];
     for (const m of meshes) {
       const shell = new THREE.Mesh(
         outlineGeometry(m.geometry), outlineMaterial(0x241d2b, 0.0030));
@@ -163,10 +193,12 @@ export function createCombat(ctx) {
         m.parent.add(sk);
         sk.material.transparent = true;
         mats.push(sk.material);
+        outlines.push(sk);
       } else {
         m.add(shell);
         shell.material.transparent = true;
         mats.push(shell.material);
+        outlines.push(shell);
       }
     }
 
@@ -184,7 +216,8 @@ export function createCombat(ctx) {
         a.clampWhenFinished = true;
       }
     }
-    return { group, mixer, clips, mats, spec, name, current: null };
+    return { group, mixer, clips, mats, meshes, outlines, spec, name,
+             current: null, detail: true };
   }
 
   function spawn(name, x, z) {
@@ -201,6 +234,10 @@ export function createCombat(ctx) {
     e.dead = false;
     e.deadT = 0;
     e.hitLock = 0;
+    e.seed = enemies.length * 3 + (Math.abs(Math.round(x)) % 5);
+    e.wanders = 0;
+    e.goal = null;
+    e.fly = false;
     e.lockDir = null;
     e.spin = 0;
     e.home = e.pos.clone();
@@ -424,14 +461,139 @@ export function createCombat(ctx) {
     }
   }
 
+  // AMBIENT LIFE runs a different machine entirely, because it is answering a
+  // different question. A hostile asks "how do I reach you"; this asks "am I
+  // still allowed to eat". Sharing the combat states would have meant a grazer
+  // holding an attack token and queueing up to not attack you.
+  function spook(e) {
+    e.state = 'startle'; e.t = 0;
+    play(e, 'telegraph', 0.05);
+  }
+
+  function updateAmbient(e, dt, p, dist) {
+    switch (e.state) {
+      case 'idle':
+      case 'graze':
+        e.vel.multiplyScalar(0.80);
+        e.fly = false;
+        play(e, e.clips.graze ? 'graze' : 'idle');
+        // wander off after a while, so a herd is never a static arrangement
+        if (e.t > 5 + (e.seed % 7)) {
+          const a = e.seed * 2.4 + e.wanders * 1.9;
+          e.goal = new THREE.Vector3(
+            e.home.x + Math.cos(a) * 3.4, 0, e.home.z + Math.sin(a) * 3.4);
+          e.wanders++;
+          e.state = 'wander'; e.t = 0;
+        }
+        break;
+
+      case 'wander': {
+        play(e, 'move');
+        _v.subVectors(e.goal, e.pos).setY(0);
+        const d = _v.length();
+        if (d < 0.35 || e.t > 6) { e.state = 'graze'; e.t = 0; break; }
+        faceToward(e, e.goal, dt, 3);
+        e.vel.addScaledVector(_v.divideScalar(d), e.spec.speed * 6 * dt);
+        break;
+      }
+
+      // head up, fleece puffed, weight already going backwards
+      case 'startle':
+        e.vel.multiplyScalar(0.7);
+        faceToward(e, p, dt, 3);
+        if (e.t >= e.spec.startle) { e.state = 'flee'; e.t = 0; play(e, 'attack', 0.05); }
+        break;
+
+      case 'flee': {
+        if (e.spec.flies) {
+          // climb to the ceiling and hold it. Gravity is off while `fly` is
+          // set, so this is the only thing deciding altitude.
+          e.fly = true;
+          const want = (ctx.groundAt(e.pos.x, e.pos.z, e.pos.y + 3) ?? 0)
+                     + e.spec.ceiling;
+          e.vel.y += (want - e.pos.y) * 4.0 * dt - e.vel.y * 1.6 * dt;
+        }
+        _v.subVectors(e.pos, p).setY(0);
+        if (_v.lengthSq() < 1e-6) _v.set(1, 0, 0);
+        _v.normalize();
+        // steer back toward home as it runs, or one walk across the meadow
+        // empties the entire field of animals permanently
+        _fv.subVectors(e.home, e.pos).setY(0);
+        if (_fv.lengthSq() > 1) _v.addScaledVector(_fv.normalize(), 0.5).normalize();
+        e.facing = Math.atan2(_v.x, _v.z);
+        e.vel.addScaledVector(_v, e.spec.flee * 6 * dt);
+        if (e.t > e.spec.fleeTime && dist > e.spec.spook * 1.6) {
+          e.state = 'settle'; e.t = 0; play(e, 'recover', 0.1);
+        }
+        break;
+      }
+
+      case 'settle': {
+        e.vel.x *= 0.90; e.vel.z *= 0.90;
+        if (e.spec.flies) {
+          // come down. It is on the ground when it is on the ground, not when
+          // a timer says so -- a bird that finishes its landing in mid-air and
+          // then drops is the single most obvious tell that nothing is real.
+          const g = ctx.groundAt(e.pos.x, e.pos.z, e.pos.y + 3) ?? 0;
+          e.vel.y += (g - e.pos.y) * 3.0 * dt - e.vel.y * 2.2 * dt;
+          if (e.pos.y - g < 0.06) { e.fly = false; e.state = 'graze'; e.t = 0; }
+          break;
+        }
+        if (e.t > 1.0) { e.state = 'graze'; e.t = 0; }
+        break;
+      }
+
+      default:
+        e.state = 'graze'; e.t = 0;
+    }
+
+    // being startled overrides everything except already running
+    if (dist < e.spec.spook && e.state !== 'flee' && e.state !== 'startle') {
+      spook(e);
+      // PANIC IS CONTAGIOUS, and that is the entire point of the bird. One
+      // going up is a detail; the flock going up together is the field
+      // reacting to you. Only flocking species pass it on -- a grazer that
+      // bolted because another grazer bolted would look telepathic.
+      if (e.spec.flies) {
+        for (const o of enemies) {
+          if (o === e || o.dead || o.name !== e.name) continue;
+          if (o.state === 'flee' || o.state === 'startle') continue;
+          if (o.pos.distanceToSquared(e.pos) < 49) spook(o);
+        }
+      }
+    }
+
+    integrate(e, dt);
+    e.group.position.copy(e.pos);
+    e.group.rotation.y = e.facing;
+  }
+
   // Beyond this an enemy is at its post and nobody is looking at it. Skinning
   // and drawing it costs the same as one in your face, and with five encounters
   // armed that was 280 draw calls for a fight involving four things.
+  //
+  // Ambient life cuts out much sooner than a hostile: you need to see a fight
+  // coming from across the field, but a sheep you cannot make out is a sheep
+  // that does not need to be drawn.
   const FAR = 42;
 
+  // The outline is what the whole art style is made of, so this threshold sits
+  // as far out as it can afford to -- at 45% of the cull distance the grazers
+  // were losing their outlines inside ten metres and it read as a rendering bug.
+  function setDetail(e, on) {
+    if (e.detail === on) return;
+    e.detail = on;
+    // the outline is half the draws and it is one pixel wide at this range
+    for (const o of e.outlines) o.visible = on;
+    for (const m of e.meshes) m.castShadow = on;
+  }
+
   function updateEnemy(e, dt) {
-    const far = e.pos.distanceToSquared(ctx.playerPos()) > FAR * FAR;
+    const d2 = e.pos.distanceToSquared(ctx.playerPos());
+    const cut = e.spec.far || FAR;
+    const far = d2 > cut * cut;
     e.group.visible = !far;
+    setDetail(e, d2 < (cut * 0.72) * (cut * 0.72));
     if (far && !e.dead) {
       // park it: no skinning, no AI, no draw. It is home and idle by now.
       if (e.state !== 'return') { e.vel.set(0, 0, 0); e.state = 'idle'; }
@@ -459,6 +621,8 @@ export function createCombat(ctx) {
     const dist = e.pos.distanceTo(p);
     e.t += dt;
     if (e.hitLock > 0) e.hitLock -= dt;
+
+    if (!e.spec.hostile) { updateAmbient(e, dt, p, dist); return; }
 
     // LEASH. Without one, everything you ever woke follows you forever, and by
     // the far end of the walk you are being trailed by every fight you declined.
@@ -594,7 +758,7 @@ export function createCombat(ctx) {
     e.pos.addScaledVector(e.vel, dt);
     e.vel.x *= Math.pow(0.02, dt);
     e.vel.z *= Math.pow(0.02, dt);
-    e.vel.y -= 22 * dt;
+    if (!e.fly) e.vel.y -= 22 * dt;
     const g = ctx.groundAt(e.pos.x, e.pos.z, e.pos.y + 1.5);
     if (g !== null && e.pos.y <= g) { e.pos.y = g; e.vel.y = Math.max(0, e.vel.y); }
   }

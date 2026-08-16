@@ -65,7 +65,10 @@ marked DONE on the strength of a screenshot alone — it needs an assertion in
 - [x] enemies do not all attack at once — max 2 attack tokens
 - [x] three hostile types — Nettle (swarmer), Curler (charger), Bellow (brute).
       Probe saw each run `approach → telegraph → attack → recover` and die
-- [ ] two ambient types
+- [x] two ambient types — Woolt (grazer: grazes, wanders, startles, bolts,
+      returns) and Flitter (flocking bird: perches, and the whole flock goes up
+      together because panic is contagious). Probe saw a flock of 8 scatter to
+      4.6 m and land again, and a grazer run `graze → startle → flee → settle`
 
 ### Stakes
 - [x] player HP, visible — bar with a lagging drain behind it
@@ -116,13 +119,15 @@ Updated each iteration. Empty until measured.
 
 | metric | value | when |
 |---|---|---|
-| plaza, 3 foes | 4.3 ms · 233 fps · 119 draws | iter 3 |
-| path, 3 engaged | 4.9 ms · 204 fps · 163 draws | iter 3 |
-| meadow mid, 7 engaged | 5.0 ms · 200 fps · 167 draws | iter 3 |
-| ridge, 7 engaged | 6.9 ms · 145 fps · 197 draws | iter 3 |
-| far side, 7 engaged / 17 alive | 7.9 ms · 127 fps · 209 draws | iter 3 |
-| before the leash + far-cull | 9.4 ms · 106 fps · 281 draws · 17 engaged | iter 3 |
-| triangles (worst) | 697k | iter 3 |
+| plaza | 4.2 ms · 238 fps · 119 draws | iter 3 |
+| path | 15.2 ms · 66 fps · 259 draws | iter 3 |
+| flock | 7.2 ms · 139 fps · 200 draws | iter 3 |
+| meadow mid | 12.4 ms · 81 fps · 200 draws | iter 3 |
+| ridge | 12.7 ms · 79 fps · 231 draws | iter 3 |
+| far side | 13.7 ms · 73 fps · 276 draws | iter 3 |
+| before the leash + far-cull (hostiles only) | 9.4 ms · 106 fps · 281 draws | iter 3 |
+| when ambient life landed, before LOD | 24.4 ms · 41 fps · 616 draws | iter 3 |
+| triangles (worst) | 733k | iter 3 |
 | meadow before the terrain fix | 24-38 ms · 34-42 fps | iter 2 |
 
 ---
@@ -133,9 +138,10 @@ Newest audit at the top. Each entry: what is wrong, not what to do about it.
 
 **iteration 3 — self-observed, no external audit yet**
 
-1. No ambient life. Woolt and Flitter are unbuilt, so nothing in the meadow is
-   doing anything except waiting to fight you. A field with only enemies in it
-   reads as a shooting gallery.
+1. Ambient life is expensive: 66 fps at its worst against 238 in the plaza. It
+   is above target but it is now the frame budget's biggest single line, and the
+   cost is skinning and drawing, not AI (measured: 12.4 ms for 42 ambients, of
+   which freezing the mixers alone recovered 2.0 ms and hiding them alone 5.6).
 2. No air attack.
 3. The Nettle's `move` clip is authored at one speed and does not scale with
    travel, so the legs skate.

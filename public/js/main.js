@@ -793,12 +793,48 @@ function startCombat() {
     playerPos: () => pos,
     playerFacing: () => facing,
   });
-  Promise.all(['nettle', 'curler', 'bellow'].map((n) => combat.load(n)))
+  Promise.all(['nettle', 'curler', 'bellow', 'woolt', 'flitter'].map((n) => combat.load(n)))
     .then(() => {
       armEncounter(ENCOUNTERS[0]);
+      seedHerds();
       console.log('[combat] ready:', Object.keys(SPECIES).join(', '));
     })
     .catch((err) => console.error('[combat] load failed', err));
+}
+
+// Grazers are not an encounter -- they are furniture that moves. They exist
+// from the moment the meadow does, off to the sides of the route, so the field
+// is inhabited whether or not you go looking for a fight.
+const HERDS = [
+  { x: -9,  z: -38, n: 3 },
+  { x: 21,  z: -58, n: 4 },
+  { x: -4,  z: -70, n: 2 },
+  { x: 26,  z: -88, n: 3 },
+];
+
+// Flocks sit ON the route, unlike the herds -- you are meant to walk into them.
+const FLOCKS = [
+  { x: -2,  z: -24, n: 5 },
+  { x: 6,   z: -44, n: 6 },
+  { x: 10,  z: -62, n: 5 },
+  { x: 16,  z: -86, n: 6 },
+];
+
+function seedHerds() {
+  for (const h of HERDS) {
+    for (let i = 0; i < h.n; i++) {
+      const a = (i / h.n) * Math.PI * 2 + h.x;
+      combat.spawn('woolt', h.x + Math.cos(a) * 2.6, h.z + Math.sin(a) * 2.6);
+    }
+  }
+  for (const f of FLOCKS) {
+    for (let i = 0; i < f.n; i++) {
+      // scattered, not ringed: a ring of birds reads as a summoning circle
+      const a = i * 2.39962;                       // golden angle
+      const r = 0.9 + 1.9 * Math.sqrt(i / f.n);
+      combat.spawn('flitter', f.x + Math.cos(a) * r, f.z + Math.sin(a) * r);
+    }
+  }
 }
 
 function armEncounter(enc) {
