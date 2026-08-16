@@ -265,81 +265,69 @@ Two rules, both learned the hard way by an auditor catching them:
 
 Newest audit at the top. Each entry: what is wrong, not what to do about it.
 
-**iteration 4 — after the first external audit**
+**iteration 4 — after two external audits**
 
-The audit was harsh and almost entirely right. Its verdict on "polish exceeds
-KH1 on the elements it implements" was **FALSE**, and its single biggest charge
-was that *the enemy half of the fight does not actually run* — every telegraph
-the creature pipeline was built to deliver was cancellable by mashing, enemy
-attacks could not miss, and one interruption disarmed an enemy for good. That
-whole cluster is fixed above. What it found that is still open:
+Both audits returned **FALSE** on "polish exceeds KH1". The first said the
+enemy half of the fight did not run; the second, given the fixes, went further
+and measured that the demo's own headline mechanic — the three-hit combo — was
+unreachable at any human rhythm. Both were right and both are fixed. `npm test`
+is 44/44, and several of those checks were rewritten because the second audit
+showed they restated the code instead of testing the game.
 
-1. **Verticality is two places, and neither is used by the combat.** There is a
-   climb on the landmark hill and a first-floor gallery over the plaza, but no
-   encounter uses height — nothing fights you from up there and nothing makes
-   you go up.
-2. **A handful of surfaces are still flat colour** — doors, shutters, awnings,
-   glass, foliage and the creatures themselves. Ground, walls, roofs, dressed
-   stone and timber are textured; small saturated accents are not, which is
-   arguably right for them but has not been tested by trying.
+Still open, in rough order of how much they cost:
 
-3. **The move list is still small** even for one weapon: chain, air attack,
-   slip, jump-cancel. No guard, parry, dash attack or charged hit.
-4. **The playable characters are not generated.** They are imported meshes from
-   another project, retargeted and re-rigged here — the README says so, but the
+1. **The town is one building recipe nine times.** Same plinth, band, cornice,
+   gable, chimney, window and door on every one; four plaster tints and three
+   roof tints do all the differentiation. No signage, no glazed shopfronts, no
+   hanging signs — nothing says what any building is.
+2. **Nobody lives there.** All the ambient life is in the meadow; the town is a
+   dead set.
+3. **One time of day, one weather, one key light.** The single biggest thing
+   the reference does that this does not: night is half of Traverse Town's
+   atmosphere and it costs nothing but a palette and a light rig.
+4. **Verticality exists but the combat ignores it.** A climb on the hill and a
+   gallery over the plaza, and no encounter uses either — nothing fights you
+   from up there and nothing makes you go up.
+5. **The fountain is the plaza's focal point and it is a lollipop** — a cylinder
+   with a ball on it over flat opaque discs. No spout, no ripple, no motion.
+6. **Tells have no ground footprint.** They pulse and change shape, but nothing
+   shows *where* an attack will land.
+7. **The move list is still small** for one weapon: chain, falling cut, slip,
+   jump-cancel. No guard, parry, dash attack or charged hit.
+8. **The playable characters are not generated.** They are imported meshes from
+   another project, retargeted and re-rigged here. The README says so, but the
    "everything is scripted geometry" framing does not hold for the character you
-   look at the whole time.
-5. **Tells still have no ground footprint.** They pulse and they change shape,
-   but nothing shows you *where* an attack will land, so reading a Curler's
-   committed line is a matter of watching which way it is pointing.
+   look at for the entire demo.
+9. **Being hit cancels your swing**, so a dense swarm can suppress attacking.
+   The 0.85 s of i-frames after each hit should leave room to act, but this has
+   been measured on a probe and not played.
 
-*Answered from the audit:* the whole enemy-attack cluster above; **no textures
-anywhere** (the plaza, terrace, meadow grass and worn path are all generated
-now — a Voronoi whose cell boundaries are the mortar lines for the paving,
-banded noise for the ground, drifting mottle for plaster and staggered courses
-of pantiles for the roofs; four separate silent failures stood between the
-generator and a visible pixel, ending with `export_texcoords=False` sitting in
-the town's own export call); **shadow acne on the gate pillars** (texel-snapped
-shadow camera plus back-face casting and a normalBias tuned against the worst
-surface in the build); the **terrain splotches**, softened because grass and
-path now share one continuous UV set; three hostiles
-that were mutually indistinguishable at range (each now owns an accent colour —
-bone for the swarmer, cyan for the charger, ember for the brute, and the
-Bellow's sack glows as it inflates); no swing VFX at all (there is now a blade
-trail); a lock reticle that drew on the player's own back (there is now a ring
-on the ground under the target, and the 2D bracket hides when it would overlap
-the player); `cycleLock` reaching only two targets; outline shells never being
-frustum-culled — and later found never to have worked at all, because the
-outline pass read the material name *after* the material had been replaced by an
-unnamed one; and **no
-landmark and no skyline** — the roofs and chimneys existed but the gameplay
-camera never saw them, so the town now has a belltower on the gate's axis, tall
-enough to clear a 9.5 m roofline and visible from the ridge at the far end of
-the meadow.
+*Answered from the second audit:* the three-hit combo being reachable only by
+mashing (a press during recovery was discarded, and `comboWindow`/`sinceCombo`
+were dead code the checklist described as working); the Curler's whole design —
+a line you can step off — silently failing, because its hit fired 0.10 s into
+the charge inside a 63° cone; the Nettle having no `impact`, `hitArc` or
+`poise` keys at all while the checklist cited numbers for it; the landmark hill
+being flattened to road height by the path running over its centre; the path
+running dead level for its last forty metres; every ground mesh being outlined
+and shadow-cast because the exclusion lists keyed on pre-texture names *and*
+read the material name after it had been replaced by an unnamed one; the lock
+ring tumbling out of the ground; the Bellow's sack being unable to glow because
+`flat` makes a material with no `.emissive`; the grass/path boundary being a
+hard binary switch; sparks reading as confetti above small creatures; the water
+sitting proud of its own banks; and five smoke assertions that could not fail.
 
-**iteration 3 — self-observed, no external audit yet**
+*Also answered:* **does it read as derivative** — the Nettle, which fills most
+of every frame, was a dark low-slung spiky thing with glowing amber eyes that
+swarmed in threes. Recoloured to a moss-slate animal with bone quills and small
+pale eyes. `kh_lib.py` is `geo_lib.py`, and the "keyblade" in a dozen comments
+is a sword, which is what it always was.
 
-1. Ambient life is expensive: 66 fps at its worst against 238 in the plaza. It
-   is above target but it is now the frame budget's biggest single line, and the
-   cost is skinning and drawing, not AI (measured: 12.4 ms for 42 ambients, of
-   which freezing the mixers alone recovered 2.0 ms and hiding them alone 5.6).
-2. Hit 3's two-handed intent does not read: the left hand does not actually
-   reach the grip, because nothing IKs the off hand to the weapon.
-3. The meadow has one biome and one weather. Fine for scope, but it means the
-   walk out is short on variety.
-4. The slip has no directional consequence — slipping *toward* an attack is as
-   safe as slipping away from it, because the i-frames do not care where you
-   went. A parry, or a bonus for a late one, would make the direction matter.
-5. The Curler still has no wall-stun. It collides with the world now, so the
-   pieces exist, but a charge into a tree just stops rather than staggering it.
-6. Juggling is limited more by the falling cut's 0.26 s recovery than by the
-   diminishing pogo — in practice the recovery lands you before the fourth
-   bounce would have. The diminishing return is insurance, not the design.
-7. The smoke test takes several minutes because headless renders every stepped
-   frame. Behavioural waits already run at a coarse dt; it is still slow enough
-   that nobody will run it casually.
-8. Nothing in the demo explains itself. There is a controls strip and no
-   tutorial, so the falling cut and the slip are discoverable only by reading it.
+*Corrected against the audit:* its Bellow finding does not reproduce. Isolated
+and instrumented at the impact frame, standing still is hit at 1.20 m and
+retreating from the first frame of the wind-up puts you at 5.35 m by the commit
+and the attack misses. My own first three attempts at that measurement
+disagreed with each other — one held the key that walks *into* the enemy.
 
 *Fixed in iteration 3:* only one creature type; nothing spawned in the meadow;
 enemies crowding onto the player's exact position; enemies following the player
