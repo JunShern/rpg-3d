@@ -31,6 +31,22 @@ export function makeTerrain(cfg) {
   const pathAt = (y) =>
     pathX + 11.0 * Math.sin((y - gateY) * 0.026) + 5.0 * Math.sin((y - gateY) * 0.011);
 
+  // THE STREAM, carved into the height rather than modelled on top of it -- so
+  // the bank the player walks down is the same bank the mesh draws. Ported from
+  // meadow_build._stream_y / _stream_cut; `check()` below is what catches it
+  // when one of the two drifts.
+  const { streamY, streamDepth, streamHalf } = cfg;
+  const streamLine = (x) =>
+    streamY + 3.4 * Math.sin(x * 0.055) + 1.5 * Math.sin(x * 0.128 + 1.1);
+
+  function streamCut(x, y) {
+    const d = Math.abs(y - streamLine(x));
+    if (d > streamHalf + 3.0) return 0;
+    const cut = streamDepth * (1 - ramp(d, streamHalf * 0.45, streamHalf + 3.0));
+    const ford = 1 - ramp(Math.abs(x - pathAt(y)), 2.2, 5.6);
+    return cut * (1 - 0.55 * ford);
+  }
+
   /** Height in the BUILDER's frame (Blender x, y). */
   function heightXY(x, y) {
     if (y < gateY) return -0.05;
@@ -49,6 +65,9 @@ export function makeTerrain(cfg) {
 
     const pw = 1.0 - ramp(Math.abs(x - pathAt(y)), 2.6, 6.4);
     h = h * (1 - pw) + ramp(y, gateY, 62.0) * 3.4 * pw;
+
+    // AFTER the path blend, not before -- see meadow_build.height
+    h -= streamCut(x, y);
 
     const seam = 0.05 * (1 - Math.min(1, (y - gateY) / 3.0));
     return h * t - seam;

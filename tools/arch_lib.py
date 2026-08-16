@@ -55,7 +55,11 @@ def palette():
         "brass":     (0.86, 0.68, 0.30),
         "awning":    (0.84, 0.30, 0.28),
         "leaf":      (0.42, 0.64, 0.34),
-        "water":     (0.38, 0.72, 0.84),
+        # DARKER THAN THE GROUND IT SITS IN. At 0.38/0.72/0.84 the toon ramp
+        # pushed the lit band to near-white and a stream across a green meadow
+        # read as a drift of snow. Water is the one surface here that should
+        # be the darkest thing in frame.
+        "water":     (0.20, 0.44, 0.52),
         "cloth":     (0.90, 0.88, 0.80),
     }
     mats = {}

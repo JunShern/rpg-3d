@@ -128,7 +128,11 @@ const TOWN_LOOK = {
   cobble_b:{ gradient: RAMP_SOFT, rimStrength: 0.18 },
   stone:   { gradient: RAMP_SOFT, rimStrength: 0.30 },
   glass:   { rimStrength: 1.20, rimColor: 0xffffff },
-  water:   { rimStrength: 0.90, rimColor: 0xd8f4ff },
+  // 0.12, not 0.90. Rim light is `1 - dot(view, normal)`, which is small on a
+  // ball and near ONE across a large flat plane seen at a grazing angle -- so a
+  // value tuned on the fountain bowl added most of a cyan to every fragment of
+  // a ninety-metre stream and rendered it as a drift of snow.
+  water:   { rimStrength: 0.12, rimColor: 0xd8f4ff },
   brass:   { rimStrength: 1.00, rimColor: 0xfff0c0 },
   leaf:    { rimStrength: 0.45 },
   // meadow

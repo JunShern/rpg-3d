@@ -74,15 +74,58 @@ def height(x, y):
     edge += _ramp(x, MEADOW["x1"] - 22.0, MEADOW["x1"]) * 12.0
     h += edge
 
+    # A STREAM, cut into whatever the ground is doing.
+    #
+    # The meadow was one biome and, in a lot of frames, two values -- green and
+    # the beige of the path. Water is the cheapest third: a different colour, a
+    # different material, and a horizontal plane in a landscape made entirely of
+    # slopes. It also gives the walk an EVENT: the route crosses it, so there is
+    # a place partway out that is somewhere rather than more of the same.
+    #
+    # Carved into the height function rather than modelled, so the collision,
+    # the mesh and the runtime's analytic ground cannot disagree about where the
+    # bank is.
     # the path is cut flat-ish, and it climbs
     pw = _path_weight(x, y)
     road = _path_height(y)
     h = h * (1.0 - pw) + road * pw
+
+    # THE STREAM IS CUT AFTER THE PATH, not before. Cutting first meant the path
+    # blend overwrote it completely at the crossing, so the road ran dead flat
+    # through the channel and the water sat half a metre above the road.
+    h -= _stream_cut(x, y)
     # step DOWN off the paving rather than meeting it exactly: coplanar
     # surfaces z-fight, and a 5 cm lip is invisible and well under the
     # runtime's 45 cm step-up limit
     seam = 0.05 * (1.0 - min(1.0, (y - GATE_Y) / 3.0))
     return h * t - seam
+
+
+STREAM_Y = 47.0            # where it crosses, roughly half way out
+STREAM_DEPTH = 1.05
+STREAM_HALF = 3.2          # half width of the cut at full depth
+
+
+def _stream_y(x):
+    """The bank line. It meanders, because a straight watercourse reads as a
+    drainage ditch and the one thing a stream should not look like is civil
+    engineering."""
+    return STREAM_Y + 3.4 * math.sin(x * 0.055) + 1.5 * math.sin(x * 0.128 + 1.1)
+
+
+def _stream_cut(x, y):
+    """How far the ground drops here. Zero outside the banks, full in the middle,
+    and SHALLOWED where the path crosses so the crossing is a ford you walk
+    through rather than a hole you fall into."""
+    d = abs(y - _stream_y(x))
+    if d > STREAM_HALF + 3.0:
+        return 0.0
+    cut = STREAM_DEPTH * (1.0 - _ramp(d, STREAM_HALF * 0.45, STREAM_HALF + 3.0))
+    # the ford: the path crosses on a shelf two thirds of the way up the bank
+    ford = 1.0 - _ramp(abs(x - _path_x(y)), 2.2, 5.6)
+    # 0.55, not 0.72: the ford still has to sit BELOW the road either side of
+    # it, or the water surface spills over the crossing
+    return cut * (1.0 - 0.55 * ford)
 
 
 def _ramp(v, a, b):
@@ -294,6 +337,55 @@ def landmark(M, t):
         t.solid(hx + dx, hy + dy, r, r * 0.8, top=z + ht)
 
 
+def stream(M, t):
+    """The water itself: a ribbon following the channel, plus banks.
+
+    It sits at a constant depth below the LOCAL bed rather than at one flat
+    level, because the channel crosses ground that rises three metres across the
+    meadow and a truly level surface would be underground at one end and floating
+    at the other. A stylised stream that follows its bed reads correctly and a
+    physically level one does not -- this is the same trade the path makes.
+    """
+    x0, x1 = MEADOW["x0"] + 2.0, MEADOW["x1"] - 2.0
+    sec = []
+    n = 40
+    for i in range(n + 1):
+        x = x0 + (x1 - x0) * i / n
+        y = _stream_y(x)
+        bed = height(x, y)
+        # rx is ACROSS the channel and ry is its thickness. Swept along +X with
+        # up=+Z, the frame puts rx on Y and ry on Z -- the other way round gave a
+        # five-metre vertical sheet of water standing in a field. This is the
+        # same rx/ry trap the fountain wall and the gate arch both hit.
+        sec.append({"p": Vector((x, y, bed + 0.42)),
+                    "r": (STREAM_HALF * 0.86, 0.04), "n": 3.6})
+    t.add(K.tube("water", sec, seg=4, mat=M["water"], squircle=3.6, up=(0, 0, 1)))
+
+    # WET STONES ALONG THE BANKS. A cut in a heightfield has no edge treatment,
+    # so without something sitting on the lip the bank is just where the green
+    # starts sloping -- which reads as a fold in the ground, not as a shore.
+    r = _lcg(4409)
+    for i in range(46):
+        x = x0 + (x1 - x0) * (i + r() * 0.6) / 46
+        side = 1.0 if i % 2 else -1.0
+        y = _stream_y(x) + side * (STREAM_HALF * 0.72 + r() * 1.1)
+        if on_path(x, y, margin=1.6):
+            continue                       # keep the ford clear
+        sc = 0.24 + r() * 0.34
+        t.add(K.blob(f"bankstone{i}", (x, y, height(x, y) + sc * 0.35),
+                     (sc, sc * 0.82, sc * 0.55), None, M["rock"],
+                     seg=8, rings=6, squircle=2.5))
+
+    # stepping stones at the ford, so the crossing reads as a crossing
+    fy = _stream_y(_path_x(STREAM_Y))
+    for k, off in enumerate((-2.0, -0.7, 0.7, 2.0)):
+        px = _path_x(fy) + off * 0.55
+        py = fy + off
+        t.add(K.blob(f"ford_stone{k}", (px, py, height(px, py) + 0.10),
+                     (0.62, 0.52, 0.16), None, M["rock"],
+                     seg=10, rings=6, squircle=3.0))
+
+
 def outcrop(M, t):
     """A CLIMB, and the one place in the demo that stacks levels.
 
@@ -401,6 +493,7 @@ def main():
     t.walk(build_terrain(M))
     landmark(M, t)
     outcrop(M, t)
+    stream(M, t)
     waymarks(M, t)
     scatter(M, t)
 
@@ -447,6 +540,7 @@ def main():
     man["terrain"] = {
         "gateY": GATE_Y, "pathX": PATH_X, "hill": list(HILL),
         "x0": MEADOW["x0"], "x1": MEADOW["x1"], "y1": MEADOW["y1"],
+        "streamY": STREAM_Y, "streamDepth": STREAM_DEPTH, "streamHalf": STREAM_HALF,
         # the GRID the mesh was built on. The runtime interpolates the same
         # triangles the player is looking at rather than the smooth function --
         # a 1.6 m quad chords up to 21 cm below the true surface on the hill,
