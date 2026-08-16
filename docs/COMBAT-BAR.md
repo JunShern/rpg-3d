@@ -40,8 +40,10 @@ marked DONE on the strength of a screenshot alone — it needs an assertion in
 - [x] the character turns to face the target; measured facing error 0.2°
 
 ### Combo
-- [~] 3-hit ground chain — timings and damage differ, but **all three still play
-      the same clip**: `attack2` and `attack3` are not authored yet
+- [x] 3-hit ground chain — three authored clips: forward lunge, rising
+      backhand, two-handed step-through chop. Each keyed to its own hitbox
+      window (hit 1 previously peaked at frame 11 while its damage landed at
+      frame 2.4)
 - [x] the third hit is slower, hits for 28 and launches (knock 7.0, lift 3.2)
 - [x] input buffering — probe chained step 0 → 1 → 2 from presses mid-swing
 - [x] the chain resets cleanly after `comboWindow`
@@ -71,13 +73,17 @@ marked DONE on the strength of a screenshot alone — it needs an assertion in
 - [x] enemies can kill you — three Nettles took 45 HP in ~7 s of standing still
 
 ### Place
-- [ ] a path leaving the plaza that reads as a way out
-- [ ] an outdoor area that reads as somewhere, not a grey box with grass
-- [ ] the transition between them is not a hard seam
+- [x] a path leaving the plaza — bends, climbs, waymarked with posts
+- [x] an outdoor area that reads as somewhere: a landmark hill with standing
+      stones visible from the gate, elevation that reveals the space as you
+      walk, hills framing the far edge, tree density that clusters and thins
+- [x] the transition is continuous — probe walked plaza → gate → meadow with no
+      block, terrain height varying under foot. The meadow sits 5 cm below the
+      paving at the seam so the two are never coplanar
 
 ### Performance
-- [ ] 60 fps measured (not eyeballed) with a full fight on screen
-- [ ] draw calls and triangle counts recorded below
+- [x] measured with 4 foes on screen: plaza 194 fps, meadow 249 fps, hill 161 fps
+- [x] draw calls and triangles recorded below
 
 ---
 
@@ -109,9 +115,11 @@ Updated each iteration. Empty until measured.
 
 | metric | value | when |
 |---|---|---|
-| draw calls (3 foes + town + cast) | 107 | iter 1 |
-| triangles | 435,307 | iter 1 |
-| frame time | not yet measured | — |
+| plaza, 4 foes | 5.2 ms · 194 fps · 130 draws | iter 2 |
+| meadow, 4 foes | 4.0 ms · 249 fps · 112 draws | iter 2 |
+| hill, 4 foes | 6.2 ms · 161 fps · 106 draws | iter 2 |
+| triangles (worst) | 593k | iter 2 |
+| meadow before the terrain fix | 24-38 ms · 34-42 fps | iter 2 |
 
 ---
 
@@ -119,18 +127,25 @@ Updated each iteration. Empty until measured.
 
 Newest audit at the top. Each entry: what is wrong, not what to do about it.
 
-**iteration 1 — self-observed, no external audit yet**
+**iteration 2 — self-observed, no external audit yet**
 
-1. The combo plays ONE clip for all three hits. `attack2` / `attack3` are unwritten,
-   so the chain reads as the same swing three times. Highest-value next fix.
-2. No path, no outdoor area — everything happens in the plaza.
-3. Only one creature type; no ambient life at all.
-4. Enemies crowd onto the player's exact position; separation keeps them apart
-   from each other but nothing pushes them off the player.
-5. No air attack.
-6. Frame time not yet measured with a full fight on screen.
-7. The Nettle's `move` clip is a scuttle authored at one speed; it does not
-   scale with actual travel speed, so the legs skate.
+1. Only one creature type. Curler, Bellow, Woolt and Flitter are unbuilt, so the
+   meadow is empty of life and every fight is the same fight.
+2. Enemies crowd onto the player's exact position; they separate from each other
+   but nothing pushes them off the player.
+3. No air attack.
+4. The Nettle's `move` clip is authored at one speed and does not scale with
+   travel, so the legs skate.
+5. Nothing spawns in the meadow — enemies only exist in the plaza arena.
+6. Hit 3's two-handed intent does not read: the left hand does not actually
+   reach the grip, because nothing IKs the off hand to the weapon.
+7. No smoke test yet; every check so far has been a hand-written probe.
+8. The meadow has one biome and one weather. Fine for scope, but it means the
+   walk out is short on variety.
+
+*Fixed in iteration 2:* combo clips; hit timing vs hitbox; terrain rendering
+black (open-surface normals guessed down); FLOORS silently containing every
+outline shell; frustum culling disabled on static environment meshes.
 
 ---
 
@@ -139,6 +154,16 @@ Newest audit at the top. Each entry: what is wrong, not what to do about it.
 - **iteration 0** — bar written. Starting state: three-character cast with five
   shared clips, foot IK, a town plaza with collision, a generated sword. No
   combat, no enemies, no outdoor area.
+- **iteration 2** — attack2/attack3 authored; the meadow built (heightfield,
+  bending climbing path, landmark hill, waymarks, clustered copses, 2,489
+  parts / 75k tris) and seamed to the plaza as one continuous world.
+  **Performance: the meadow ran at 34-42 fps and the plaza at 190 — same draws,
+  same triangles.** Disabling shadows, foliage and half the resolution changed
+  nothing, because it was not rendering at all: the ground raycast scanned the
+  6,120-triangle heightfield ~10 times a frame. The terrain function now travels
+  with the mesh in the manifest and the runtime evaluates it in O(1), sampling
+  the mesh's own triangulation so collision and visible ground are the same
+  surface. 249 fps, and 0 mm mismatch across 260 samples.
 - **iteration 1** — the Nettle (7 clips, radial spine tell) and the whole combat
   core: 3-step combo with input buffering, lock-on with camera framing, hit-stop,
   knockback, shake, sparks, damage numbers, enemy AI state machine with attack

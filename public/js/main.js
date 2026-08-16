@@ -16,6 +16,7 @@ import {
   RAMP_3, RAMP_SOFT,
 } from './toon.js';
 import { createCombat, SPECIES, TUNE } from './combat.js';
+import { makeTerrain } from './terrain.js';
 
 // ------------------------------------------------------------------ renderer
 
@@ -96,6 +97,21 @@ function addOutline(mesh, width = 0.0032) {
 // Materials that must NOT be shaded: a lamp that falls into the shadow band
 // stops looking lit, and glass reads better as a flat pane than as a surface.
 const TOWN_FLAT = new Set(['lamp']);
+// Foliage is NOT outlined. An inverted hull round 500 grass tufts and every
+// flower turns a meadow into a scribble; outlines belong on things whose
+// silhouette carries meaning.
+const NO_OUTLINE_ENV = new Set([
+  'grass_hi', 'bloom_a', 'bloom_b', 'leaf_lo',
+  // GROUND is not outlined either, and this one is about cost, not taste: an
+  // inverted hull round a surface that fills the screen is a second full-screen
+  // fill for an outline you only ever see at the silhouette.
+  'grass', 'dirt', 'cobble', 'cobble_b',
+]);
+// ground casts nothing useful onto itself; tufts and blooms cast nothing at all
+const NO_SHADOW_ENV = new Set([
+  'grass', 'dirt', 'cobble', 'cobble_b', 'grass_hi', 'bloom_a', 'bloom_b',
+]);
+const TINY_ENV = new Set(['grass_hi', 'bloom_a', 'bloom_b']);
 const TOWN_LOOK = {
   cobble:  { gradient: RAMP_SOFT, rimStrength: 0.18 },
   cobble_b:{ gradient: RAMP_SOFT, rimStrength: 0.18 },
@@ -104,18 +120,29 @@ const TOWN_LOOK = {
   water:   { rimStrength: 0.90, rimColor: 0xd8f4ff },
   brass:   { rimStrength: 1.00, rimColor: 0xfff0c0 },
   leaf:    { rimStrength: 0.45 },
+  // meadow
+  grass:    { gradient: RAMP_SOFT, rimStrength: 0.20 },
+  grass_hi: { gradient: RAMP_SOFT, rimStrength: 0.34 },
+  dirt:     { gradient: RAMP_SOFT, rimStrength: 0.16 },
+  bark:     { rimStrength: 0.40 },
+  leaf_lo:  { rimStrength: 0.34 },
+  rock:     { gradient: RAMP_SOFT, rimStrength: 0.30 },
+  bloom_a:  { rimStrength: 0.70, rimColor: 0xfff4c8 },
+  bloom_b:  { rimStrength: 0.70, rimColor: 0xffd8ec },
 };
 
-let SOLIDS = [];           // oriented boxes, from the manifest
+const SOLIDS = [];         // oriented boxes, from every region's manifest
+let terrain = null;        // analytic ground for the meadow
 const FLOORS = [];         // meshes the ground raycast targets
 let townReady = false;
 
 function applyTownLook(root) {
   const meshes = [];
-  root.traverse((o) => {
-    o.frustumCulled = false;
-    if (o.isMesh) meshes.push(o);
-  });
+  // Environment meshes are STATIC, so they keep frustum culling. It was
+  // disabled wholesale early on, which is correct for a deforming character
+  // and wrong here: it meant the entire town kept rendering while the player
+  // was out in the meadow.
+  root.traverse((o) => { if (o.isMesh) meshes.push(o); });
   for (const m of meshes) {
     const name = (m.material?.name || '').toLowerCase();
     const color = m.material?.color?.clone() || new THREE.Color(0xffffff);
@@ -125,51 +152,75 @@ function applyTownLook(root) {
           gradient: RAMP_SOFT, rimStrength: 0.28,
           key: 'town:' + name, ...(TOWN_LOOK[name] || {}),
         });
-    m.castShadow = true;
-    m.receiveShadow = true;
+    // NOT EVERYTHING CASTS. The shadow map is a second full pass over the
+    // scene, so a 6k-triangle terrain and 500 grass tufts casting shadows
+    // nobody can see is the most expensive nothing in the build. Ground
+    // receives; small foliage does neither.
+    m.castShadow = !NO_SHADOW_ENV.has(name);
+    m.receiveShadow = !TINY_ENV.has(name);
   }
-  for (const m of meshes) addOutline(m, 0.0022);
+  for (const m of meshes) {
+    if (NO_OUTLINE_ENV.has((m.material?.name || '').toLowerCase())) continue;
+    addOutline(m, 0.0022);
+  }
   return meshes;
+}
+
+/** Fold a region's floor meshes and collision boxes into the shared world.
+ *  The plaza and the meadow are separate builds but ONE world at runtime --
+ *  the player should never learn where the seam is. */
+function absorbRegion(root, manifest) {
+  // Match on the mesh's OWN name and skip outline shells. A shell is a child of
+  // its source mesh, so a parent-name match silently added every outline to the
+  // ground raycast -- doubling its cost and letting it return a surface 2 mm
+  // off the real floor.
+  root.traverse((o) => {
+    if (!o.isMesh || o.material?.isShaderMaterial) return;
+    if (/FLOOR/i.test(o.name || '')) FLOORS.push(o);
+  });
+  for (const s of manifest.solids || []) {
+    SOLIDS.push({
+      x: s.x, z: s.z, hx: s.hx, hz: s.hz, top: s.top ?? 3,
+      c: Math.cos(s.yaw), s: Math.sin(s.yaw),
+    });
+  }
+  world.add(root);
 }
 
 Promise.all([
   new GLTFLoader().loadAsync('/assets/town.glb'),
   fetch('/assets/town.manifest.json').then((r) => r.json()),
-]).then(([gltf, manifest]) => {
-  const root = gltf.scene;
-  applyTownLook(root);
+  new GLTFLoader().loadAsync('/assets/meadow.glb'),
+  fetch('/assets/meadow.manifest.json').then((r) => r.json()),
+]).then(([town, townMan, meadow, meadowMan]) => {
+  applyTownLook(town.scene);
+  applyTownLook(meadow.scene);
+  absorbRegion(town.scene, townMan);
+  absorbRegion(meadow.scene, meadowMan);
 
-  root.traverse((o) => {
-    if (o.isMesh && /^FLOOR/i.test(o.name || '')) FLOORS.push(o);
-  });
-  // fall back to every mesh under a FLOOR parent, in case the exporter nested
-  if (!FLOORS.length) {
-    root.traverse((o) => {
-      if (o.isMesh && /FLOOR/i.test(o.parent?.name || '')) FLOORS.push(o);
-    });
+  // the meadow answers ground queries analytically; prove the port agrees
+  terrain = makeTerrain(meadowMan.terrain);
+  const agree = terrain.check(meadowMan.terrainProbes);
+  console.log(`[terrain] port agrees with the mesh to ${agree.worst} over `
+    + `${agree.n} probes`);
+  if (agree.worst > 1e-4) {
+    console.error('[terrain] PORT HAS DRIFTED from the builder', agree.at);
   }
 
-  SOLIDS = manifest.solids.map((s) => ({
-    x: s.x, z: s.z, hx: s.hx, hz: s.hz, top: s.top ?? 3,
-    c: Math.cos(s.yaw), s: Math.sin(s.yaw),
-  }));
-
-  // Lantern lights are a warm ACCENT in daylight, not a second key.  At full
+  // Lantern lights are a warm ACCENT in daylight, not a second key. At full
   // strength six of them wash the plaza flat and undo the ramp's contrast.
-  for (const L of manifest.lights) {
+  for (const L of townMan.lights || []) {
     const lamp = new THREE.PointLight(0xffc879, 4.0, 7.5, 2);
     lamp.position.set(L.x, L.y, L.z);
     world.add(lamp);
   }
 
-  world.add(root);
   townReady = true;
+  console.log(`[world] ${FLOORS.length} floor meshes, ${SOLIDS.length} solids`);
   startCombat();
-  console.log(`[town] ${FLOORS.length} floor meshes, ${SOLIDS.length} solids, `
-    + `${manifest.lights.length} lamps`);
   done();
 }).catch((err) => {
-  document.getElementById('loading').textContent = 'failed to load the town';
+  document.getElementById('loading').textContent = 'failed to load the world';
   console.error(err);
 });
 
@@ -642,6 +693,9 @@ const DOWN = new THREE.Vector3(0, -1, 0);
 const _o = new THREE.Vector3();
 
 function groundAt(x, z, fromY) {
+  // Ask the terrain function where it owns the ground. Raycasting the meadow
+  // heightfield instead was, on its own, the single largest cost in the frame.
+  if (terrain && terrain.owns(x, z)) return terrain.heightAt(x, z);
   if (!FLOORS.length) return 0;
   groundRay.set(_o.set(x, fromY + 2.0, z), DOWN);
   groundRay.far = 12;
@@ -1020,6 +1074,7 @@ function cycleCharacter() {
 }
 
 globalThis.__cycle = cycleCharacter;
+Object.defineProperty(globalThis, 'terrain', { get: () => terrain, configurable: true });
 Object.defineProperty(globalThis, 'combat', { get: () => combat, configurable: true });
 globalThis.__ik = IK_ENABLED;   // __ik.value = false to A/B it
 globalThis.__resume = () => { cam.autoDelay = 0; live(); return 'live'; };
