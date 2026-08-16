@@ -1045,6 +1045,18 @@ def main():
     # metres west of it, at the point where the walk would otherwise be its
     # emptiest.
     ruin(M, t, RUIN[0], RUIN[1], yaw=18)
+
+    # EMBERCAPS, at the places the road does not take you. Each one is the
+    # payoff for a detour that until now paid nothing: inside the ruin, at the
+    # centre of the stone ring, on the outcrop's top shelf, in the far copse,
+    # and one under the ford's bank where you would only look if you went down
+    # to the water.
+    hx, hy, _, _ = HILL
+    A.embercap(t, RUIN[0] + 0.9, RUIN[1] + 0.6, z=height(RUIN[0] + 0.9, RUIN[1] + 0.6))
+    A.embercap(t, hx - 0.4, hy - 0.6, z=height(hx, hy) + 0.48, scale=1.15)
+    A.embercap(t, hx + 2.9, hy + 3.1, z=height(hx, hy) + 2.10, scale=1.1)
+    A.embercap(t, -33.0, 62.0, z=height(-33.0, 62.0))
+    A.embercap(t, -9.0, STREAM_Y - 3.1, z=height(-9.0, STREAM_Y - 3.1))
     stream(M, t)
     waymarks(M, t)
     backdrop(M, t)

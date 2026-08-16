@@ -30,7 +30,8 @@ const LIFE = 1.35;
  *               player keeps walking into a barrel that is not there any more
  */
 export function makeBreakables(scene, solids) {
-  const props = [];        // { mesh, x, z, r, top, hp, mat }
+  const props = [];        // { mesh, x, z, r, h, pod, broken }
+  let found = 0;           // embercaps smashed
   const shards = [];       // live debris
   const pool = [];         // dead debris, reused
 
@@ -67,6 +68,11 @@ export function makeBreakables(scene, solids) {
         x: mid.x, z: mid.z, y: bb.min.y,
         r: Math.max(size.x, size.z) * 0.5 + 0.35,   // a generous swing radius
         h: size.y,
+        // A TREASURE OR A BARREL, told apart by name. The builder names the
+        // pods `BREAK_pod_*`, and they burst brighter, further and upward --
+        // a find has to look different from a crate or finding one means
+        // nothing.
+        pod: /pod/i.test(o.name),
         broken: false,
       });
     });
@@ -81,7 +87,7 @@ export function makeBreakables(scene, solids) {
     }
   }
 
-  function shard(at, dir, mat) {
+  function shard(at, dir, mat, pod = false) {
     const m = pool.pop() || new THREE.Mesh(geo, mat.clone());
     m.material = mat;
     m.visible = true;
@@ -92,10 +98,14 @@ export function makeBreakables(scene, solids) {
       m,
       // thrown ALONG the swing and up, so the burst reads as directional --
       // debris that goes evenly in all directions reads as an explosion, and
-      // this is a sword
-      vx: dir.x * (2.2 + Math.random() * 2.6) + (Math.random() - 0.5) * 2.4,
-      vy: 2.4 + Math.random() * 3.4,
-      vz: dir.z * (2.2 + Math.random() * 2.6) + (Math.random() - 0.5) * 2.4,
+      // this is a sword. A pod is the exception: it goes UP and outward in all
+      // directions, because that is what makes a find read as a find rather
+      // than as another thing you knocked over.
+      vx: (pod ? (Math.random() - 0.5) * 5.2 : dir.x * (2.2 + Math.random() * 2.6))
+          + (Math.random() - 0.5) * 2.4,
+      vy: pod ? 5.0 + Math.random() * 3.6 : 2.4 + Math.random() * 3.4,
+      vz: (pod ? (Math.random() - 0.5) * 5.2 : dir.z * (2.2 + Math.random() * 2.6))
+          + (Math.random() - 0.5) * 2.4,
       sx: (Math.random() - 0.5) * 14,
       sy: (Math.random() - 0.5) * 14,
       t: 0,
@@ -123,12 +133,15 @@ export function makeBreakables(scene, solids) {
       p.mesh.traverse((o) => {
         if (o.isMesh && o.material && !o.material.isShaderMaterial) mats.push(o.material);
       });
-      for (let k = 0; k < CHUNKS; k++) {
+      const chunks = p.pod ? CHUNKS + 7 : CHUNKS;
+      for (let k = 0; k < chunks; k++) {
         _v.set(p.x + (Math.random() - 0.5) * 0.3,
                p.y + 0.15 + Math.random() * Math.max(0.2, p.h * 0.8),
                p.z + (Math.random() - 0.5) * 0.3);
-        shard(_v, dir, mats[k % Math.max(1, mats.length)] || p.mesh.material);
+        shard(_v, dir, mats[k % Math.max(1, mats.length)] || p.mesh.material,
+              p.pod);
       }
+      if (p.pod) found++;
       n++;
     }
     return n;
@@ -165,11 +178,14 @@ export function makeBreakables(scene, solids) {
   }
 
   return { collect, hit, update, get count() { return props.length; },
+           get found() { return found; },
+           get pods() { return props.filter((p) => p.pod).length; },
            /** For probes: where each prop thinks it is. */
            debug: () => props.map((p) => `${p.mesh.name}(${p.x.toFixed(1)},${p.z.toFixed(1)} r${p.r.toFixed(1)})`).join(' '),
            get broken() { return props.filter((p) => p.broken).length; },
            /** Put every prop back -- for the smoke suite, and for a respawn. */
            reset() {
              for (const p of props) { p.broken = false; p.mesh.visible = true; }
+             found = 0;
            } };
 }

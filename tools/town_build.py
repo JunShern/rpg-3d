@@ -228,6 +228,14 @@ def build_props(t):
     A.washing(t, 12.6, -3.0, 12.6, 3.2, 5.7, n=5)
     A.washing(t, 3.2, 12.4, 9.0, 12.4, 5.1, n=4)
 
+    # EMBERCAPS: four in the town, none of them on the walk from the spawn
+    # point to the gate. Behind the market, up on the gallery deck, and one in
+    # each alley -- the deck one is the only thing the stairs have ever led to.
+    A.embercap(t, -10.6, 2.4)
+    A.embercap(t, 12.6, 7.2, z=3.55)          # the gallery deck
+    A.embercap(t, -14.2, 8.0)
+    A.embercap(t, 15.4, -6.4)
+
     for x, y in ((-6.6, -8.8), (-7.3, -8.2), (6.2, -8.9)):
         A.barrel(t, x, y)
     for x, y, s, yaw in ((7.2, -8.4, 0.40, 18), (7.9, -8.9, 0.34, -25),

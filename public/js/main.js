@@ -144,7 +144,11 @@ const surfaceOf = (matName) => (matName || '').toLowerCase().replace(/_tex$/, ''
 // it, so every shopfront on the shaded side of the square was a black
 // rectangle -- in a capture framed ON a shopfront, the shopfront was the least
 // readable thing in it.
-const TOWN_FLAT = new Set(['lamp', 'glass', 'ridge_a', 'ridge_b']);
+// `pod` is in here for the same reason `lamp` is: it is emissive in the
+// builder, and `applyTownLook` replaces every material with a toon one that
+// knows nothing about emission -- so a glowing find would have arrived as a
+// slightly yellow mushroom.
+const TOWN_FLAT = new Set(['lamp', 'glass', 'pod', 'ridge_a', 'ridge_b']);
 // ...and out of the fog. The fog reaches 130 m; the rings are at 185 and 245,
 // so leaving them in would fade them to exactly the sky and there would be no
 // backdrop at all.
@@ -174,7 +178,7 @@ const NO_OUTLINE_ENV = new Set([
 // what found it; from inside the frame it looked like a lighting bug.
 const NO_SHADOW_ENV = new Set([
   'grass', 'dirt', 'verge', 'cobble', 'cobble_b', 'flagstone', 'ring',
-  'grass_hi', 'bloom_a', 'bloom_b', 'leaf_lo', 'ridge_a', 'ridge_b',
+  'grass_hi', 'bloom_a', 'bloom_b', 'leaf_lo', 'pod', 'ridge_a', 'ridge_b',
 ]);
 const TINY_ENV = new Set(['grass_hi', 'bloom_a', 'bloom_b', 'leaf_lo']);
 const TOWN_LOOK = {
@@ -1980,6 +1984,9 @@ function frame(dt) {
     // and a number that large is itself a report that the place is overrun,
     // whether or not any of them can hurt you.
     + `${combat ? `  ·  ${combat.enemies.filter((e) => !e.dead && e.spec.hostile).length} foes` : ''}`
+    // The whole of the reward UI. No inventory, no pickup prompt, no menu --
+    // a count of the things you went out of your way to find.
+    + `${breakables && breakables.pods ? `  ·  ${breakables.found}/${breakables.pods} embercaps` : ''}`
     + `${combat && combat.lockTarget ? '  ·  LOCK' : ''}`
     + `  ·  ${renderer.info.render.calls} draws / `
     + `${renderer.info.render.triangles.toLocaleString()} tris`;

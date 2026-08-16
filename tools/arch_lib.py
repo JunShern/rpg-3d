@@ -72,6 +72,11 @@ def palette():
         # darkest.
         "foam":      (0.86, 0.94, 0.96),
         "cloth":     (0.90, 0.88, 0.80),
+        # EMBERCAP: the thing worth going to look at. Warm gold so it reads
+        # against both the grey plaza and the green meadow -- the two grounds
+        # it has to be spotted on -- and emissive so it carries at the range you
+        # would notice it from, which is the whole job.
+        "pod":       (1.00, 0.82, 0.34),
     }
     mats = {}
     for name, color in spec.items():
@@ -79,7 +84,7 @@ def palette():
             name, color,
             roughness=0.35 if name in ("glass", "water", "brass") else 0.75,
             metallic=0.7 if name == "brass" else 0.0,
-            emission=2.2 if name == "lamp" else 0.0)
+            emission=2.2 if name in ("lamp", "pod") else 0.0)
     return mats
 
 
@@ -248,6 +253,41 @@ def window(t, x, y0, z, w=0.62, h=0.92, shutters=True, sill=True,
                            (0.15, 0.035, h / 2 + 0.02), M["door"],
                            bevel=0.018, seg=1))
     return t.add(*out) and out
+
+
+def embercap(t, x, y, z=None, n=3, scale=1.0):
+    """A cluster of glowing caps on a stalk. Break them for the only reward
+    this demo has.
+
+    WHY IT EXISTS. There was nothing to find. The ruin, the stone circle and
+    the outcrop are all places worth walking to and all of them paid out
+    exactly nothing when you arrived, so leaving the road was a thing you did
+    once out of curiosity and never again. These are sited where the walk does
+    NOT take you -- inside the ruin, in the middle of the ring, on the top
+    shelf of the climb, behind the market -- and they are the only reason to go
+    there other than looking.
+
+    They reuse the breakables path rather than adding a pickup system: you hit
+    them with the sword you already have, and they burst like the barrels do.
+    A counter in the HUD is the whole of the UI.
+    """
+    M, out = t.M, []
+    zz = 0.0 if z is None else z
+    for i in range(n):
+        a = 2.399 * i                      # golden angle: never a neat row
+        r = (0.16 + 0.09 * (i % 2)) * scale
+        px, py = x + math.cos(a) * r, y + math.sin(a) * r
+        h = (0.30 + 0.10 * ((i * 7) % 3)) * scale
+        out.append(K.tube(f"pod_stalk{i}", [
+            {"p": Vector((px, py, zz)), "r": (0.026 * scale, 0.026 * scale), "n": 2.4},
+            {"p": Vector((px, py, zz + h)), "r": (0.020 * scale, 0.020 * scale), "n": 2.4},
+        ], seg=6, mat=M["timber"], squircle=2.4))
+        out.append(K.blob(f"pod_cap{i}", (px, py, zz + h + 0.07 * scale),
+                          (0.105 * scale, 0.105 * scale, 0.13 * scale), None,
+                          M["pod"], seg=10, rings=7, squircle=2.2))
+    # NAMED `pod`, because the runtime tells a treasure from a barrel by name
+    t.breakable(*out)
+    return out
 
 
 def stall(t, cx, cy, yaw=0.0, kind=0, w=2.4, d=1.5):
