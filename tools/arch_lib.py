@@ -255,6 +255,169 @@ def window(t, x, y0, z, w=0.62, h=0.92, shutters=True, sill=True,
     return t.add(*out) and out
 
 
+def well(t, cx, cy, r=0.86):
+    """A wellhead: a drum of coursed stone, two posts, a beam and a bucket.
+
+    A square with a fountain in it has ONE water feature and one silhouette in
+    the middle distance. A well is the other thing a square has, it is small
+    enough not to compete with the fountain, and its posts-and-beam is a
+    vertical the plaza does not otherwise own below roof height.
+    """
+    M, out = t.M, []
+    out.append(K.tube("well_drum", [
+        {"p": Vector((cx, cy, 0.02)), "r": (r, r), "n": 3.0},
+        {"p": Vector((cx, cy, 0.62)), "r": (r * 0.98, r * 0.98), "n": 3.0},
+        {"p": Vector((cx, cy, 0.70)), "r": (r * 1.08, r * 1.08), "n": 3.0},
+    ], seg=16, mat=M["stone"], squircle=3.0))
+    # the shaft: a dark disc, because a well you can see the bottom of is a tub
+    out.append(K.blob("well_dark", (cx, cy, 0.66), (r * 0.74, r * 0.74, 0.03),
+                      None, M["timber"], seg=14, rings=6))
+    for s_ in (-1, 1):
+        out.append(box("well_post", (cx + s_ * r * 0.82, cy, 1.16),
+                       (0.065, 0.065, 1.16), M["timber"], bevel=0.02, seg=1))
+    out.append(box("well_beam", (cx, cy, 2.36), (r * 0.95, 0.075, 0.075),
+                   M["timber"], bevel=0.02, seg=1))
+    # a little pitched roof over the beam, which is what makes it read as a
+    # well and not as gallows
+    out.append(prism("well_roof", (cx, cy, 2.44), r * 2.1, 0.9, 0.34, M["roof_b"],
+                     over_y=0.10, over_x=0.10))
+    out.append(K.tube("well_rope", [
+        {"p": Vector((cx, cy, 2.30)), "r": (0.014, 0.014), "n": 2.4},
+        {"p": Vector((cx, cy, 1.42)), "r": (0.014, 0.014), "n": 2.4},
+    ], seg=5, mat=M["timber"], squircle=2.4))
+    out.append(K.tube("well_bucket", K.dome([
+        {"p": Vector((cx, cy, 1.10)), "r": (0.17, 0.17), "n": 2.8},
+        {"p": Vector((cx, cy, 1.38)), "r": (0.20, 0.20), "n": 2.8},
+    ], at="start", steps=2, height=0.05), seg=10, mat=M["timber"], squircle=2.8))
+    t.add(*out)
+    t.solid(cx, cy, r * 1.1, r * 1.1, top=0.75)
+    return out
+
+
+def trough(t, cx, cy, yaw=0.0, w=1.9, d=0.62):
+    """A horse trough with water in it. Long, low, and horizontal -- the plaza
+    is full of uprights and round things and has almost nothing that lies
+    along the ground."""
+    M, out = t.M, []
+    out.append(box("trough_body", (cx, cy, 0.30), (w / 2, d / 2, 0.30),
+                   M["stone"], bevel=0.05, seg=1))
+    out.append(box("trough_water", (cx, cy, 0.52),
+                   (w / 2 - 0.09, d / 2 - 0.09, 0.03), M["water"], bevel=0.01, seg=1))
+    for s_ in (-1, 1):
+        out.append(box("trough_foot", (cx + s_ * (w / 2 - 0.22), cy, 0.05),
+                       (0.16, d / 2 + 0.04, 0.05), M["stone"], bevel=0.02, seg=1))
+    for o in out:
+        if yaw:
+            K.transform(o, rotate=(0, 0, yaw), around=(cx, cy, 0))
+    t.add(*out)
+    t.solid(cx, cy, w / 2 + 0.06, d / 2 + 0.06, yaw, top=0.62)
+    return out
+
+
+def noticeboard(t, x, y, yaw=0.0):
+    """Posts, a board, a little roof and four pinned sheets.
+
+    There is no text in this game, so this is not readable and is not meant to
+    be: four pale rectangles at slight angles say "people leave messages here",
+    which is a thing a town does, and the shape is unlike anything else in the
+    square.
+    """
+    M, out = t.M, []
+    for s_ in (-1, 1):
+        out.append(box("notice_post", (x + s_ * 0.52, y, 0.86),
+                       (0.055, 0.055, 0.86), M["timber"], bevel=0.02, seg=1))
+    out.append(box("notice_board", (x, y, 1.34), (0.62, 0.045, 0.46),
+                   M["timber"], bevel=0.02, seg=1))
+    out.append(prism("notice_roof", (x, y, 1.82), 1.44, 0.34, 0.20, M["roof_a"],
+                     over_y=0.08, over_x=0.08))
+    for k, (dx, dz, a) in enumerate(((-0.30, 0.12, 3), (0.02, 0.16, -5),
+                                     (0.31, 0.05, 7), (-0.14, -0.20, -2))):
+        sheet = box(f"notice_sheet{k}", (x + dx, y - 0.05, 1.34 + dz),
+                    (0.115, 0.006, 0.145), M["cloth"], bevel=0.004, seg=1)
+        K.transform(sheet, rotate=(0, a, 0), around=(x + dx, y, 1.34 + dz))
+        out.append(sheet)
+    for o in out:
+        if yaw:
+            K.transform(o, rotate=(0, 0, yaw), around=(x, y, 0))
+    t.add(*out)
+    t.solid(x, y, 0.60, 0.16, yaw, top=1.9)
+    return out
+
+
+def stile(t, x, y, z, yaw=0.0):
+    """Three steps up one side of a wall and three down the other.
+
+    THE WALLS HAD ONE WAY THROUGH EACH and it was the road. That is correct for
+    a road and wrong for a field: a boundary you can only cross where the map
+    says makes the walls read as level geometry rather than as fences. A stile
+    is the countryside's answer and it costs six boxes.
+    """
+    M, out = t.M, []
+    for i, (dy, h) in enumerate(((-0.62, 0.30), (-0.26, 0.62), (0.0, 0.86),
+                                 (0.26, 0.62), (0.62, 0.30))):
+        out.append(box(f"stile{i}", (x, y + dy, z + h / 2),
+                       (0.34, 0.13, h / 2), M["rock"], bevel=0.04, seg=1))
+    for o in out:
+        if yaw:
+            K.transform(o, rotate=(0, 0, yaw), around=(x, y, 0))
+    t.add(*out)
+    # walkable, not solid: the point is to get OVER the wall
+    for i, (dy, h) in enumerate(((-0.62, 0.30), (-0.26, 0.62), (0.0, 0.86),
+                                 (0.26, 0.62), (0.62, 0.30))):
+        t.platform(x, y + dy, 0.34, 0.13, z + h)
+    return out
+
+
+def camp(t, cx, cy, z, yaw=0.0):
+    """A shepherd's fire ring, a lean-to and a crook. Nobody is home.
+
+    Signs of use are cheaper than people and read at any distance: a ring of
+    blackened stones says somebody sat here last night, which is a different
+    statement from a ruin (somebody lived here once) and from a wall (somebody
+    owns this).
+    """
+    M, out = t.M, []
+    for i in range(9):
+        a = 2 * math.pi * i / 9
+        out.append(K.blob(f"camp_stone{i}",
+                          (cx + math.cos(a) * 0.52, cy + math.sin(a) * 0.52, z + 0.07),
+                          (0.15, 0.13, 0.10), None, M["rock"], seg=8, rings=5,
+                          squircle=2.6))
+    out.append(K.blob("camp_ash", (cx, cy, z + 0.03), (0.40, 0.40, 0.04),
+                      None, M["timber"], seg=12, rings=5))
+    # two charred logs across the ash, at an angle to each other
+    for k, a in ((0, 0.4), (1, 1.9)):
+        out.append(K.tube(f"camp_log{k}", K.dome([
+            {"p": Vector((cx - math.cos(a) * 0.34, cy - math.sin(a) * 0.34, z + 0.10)),
+             "r": (0.055, 0.055), "n": 2.6},
+            {"p": Vector((cx + math.cos(a) * 0.34, cy + math.sin(a) * 0.34, z + 0.10)),
+             "r": (0.045, 0.045), "n": 2.6},
+        ], at="both", steps=2, height=0.03), seg=7, mat=M["timber"], squircle=2.6))
+    # a lean-to: two poles, a ridge and a cloth pitched off it
+    px, py = cx + 1.5, cy + 0.2
+    for s_ in (-1, 1):
+        out.append(K.tube(f"camp_pole{s_}", [
+            {"p": Vector((px, py + s_ * 0.85, z)), "r": (0.05, 0.05), "n": 2.6},
+            {"p": Vector((px, py + s_ * 0.85, z + 1.15)), "r": (0.04, 0.04), "n": 2.6},
+        ], seg=7, mat=M["timber"], squircle=2.6))
+    out.append(K.tube("camp_ridge", [
+        {"p": Vector((px, py - 0.9, z + 1.15)), "r": (0.04, 0.04), "n": 2.6},
+        {"p": Vector((px, py + 0.9, z + 1.15)), "r": (0.04, 0.04), "n": 2.6},
+    ], seg=7, mat=M["timber"], squircle=2.6))
+    out.append(prism("camp_cloth", (px + 0.34, py, z + 0.60), 1.5, 1.9, 0.55,
+                     M["cloth"], over_y=0.05, over_x=0.05))
+    out.append(K.tube("camp_crook", K.dome([
+        {"p": Vector((px - 0.5, py - 0.7, z)), "r": (0.032, 0.032), "n": 2.6},
+        {"p": Vector((px - 0.42, py - 0.7, z + 1.35)), "r": (0.026, 0.026), "n": 2.6},
+    ], at="both", steps=2, height=0.03), seg=6, mat=M["timber"], squircle=2.6))
+    for o in out:
+        if yaw:
+            K.transform(o, rotate=(0, 0, yaw), around=(cx, cy, 0))
+    t.add(*out)
+    t.solid(px + 0.3, py, 0.9, 1.0, yaw, top=z + 1.2)
+    return out
+
+
 def embercap(t, x, y, z=None, n=3, scale=1.0):
     """A cluster of glowing caps on a stalk. Break them for the only reward
     this demo has.
