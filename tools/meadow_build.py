@@ -351,11 +351,36 @@ def scatter(M, t):
             continue
         z = height(x, y)
         s = 0.22 + rnd() * (0.55 if z > 4 else 0.28)
-        t.add(K.blob(f"rock{len(t.parts)}", (x, y, z + s * 0.35),
-                     (s, s * 0.86, s * 0.62), None, M["rock"],
-                     seg=9, rings=6, squircle=2.7))
-        if s > 0.5:
+        # STRATA ON THE BIG ONES. Every rock in the meadow was one squashed
+        # blob, so sixty of them were the same pebble at sixty sizes. A boulder
+        # big enough to read as a boulder gets two or three offset slabs
+        # instead -- bedding planes are what makes stone look like stone, and
+        # they cost one extra primitive on the few that are actually large.
+        if s > 0.42:
+            layers = 2 + int(rnd() * 2)
+            # BEDDED, not balanced on top. The layers are flat -- half-height
+            # 0.26s against a radius of s -- and a flat slab on a slope floats
+            # where the old round blob (half-height 0.62s) sank into it. On the
+            # hillsides these read as rocks hanging in mid-air with their own
+            # shadows underneath. The stack starts BELOW the surface so the
+            # lowest bedding plane is buried on both sides.
+            for k in range(layers):
+                u = k / max(1, layers - 1)
+                lz = z + s * (-0.20 + 0.78 * u)
+                lr = s * (1.0 - 0.30 * u) * (0.86 + 0.22 * rnd())
+                # 0.34, not 0.26: at the thinner value a two-layer boulder was
+                # a pair of discs lying on the grass, and sixty of them read as
+                # paving slabs scattered across a field rather than as stone.
+                t.add(K.blob(f"rock{len(t.parts)}",
+                             (x + (rnd() - 0.5) * s * 0.32,
+                              y + (rnd() - 0.5) * s * 0.32, lz),
+                             (lr, lr * 0.84, s * 0.34), None, M["rock"],
+                             seg=9, rings=5, squircle=3.2))
             t.solid(x, y, s * 0.9, s * 0.8, top=z + s)
+        else:
+            t.add(K.blob(f"rock{len(t.parts)}", (x, y, z + s * 0.35),
+                         (s, s * 0.86, s * 0.62), None, M["rock"],
+                         seg=9, rings=6, squircle=2.7))
 
     # grass tufts: cheap, and they are what stops the ground reading as a sheet
     for _ in range(520):
@@ -397,7 +422,8 @@ def _lcg(seed):
     return rnd
 
 
-def tree(M, t, x, y, scale):
+def _tree_broadleaf(M, t, x, y, scale, rnd):
+    """The round one: four overlapping canopy blobs on a tapering trunk."""
     z = height(x, y)
     h = 2.6 * scale
     t.add(K.tube(f"trunk{len(t.parts)}", K.dome([
@@ -412,9 +438,92 @@ def tree(M, t, x, y, scale):
                      (r * scale, r * scale, r * scale * 0.82), None,
                      M["leaf"] if (len(t.parts) % 3) else M["leaf_lo"],
                      seg=11, rings=7, squircle=2.2))
-        # the camera must not end up inside this; walking under it is fine
         t.camblock(cx, cy, cz, r * scale * 1.05)
     t.solid(x, y, 0.42 * scale, 0.42 * scale, top=z + h)
+
+
+def _tree_conifer(M, t, x, y, scale, rnd):
+    """The pointed one, and the reason the roster needed a second recipe.
+
+    A meadow of nothing but round canopies has ONE silhouette repeated sixty
+    times, and silhouette is the only thing a tree contributes at the distance
+    most of them are seen. A cone against the sky is a different word in the
+    same sentence. Four stacked skirts rather than a single cone, because a
+    smooth cone reads as a traffic bollard.
+    """
+    z = height(x, y)
+    h = 4.4 * scale
+    t.add(K.tube(f"trunk{len(t.parts)}", K.dome([
+        {"p": Vector((x, y, z - 0.15)), "r": (0.20 * scale, 0.20 * scale), "n": 2.6},
+        {"p": Vector((x, y, z + h * 0.92)), "r": (0.07 * scale, 0.07 * scale), "n": 2.6},
+    ], at="end", steps=2, height=0.08), seg=8, mat=M["bark"], squircle=2.6))
+    tiers = 4
+    for i in range(tiers):
+        u = i / tiers
+        cz = z + h * (0.24 + 0.66 * u)
+        r = (1.32 - 0.86 * u) * scale
+        t.add(K.tube(f"needle{len(t.parts)}", [
+            {"p": Vector((x, y, cz)), "r": (r, r), "n": 2.4},
+            {"p": Vector((x, y, cz + h * 0.055)), "r": (r * 0.90, r * 0.90), "n": 2.4},
+            {"p": Vector((x, y, cz + h * 0.235)), "r": (r * 0.18, r * 0.18), "n": 2.4},
+        ], seg=10, mat=M["leaf_lo"] if i % 2 else M["conifer"],
+            squircle=2.4, up=(0, 0, 1)))
+        t.camblock(x, y, cz + h * 0.10, r * 1.05)
+    t.solid(x, y, 0.34 * scale, 0.34 * scale, top=z + h)
+
+
+def _tree_snag(M, t, x, y, scale, rnd):
+    """A dead one: bare, leaning, with two broken limbs.
+
+    Every tree in the meadow was alive and vertical. One dead trunk per copse
+    is the cheapest way to make the wood look like it has a history, and it is
+    the only tree here with a readable BRANCH -- the living ones are trunk plus
+    a cloud, so the shape of a tree is never actually drawn.
+    """
+    z = height(x, y)
+    h = 3.1 * scale
+    lean = (rnd() - 0.5) * 0.5
+    la = rnd() * math.tau
+    tipx, tipy = x + math.cos(la) * lean, y + math.sin(la) * lean
+    t.add(K.tube(f"snag{len(t.parts)}", K.dome([
+        {"p": Vector((x, y, z - 0.2)), "r": (0.30 * scale, 0.30 * scale), "n": 2.8},
+        {"p": Vector((x + math.cos(la) * lean * 0.4, y + math.sin(la) * lean * 0.4,
+                      z + h * 0.5)), "r": (0.18 * scale, 0.18 * scale), "n": 2.8},
+        {"p": Vector((tipx, tipy, z + h)), "r": (0.07 * scale, 0.07 * scale), "n": 2.8},
+    ], at="end", steps=2, height=0.1), seg=7, mat=M["bark_dead"], squircle=2.8))
+    # THICKER AND LONGER THAN INSTINCT SAYS. The first pass tapered from 0.10
+    # to 0.02 of scale over a metre, which at any distance is a hair -- so the
+    # snag read as a bare pole and the one tree in the meadow with a drawn
+    # BRANCH had no visible branches. A dead limb is a structural member.
+    for k in range(3):
+        a = la + 1.9 + k * 2.2
+        bz = z + h * (0.46 + 0.19 * k)
+        reach = (1.35 - 0.18 * k) * scale
+        t.add(K.tube(f"limb{len(t.parts)}", K.dome([
+            {"p": Vector((x, y, bz)), "r": (0.15 * scale, 0.15 * scale), "n": 2.6},
+            {"p": Vector((x + math.cos(a) * reach * 0.55,
+                          y + math.sin(a) * reach * 0.55, bz + 0.46 * scale)),
+             "r": (0.095 * scale, 0.095 * scale), "n": 2.6},
+            {"p": Vector((x + math.cos(a) * reach,
+                          y + math.sin(a) * reach, bz + 0.62 * scale)),
+             "r": (0.05 * scale, 0.05 * scale), "n": 2.6},
+        ], at="end", steps=2, height=0.05), seg=6, mat=M["bark_dead"], squircle=2.6))
+    t.solid(x, y, 0.34 * scale, 0.34 * scale, top=z + h)
+
+
+def tree(M, t, x, y, scale, kind=None, rnd=None):
+    """Place one tree. `kind` picks the silhouette; None means "by position".
+
+    Deterministic from the coordinates rather than from a running counter, so
+    adding a tree somewhere does not reshuffle every tree after it.
+    """
+    if rnd is None:
+        rnd = _lcg(int(abs(x * 977 + y * 613)) + 3)
+    if kind is None:
+        k = (int(abs(x * 13.7 + y * 7.3)) % 10)
+        kind = "conifer" if k < 3 else ("snag" if k == 3 else "broadleaf")
+    ({"conifer": _tree_conifer, "snag": _tree_snag}.get(kind, _tree_broadleaf))(
+        M, t, x, y, scale, rnd)
 
 
 def tuft(M, t, x, y, rnd):
@@ -899,6 +1008,13 @@ def main():
         "bark":     K.material("bark", (0.34, 0.25, 0.19), roughness=0.9),
         "leaf":     K.material("leaf", (0.32, 0.55, 0.28), roughness=0.85),
         "leaf_lo":  K.material("leaf_lo", (0.24, 0.44, 0.24), roughness=0.85),
+        # A COLDER, DEEPER GREEN for the conifers, so the second silhouette is
+        # also a second colour -- two shapes in one hue still read as one kind
+        # of tree at the distance most of them are seen.
+        "conifer":  K.material("conifer", (0.20, 0.36, 0.30), roughness=0.9),
+        # dead wood is GREY, not brown: a bare trunk in bark colour reads as a
+        # living tree whose leaves failed to load
+        "bark_dead": K.material("bark_dead", (0.44, 0.41, 0.36), roughness=0.95),
         "rock":     K.material("rock", (0.52, 0.50, 0.48), roughness=0.9),
         "bloom_a":  K.material("bloom_a", (0.94, 0.86, 0.42), roughness=0.7),
         "bloom_b":  K.material("bloom_b", (0.86, 0.52, 0.72), roughness=0.7),

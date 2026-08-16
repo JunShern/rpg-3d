@@ -212,6 +212,9 @@ const TOWN_LOOK = {
   // as the ground sliding. Cloth gets the most, because cloth should.
   leaf:     { rimStrength: 0.45, sway: 0.11 },
   leaf_lo:  { rimStrength: 0.34, sway: 0.035 },
+  // A conifer's skirts are stiffer than a broadleaf canopy, so it moves less.
+  conifer:  { rimStrength: 0.38, sway: 0.055 },
+  bark_dead:{ rimStrength: 0.34 },
   rock:     { gradient: RAMP_SOFT, rimStrength: 0.30 },
   bloom_a:  { rimStrength: 0.70, rimColor: 0xfff4c8, sway: 0.03 },
   bloom_b:  { rimStrength: 0.70, rimColor: 0xffd8ec, sway: 0.03 },
