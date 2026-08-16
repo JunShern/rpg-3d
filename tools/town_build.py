@@ -34,6 +34,11 @@ import surface_tex
 # outside those bounds; the cobble slab runs wider so nothing floats.
 PLAZA = dict(x0=-13.0, x1=13.0, y0=-10.0, y1=11.0)
 
+# The stairwell opening in the plaza paving, in Blender x/y. Sited on the west
+# side beside the market, off the line from the spawn point to the gate -- a
+# secret you walk past, not one you fall into on your way out of town.
+CELLAR_HOLE = (-10.4, -7.0, 0.2, 3.8)
+
 
 TEX_DIR = "public/assets/tex"
 
@@ -109,8 +114,22 @@ def build_ground(t):
     # so naming this "cobble" silently handed back the untextured original and
     # the generated paving never reached the export.
     cob = ground_material("cobble_tex", surface_tex.cobble, (0.52, 0.50, 0.53))
-    t.walk(A.box("floor_plaza", (0, -1.0, -0.25), (22.0, 20.0, 0.25),
-                 cob, bevel=0.12, seg=1))
+    # FOUR SLABS ROUND A HOLE, not one slab.
+    #
+    # The cellar needs a stairwell, and a stairwell needs an actual opening: a
+    # single box has a top face across its whole extent, so a stair cut through
+    # it descends into paving you can see and -- worse -- `groundAt` raycasts
+    # that same top face and puts you back on the square. Splitting the slab is
+    # three extra draws for the one thing that makes an interior possible.
+    x0, x1, y0, y1 = -22.0, 22.0, -21.0, 19.0
+    hx0, hx1, hy0, hy1 = CELLAR_HOLE
+    for nm, (ax, bx, ay, by) in (
+            ("floor_plaza_w", (x0, hx0, y0, y1)),
+            ("floor_plaza_e", (hx1, x1, y0, y1)),
+            ("floor_plaza_s", (hx0, hx1, y0, hy0)),
+            ("floor_plaza_n", (hx0, hx1, hy1, y1))):
+        t.walk(A.box(nm, ((ax + bx) / 2, (ay + by) / 2, -0.25),
+                     ((bx - ax) / 2, (by - ay) / 2, 0.25), cob, bevel=0.12, seg=1))
 
     # A paved ring around the fountain: a surface change is the cheapest way to
     # tell the player where the centre of a space is.
@@ -135,6 +154,10 @@ def build_ground(t):
     # coarser slabs on the terrace, so two paved areas beside each other do not
     # read as one surface
     flag = ground_material("flagstone_tex", surface_tex.flagstone, (0.62, 0.60, 0.58))
+    # REGISTER IT. It was a local, so the cellar -- built later, from the kit --
+    # asked for `M["flagstone_tex"]` and got a KeyError. Anything the kit might
+    # want has to be in the palette dict, not a variable in one function.
+    M["flagstone_tex"] = flag
     t.walk(A.box("floor_terrace", (10.0, 4.0, 0.55), (3.5, 5.0, 0.55),
                  flag, bevel=0.07, seg=2))
     A.stairs(t, 5.05, 4.0, w=4.2, rise=0.275, run=0.42, steps=4, yaw=-90)
@@ -211,6 +234,11 @@ def build_props(t):
                  (-1.0, -8.6), (12.0, 0.2)):
         lights.append(A.lantern(t, x, y, h=3.2))
 
+    # THE CELLAR. Its lamp is the only light source down there, so unlike the
+    # square's lanterns -- which are an accent on a sunlit facade -- this one
+    # has to actually light a room.
+    lights.append(A.cellar(t, *CELLAR_HOLE))
+
     for x, y, r in ((-12.4, -8.6, 0.55), (-4.0, -9.2, 0.5), (4.6, -9.2, 0.5),
                     (12.4, -8.6, 0.55), (-12.6, 9.4, 0.6), (2.0, 10.2, 0.5)):
         A.planter(t, x, y, r=r)
@@ -218,8 +246,11 @@ def build_props(t):
     # A MARKET, off the fountain's axis so it does not block the gate view.
     # Three stalls in a loose row on the west side: enough to read as a market
     # and few enough that the square is still a square.
-    for cx, cy, yaw, kind in ((-7.4, 1.2, 8, 0), (-7.9, 4.6, -6, 1),
-                              (-6.9, -2.4, 14, 3)):
+    # CLEAR OF THE WELLHOLE. The first siting put a stall straddling the
+    # stairwell -- the opening is at x -10.4..-7.0, y 0.2..3.8 -- so the one
+    # thing in the square that is a secret had a trestle standing over it.
+    for cx, cy, yaw, kind in ((-5.2, 1.4, 8, 0), (-5.6, 4.8, -6, 1),
+                              (-5.0, -2.2, 14, 3)):
         A.stall(t, cx, cy, yaw=yaw, kind=kind)
 
     # Lines strung across the two alleys, which were vertical surfaces and empty

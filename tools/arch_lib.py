@@ -122,11 +122,18 @@ class Town:
                 self.floors.append(o)
         return objs[0] if objs else None
 
-    def solid(self, cx, cy, hx, hy, yaw=0.0, top=3.0):
+    def solid(self, cx, cy, hx, hy, yaw=0.0, top=3.0, base=-0.5):
         """`top` is how tall the box is.  The camera collision needs it: without
         a height every prop is an infinite pillar and the camera refuses to rise
-        over a barrel."""
-        self.solids.append((cx, cy, hx, hy, math.radians(yaw), top))
+        over a barrel.
+
+        `base` is where it STARTS, and it exists because the cellar could not be
+        expressed without it. Every solid used to run from a hard-coded -0.5
+        upward, on the assumption that everything stands on the square -- so an
+        underground wall with a top of -0.32 spanned 18 cm of sliver and the
+        player walked straight through it into the earth.
+        """
+        self.solids.append((cx, cy, hx, hy, math.radians(yaw), top, base))
 
     def platform(self, cx, cy, hx, hy, top):
         """A surface ABOVE the analytic ground that the player can stand on.
@@ -178,8 +185,9 @@ class Town:
             "solids": [
                 {"x": round(cx, 4), "z": round(-cy, 4),
                  "hx": round(hx, 4), "hz": round(hy, 4),
-                 "yaw": round(yaw, 5), "top": round(top, 3)}
-                for cx, cy, hx, hy, yaw, top in self.solids],
+                 "yaw": round(yaw, 5), "top": round(top, 3),
+                 "base": round(base, 3)}
+                for cx, cy, hx, hy, yaw, top, base in self.solids],
             "platforms": [
                 {"x": round(cx, 4), "z": round(-cy, 4),
                  "hx": round(hx, 4), "hz": round(hy, 4), "top": round(top, 3)}
@@ -253,6 +261,89 @@ def window(t, x, y0, z, w=0.62, h=0.92, shutters=True, sill=True,
                            (0.15, 0.035, h / 2 + 0.02), M["door"],
                            bevel=0.018, seg=1))
     return t.add(*out) and out
+
+
+def cellar(t, hx0, hx1, hy0, hy1, floor_z=-3.0, ceil_z=-0.62):
+    """A vaulted room under the square, reached by a stair down a wellhole.
+
+    THE ONLY INTERIOR IN THE BUILD. Everything else is a facade with a painted
+    door: nine buildings you can walk round and never into, so the town is one
+    outdoor room however much furniture goes in it. An interior is the cheapest
+    genuinely different SPACE available -- enclosed on six sides, lit by one
+    lamp instead of the sun, quiet where the square is not -- and putting it
+    underground costs no exterior footprint at all, which is the whole point
+    when the brief is more places in the same square footage.
+
+    It is also the best hiding place the town has. You cannot see it from
+    anywhere; you find the hole.
+
+    Returns the lamp position, so the runtime can hang a light there.
+    """
+    M, out = t.M, []
+    # the room runs SOUTH from the stairwell, under the paving
+    rx0, rx1 = hx0 - 1.6, hx1 + 1.6
+    ry0, ry1 = hy0 - 6.4, hy1
+    W = 0.45                                    # wall thickness
+
+    t.walk(box("cellar_floor", ((rx0 + rx1) / 2, (ry0 + ry1) / 2, floor_z - 0.14),
+               ((rx1 - rx0) / 2, (ry1 - ry0) / 2, 0.14), M["flagstone_tex"],
+               bevel=0.03, seg=1))
+    out.append(box("cellar_ceil", ((rx0 + rx1) / 2, (ry0 + ry1) / 2 - 0.6,
+                                   ceil_z + 0.10),
+                   ((rx1 - rx0) / 2, (ry1 - ry0) / 2 - 0.6, 0.10),
+                   M["stone"], bevel=0.03, seg=1))
+
+    # walls: three sides plus the two cheeks of the stairwell
+    mid = (floor_z + ceil_z) / 2
+    hh = (ceil_z - floor_z) / 2 + 0.1
+    for nm, (cx, cy, ex, ey) in (
+            ("cellar_w", (rx0 - W / 2, (ry0 + ry1) / 2, W / 2, (ry1 - ry0) / 2 + W)),
+            ("cellar_e", (rx1 + W / 2, (ry0 + ry1) / 2, W / 2, (ry1 - ry0) / 2 + W)),
+            ("cellar_s", ((rx0 + rx1) / 2, ry0 - W / 2, (rx1 - rx0) / 2 + W, W / 2)),
+            ("cellar_nw", ((rx0 + hx0) / 2, ry1 + W / 2, (hx0 - rx0) / 2 + W, W / 2)),
+            ("cellar_ne", ((hx1 + rx1) / 2, ry1 + W / 2, (rx1 - hx1) / 2 + W, W / 2))):
+        out.append(box(nm, (cx, cy, mid), (ex, ey, hh), M["stone"], bevel=0.04, seg=1))
+        t.solid(cx, cy, ex, ey, top=ceil_z + 0.3, base=floor_z - 0.4)
+
+    # THE STAIR. Straight down the wellhole, treads as platforms so the runtime
+    # can walk them -- the same trick the ladder uses, and for the same reason:
+    # a step the collision cannot find is scenery.
+    steps = 9
+    for i in range(steps):
+        u = (i + 0.5) / steps
+        sz = -0.05 + (floor_z + 0.16) * u
+        sy = hy1 - 0.35 - (hy1 - hy0 - 0.5) * u
+        out.append(box(f"cellar_step{i}", ((hx0 + hx1) / 2, sy, sz - 0.09),
+                       ((hx1 - hx0) / 2 - 0.28, (hy1 - hy0) / (2.2 * steps), 0.09),
+                       M["stone"], bevel=0.02, seg=1))
+        t.platform((hx0 + hx1) / 2, sy, (hx1 - hx0) / 2 - 0.28,
+                   (hy1 - hy0) / (2.0 * steps), sz)
+
+    # A PARAPET ON THREE SIDES, not a kerb.
+    #
+    # The first version was a 10 cm lip, which reads as an edging stone and
+    # stops nothing: walking at the hole from the wrong side stepped over it and
+    # dropped three metres onto the flagstones. A wellhole in a market square
+    # would be walled, and a wall does the two jobs at once -- it says "hole"
+    # from across the plaza, and it leaves exactly one way in, which is the
+    # stair. The open side is the one the stair starts from.
+    for nm, (cx, cy, ex, ey) in (
+            ("kerb_w", (hx0 - 0.16, (hy0 + hy1) / 2, 0.16, (hy1 - hy0) / 2 + 0.32)),
+            ("kerb_e", (hx1 + 0.16, (hy0 + hy1) / 2, 0.16, (hy1 - hy0) / 2 + 0.32)),
+            ("kerb_s", ((hx0 + hx1) / 2, hy0 - 0.16, (hx1 - hx0) / 2 + 0.32, 0.16))):
+        out.append(box(nm, (cx, cy, 0.26), (ex, ey, 0.30), M["stone"],
+                       bevel=0.04, seg=1))
+        t.solid(cx, cy, ex, ey, top=0.56)
+
+    # what is down here: stores, a lamp, and something worth the trip
+    for bx, by in ((rx0 + 0.9, ry0 + 0.9), (rx0 + 1.7, ry0 + 1.0),
+                   (rx1 - 0.9, ry0 + 1.2)):
+        barrel(t, bx, by, r=0.34, h=0.82, z0=floor_z)
+    crate(t, rx1 - 1.0, ry0 + 2.3, s=0.40, yaw=12, z0=floor_z)
+    lamp = lantern(t, (rx0 + rx1) / 2, ry0 + 1.4, z0=floor_z, h=2.05)
+    embercap(t, rx0 + 1.0, ry0 + 2.6, z=floor_z, scale=1.1)
+    t.add(*out)
+    return lamp
 
 
 def rooftop(t, cx, cy, w, d, z, yaw=0.0, rail=True, name="roof"):
@@ -896,32 +987,32 @@ def planter(t, x, y, r=0.55, h=0.5):
     return out
 
 
-def barrel(t, x, y, r=0.34, h=0.82):
+def barrel(t, x, y, r=0.34, h=0.82, z0=0.0):
     M = t.M
     # capped at both ends: an uncapped tube reads as an open bucket
     o = K.tube("barrel", K.dome([
-        {"p": Vector((x, y, 0.02)), "r": (r * 0.88, r * 0.88), "n": 2.6},
-        {"p": Vector((x, y, h * 0.5)), "r": (r, r), "n": 2.6},
-        {"p": Vector((x, y, h)), "r": (r * 0.88, r * 0.88), "n": 2.6},
+        {"p": Vector((x, y, z0 + 0.02)), "r": (r * 0.88, r * 0.88), "n": 2.6},
+        {"p": Vector((x, y, z0 + h * 0.5)), "r": (r, r), "n": 2.6},
+        {"p": Vector((x, y, z0 + h)), "r": (r * 0.88, r * 0.88), "n": 2.6},
     ], at="both", steps=2, height=0.05), seg=12, mat=M["timber"], squircle=2.6)
     # a swept ring, not a box -- a square plate through a round barrel reads as
     # a plank nailed to it
     band = K.tube("barrel_band", [
-        {"p": Vector((x, y, h * 0.5 - 0.05)), "r": (r * 1.04, r * 1.04), "n": 2.6},
-        {"p": Vector((x, y, h * 0.5 + 0.05)), "r": (r * 1.04, r * 1.04), "n": 2.6},
+        {"p": Vector((x, y, z0 + h * 0.5 - 0.05)), "r": (r * 1.04, r * 1.04), "n": 2.6},
+        {"p": Vector((x, y, z0 + h * 0.5 + 0.05)), "r": (r * 1.04, r * 1.04), "n": 2.6},
     ], seg=12, mat=M["brass"], squircle=2.6)
     t.breakable(o, band)
-    t.solid(x, y, r, r, top=h)
+    t.solid(x, y, r, r, top=z0 + h)
     return [o, band]
 
 
-def crate(t, x, y, s=0.42, yaw=0.0):
+def crate(t, x, y, s=0.42, yaw=0.0, z0=0.0):
     M = t.M
-    o = box("crate", (x, y, s), (s, s, s), M["timber"], bevel=0.05, seg=2)
+    o = box("crate", (x, y, z0 + s), (s, s, s), M["timber"], bevel=0.05, seg=2)
     if yaw:
         K.transform(o, rotate=(0, 0, yaw), around=(x, y, 0))
     t.breakable(o)
-    t.solid(x, y, s * 1.25, s * 1.25, yaw, top=s * 2)
+    t.solid(x, y, s * 1.25, s * 1.25, yaw, top=z0 + s * 2)
     return [o]
 
 

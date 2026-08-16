@@ -35,6 +35,10 @@ const SHOTS = [
   { name: '03-plaza-gallery', warp: [7.6, 0, -8.5], az: -Math.PI / 2, polar: 1.16, dist: 8.0 },
   // warp y is high: the roof leads are PLATFORMS at 8.4 m, and `groundAt`
   // searches downward from the y you give it
+  // The cellar cannot be WARPED into: `groundAt` raycasts downward and finds
+  // the paving over the room, so the only way in is the way a player takes.
+  { name: '03c-cellar', warp: [-8.7, 3, -4.6], az: Math.PI, polar: 1.40, dist: 6.0,
+    walk: { keys: ['KeyW'], frames: 420 } },
   { name: '03b-rooftops', warp: [7.0, 12, -15.0], az: 1.9, polar: 1.30, dist: 9.0 },
   { name: '04-belltower', warp: [-1.0, 0, -7.0], az: Math.PI, polar: 1.47, dist: 9.0 },
   { name: '05-gate-to-meadow', warp: [-1.0, 0, -5.5], az: 0, polar: 1.26, dist: 7.5 },
@@ -136,6 +140,13 @@ for (const s of list) {
     if (shot.setupSrc) {
       // eslint-disable-next-line no-new-func
       new Function('p', `return (${shot.setupSrc})(p)`)(shot.warp);
+    }
+    // Some framings can only be reached on foot -- the cellar is under the
+    // paving, so a warp lands on the square above it.
+    if (shot.walk) {
+      for (let i = 0; i < shot.walk.frames; i++) {
+        __sim({ steps: 1, az: shot.az, held: shot.walk.keys });
+      }
     }
     return __sim({
       steps: shot.steps ?? 20, az: shot.az, polar: shot.polar, dist: shot.dist,

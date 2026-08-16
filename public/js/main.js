@@ -341,6 +341,9 @@ function absorbRegion(root, manifest) {
   for (const s of manifest.solids || []) {
     SOLIDS.push({
       x: s.x, z: s.z, hx: s.hx, hz: s.hz, top: s.top ?? 3,
+      // `base` defaults to -0.5 for everything that stands on the ground; the
+      // cellar's walls are the first thing in the build that does not.
+      base: s.base ?? -0.5,
       c: Math.cos(s.yaw), s: Math.sin(s.yaw),
     });
   }
@@ -383,7 +386,13 @@ Promise.all([
     // gradient on a flat wall in a game with no other soft gradients anywhere.
     // At this strength it is a warm pool at the foot of the post and nothing
     // on the wall behind it, which is all a lit lamp should do at midday.
-    const lamp = new THREE.PointLight(0xffc879, 0.45, 3.2, 2);
+    // A LAMP UNDERGROUND IS NOT AN ACCENT, IT IS THE LIGHT. The plaza's six
+    // are deliberately almost nothing at midday; the cellar's is the only
+    // source in a room the sun cannot reach, so it is told apart by being
+    // below the paving and given a real intensity and reach.
+    const below = L.y < -0.5;
+    const lamp = new THREE.PointLight(0xffc879, below ? 6.0 : 0.45,
+                                      below ? 9.0 : 3.2, 2);
     lamp.position.set(L.x, L.y, L.z);
     world.add(lamp);
   }
@@ -659,8 +668,12 @@ function toLocal(b, x, z, out) {
 
 const _l = { x: 0, z: 0 };
 
-function pushOut(p, r) {
+function pushOut(p, r, y = null) {
   for (const b of SOLIDS) {
+    // A BOX ONLY BLOCKS YOU AT ITS OWN HEIGHT. Without this the cellar's walls
+    // -- which sit entirely below the paving -- would fence off the middle of
+    // the square for anyone walking over them.
+    if (y !== null && (y > b.top + 0.2 || y + 1.7 < b.base)) continue;
     const l = toLocal(b, p.x, p.z, _l);
     const cx = Math.max(-b.hx, Math.min(b.hx, l.x));
     const cz = Math.max(-b.hz, Math.min(b.hz, l.z));
@@ -701,7 +714,7 @@ function rayCastSolids(ox, oy, oz, dx, dy, dz, maxD) {
     };
     if (!slab(lox, ldx, -b.hx, b.hx)) continue;
     if (!slab(loz, ldz, -b.hz, b.hz)) continue;
-    if (!slab(oy, dy, -0.5, b.top)) continue;
+    if (!slab(oy, dy, b.base, b.top)) continue;
     if (t0 > 0 && t0 < best) best = t0;
   }
   return best;
@@ -1005,7 +1018,7 @@ function groundAt(x, z, fromY) {
 function tryMove(dx, dz) {
   const nx = pos.x + dx, nz = pos.z + dz;
   const p = { x: nx, z: nz };
-  pushOut(p, CHAR_R);
+  pushOut(p, CHAR_R, pos.y);
   const g = groundAt(p.x, p.z, pos.y);
   if (g === null) return false;                 // walked off the paving
   if (grounded) {
@@ -1837,6 +1850,12 @@ const LOCK_POLAR = 1.06;
     const g = groundAt(camTarget.x + camWant.x * t, camTarget.z + camWant.z * t,
                        camTarget.y + camWant.y * t + 3.0);
     if (g === null) continue;
+    // A CEILING IS NOT A HILL. Underground -- in the cellar, under the gallery
+    // -- the nearest "ground" above a boom sample is the paving over your head,
+    // and lifting toward it drives the camera into the underside of the square.
+    // Anything above the player's own head is something you are INSIDE, and the
+    // answer there is to pull in, which the blocker sweep below already does.
+    if (g > camTarget.y + 0.6) continue;
     // the y-component this boom would need for THIS sample to clear the ground
     lift = Math.max(lift, (g + 0.45 - camTarget.y) / t);
   }
@@ -1862,7 +1881,8 @@ const LOCK_POLAR = 1.06;
     if (t < 0.2) continue;
     const g = groundAt(camTarget.x + camWant.x * t, camTarget.z + camWant.z * t,
                        camTarget.y + camWant.y * t + 3.0);
-    if (g !== null && camTarget.y + camWant.y * t < g + 0.35) {
+    if (g !== null && g <= camTarget.y + 0.6
+        && camTarget.y + camWant.y * t < g + 0.35) {
       groundD = Math.max(2.2, (hitD * (i - 1)) / 8);
       break;
     }
@@ -1881,7 +1901,8 @@ const LOCK_POLAR = 1.06;
   if (cur) for (const m of cur.mats) { m.opacity = fade; m.visible = fade > 0.02; }
 
   const camGround = groundAt(camera.position.x, camera.position.z, camera.position.y);
-  if (camGround !== null && camera.position.y < camGround + 0.35) {
+  if (camGround !== null && camGround <= camTarget.y + 0.6
+      && camera.position.y < camGround + 0.35) {
     camera.position.y = camGround + 0.35;
   }
   camera.lookAt(camTarget);
