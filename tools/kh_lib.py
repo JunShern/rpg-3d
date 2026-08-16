@@ -463,7 +463,7 @@ def mirror(obj, name):
 # ------------------------------------------------------------------- rigging
 
 def build_armature(name, spec, forward=Vector((0, -1, 0))):
-    """spec: [(bone, head, tail, parent|None, connected_bool), ...]
+    """spec: [(bone, head, tail, parent|None, connected_bool[, roll_vec]), ...]
 
     Every roll is aligned to `forward`, which is what makes "+X rotation bends
     forward" true for every bone in the skeleton.  Animation code depends on
@@ -475,13 +475,19 @@ def build_armature(name, spec, forward=Vector((0, -1, 0))):
     bpy.ops.object.mode_set(mode='EDIT')
 
     made = {}
-    for bone, head, tail, parent, connected in spec:
+    for entry in spec:
+        bone, head, tail, parent, connected = entry[:5]
         eb = arm.edit_bones.new(bone)
         eb.head = Vector(head)
         eb.tail = Vector(tail)
-        eb.align_roll(Vector(forward))
+        # An optional 6th field overrides the roll target for this bone.  Radial
+        # parts -- a ring of spines around a body -- need their own hinge each,
+        # or a single rotation swings them all the same way in world space
+        # instead of fanning them outward.
+        eb.align_roll(Vector(entry[5]) if len(entry) > 5 else Vector(forward))
         made[bone] = eb
-    for bone, head, tail, parent, connected in spec:
+    for entry in spec:
+        bone, parent, connected = entry[0], entry[3], entry[4]
         if parent:
             made[bone].parent = made[parent]
             made[bone].use_connect = bool(connected)
@@ -568,7 +574,7 @@ def action(arm_obj, name):
     return act
 
 
-def key(arm_obj, frame, pose, loc=None):
+def key(arm_obj, frame, pose, loc=None, scale=None):
     """Key a pose.  `pose` maps bone -> (rx, ry, rz) in DEGREES, in the bone's
     local frame (see the module docstring: +X is forward flexion everywhere).
     `loc` maps bone -> (x, y, z) offset in bone-local units, for root motion."""
@@ -577,13 +583,22 @@ def key(arm_obj, frame, pose, loc=None):
             pb.rotation_euler = [math.radians(a) for a in pose[pb.name]]
         if loc and pb.name in loc:
             pb.location = loc[pb.name]
-    for bone in set(list(pose.keys()) + list((loc or {}).keys())):
+        if scale and pb.name in scale:
+            v = scale[pb.name]
+            pb.scale = (v, v, v) if isinstance(v, (int, float)) else v
+    keys = set(pose) | set(loc or {}) | set(scale or {})
+    for bone in keys:
         pb = arm_obj.pose.bones.get(bone)
         if pb is None:
             continue
-        pb.keyframe_insert("rotation_euler", frame=frame)
+        if bone in pose:
+            pb.keyframe_insert("rotation_euler", frame=frame)
         if loc and bone in loc:
             pb.keyframe_insert("location", frame=frame)
+        # BONE SCALE is how a creature's silhouette changes -- a Bellow
+        # inflating is a scale key, not a modelled shape
+        if scale and bone in scale:
+            pb.keyframe_insert("scale", frame=frame)
 
 
 def rest(arm_obj):
