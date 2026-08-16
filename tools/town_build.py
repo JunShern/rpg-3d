@@ -90,6 +90,14 @@ def build_buildings(t):
     # the south gateway, in the gap between the two south buildings
     A.arch(t, -1.0, 11.0, span=4.4, height=5.6, depth=1.7, thick=0.46)
 
+    # THE LANDMARK, on the gate's axis and well behind the far side of the
+    # plaza. Siting matters more than the model here: put it off to one side and
+    # it is scenery you can walk past, but on the axis it is centred in the arch
+    # from the meadow and centred over the fountain from inside the plaza. Five
+    # storeys because it has to clear a 9.5 m roofline from a camera 1.7 m off
+    # the ground -- at four it was hidden by the buildings in front of it.
+    A.belltower(t, -1.0, -22.5, base=2.5, storeys=5)
+
 
 def build_props(t):
     lights = []

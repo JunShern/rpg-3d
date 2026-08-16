@@ -505,3 +505,94 @@ def finish(t, name_town="TOWN", name_floor="FLOOR"):
     floor_obj = K.join(floors, name_floor)
     town_obj = K.join(others, name_town)
     return town_obj, floor_obj
+
+
+def belltower(t, cx, cy, base=2.35, storeys=4, yaw=0.0):
+    """THE LANDMARK.
+
+    The town had none.  Every building tops out between 6.5 and 9.5 m and the
+    gameplay camera sits about 1.7 m off the ground looking slightly down, so
+    the roofs -- which exist, with pitches and chimneys -- are simply never in
+    frame.  A player walking the plaza sees walls and sky and nothing that says
+    where they are.  Adding a skyline meant adding something tall enough to be
+    ABOVE the walls at eye level, not fixing the walls.
+
+    It is also the thing you look back at.  From the meadow the town is a gap
+    between two rooftops; now there is a silhouette in that gap, and the
+    landmark hill and this tower bracket the walk from either end.
+
+    Deliberately a BELL and not a clock.  A clocktower over a European-ish plaza
+    is the single most recognisable thing the reference game has, and the point
+    is to hit its quality without borrowing its furniture.  A bell in an open
+    belfry under a hipped cap, with a weathervane, is the same silhouette job
+    done with different parts.
+    """
+    M, out = t.M, []
+    shaft_h = 3.9 * storeys
+
+    out.append(box("tower_plinth", (cx, cy, 0.22), (base + 0.34, base + 0.34, 0.22),
+                   M["stone"], bevel=0.06, seg=2))
+
+    # the shaft TAPERS, which is most of why a tall box reads as a tower rather
+    # than as a chimney: each stage is a little narrower than the one under it
+    for i in range(storeys):
+        z0 = 0.44 + 3.9 * i
+        w = base * (1.0 - 0.055 * i)
+        out.append(box(f"tower_stage{i}", (cx, cy, z0 + 1.95), (w, w, 1.95),
+                       M["plaster_c"], bevel=0.07, seg=2))
+        # string course: the shadow line that separates the stages
+        out.append(box(f"tower_course{i}", (cx, cy, z0 + 3.90),
+                       (w + 0.13, w + 0.13, 0.10), M["stone"], bevel=0.03, seg=1))
+        # a narrow slit window per stage, alternating faces so it reads as lived-in
+        for s in (-1, 1):
+            if (i + (s > 0)) % 2:
+                continue
+            out.append(box(f"tower_slit{i}", (cx + s * (w + 0.02), cy, z0 + 2.15),
+                           (0.05, 0.16, 0.62), M["door"], bevel=0.02, seg=1))
+
+    # the belfry: four corner piers with the sky showing between them, which is
+    # what makes the top read as open rather than as one more solid stage
+    top = 0.44 + 3.9 * storeys
+    bw = base * (1.0 - 0.055 * (storeys - 1))
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            out.append(box("tower_pier", (cx + sx * (bw - 0.22), cy + sy * (bw - 0.22),
+                                          top + 1.15),
+                           (0.22, 0.22, 1.15), M["stone"], bevel=0.04, seg=2))
+    out.append(box("tower_belfry_floor", (cx, cy, top + 0.08), (bw, bw, 0.13),
+                   M["stone"], bevel=0.04, seg=1))
+    out.append(box("tower_belfry_lintel", (cx, cy, top + 2.38), (bw + 0.10, bw + 0.10, 0.16),
+                   M["stone"], bevel=0.04, seg=1))
+
+    # the bell itself, hung on a beam
+    out.append(box("tower_beam", (cx, cy, top + 2.10), (bw - 0.30, 0.09, 0.09),
+                   M["timber"], bevel=0.02, seg=1))
+    out.append(K.tube("tower_bell", [
+        {"p": Vector((cx, cy, top + 2.02)), "r": (0.10, 0.10), "n": 2.4},
+        {"p": Vector((cx, cy, top + 1.72)), "r": (0.30, 0.30), "n": 2.6},
+        {"p": Vector((cx, cy, top + 1.52)), "r": (0.44, 0.44), "n": 3.0},
+        {"p": Vector((cx, cy, top + 1.46)), "r": (0.45, 0.45), "n": 3.0},
+        {"p": Vector((cx, cy, top + 1.44)), "r": 0.0, "n": 3.0},
+    ], seg=16, mat=M["brass"], squircle=2.6, up=(0, 1, 0)))
+
+    # hipped cap: a pyramid, not a gable, so the tower reads the same from every
+    # approach -- a ridge would give it a "front" it does not have
+    capz = top + 2.54
+    hw = bw + 0.34
+    v = [(-hw, -hw, 0), (hw, -hw, 0), (hw, hw, 0), (-hw, hw, 0), (0, 0, 2.5)]
+    out.append(K._new_obj("tower_cap",
+                          [Vector((cx + a, cy + b, capz + c)) for a, b, c in v],
+                          [(0, 1, 4), (1, 2, 4), (2, 3, 4), (3, 0, 4), (0, 3, 2, 1)],
+                          mat=M["roof_b"], smooth=False))
+    out.append(box("tower_finial", (cx, cy, capz + 2.72), (0.055, 0.055, 0.34),
+                   M["brass"], bevel=0.02, seg=1))
+    # weathervane: a flat arrow, the one asymmetric detail on the whole silhouette
+    out.append(box("tower_vane", (cx + 0.30, cy, capz + 3.00), (0.30, 0.02, 0.13),
+                   M["brass"], bevel=0.015, seg=1))
+
+    for o in out:
+        if yaw:
+            K.transform(o, rotate=(0, 0, yaw), around=(cx, cy, 0))
+    t.add(*out)
+    t.solid(cx, cy, base + 0.34, base + 0.34, yaw, top=shaft_h)
+    return out

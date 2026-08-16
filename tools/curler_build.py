@@ -32,11 +32,17 @@ NAME = "curler"
 # read as a smudge from four metres away.  The armour is therefore the DARKEST
 # thing in frame and the soft parts are a warm clay that reads as "not armoured",
 # which is also the honest tell: what you can see is what you can hit.
+# ROLE IS A COLOUR. All three hostiles are dark so they separate from the pale
+# meadow -- but "dark" alone told you a shape was a threat and nothing about
+# WHICH threat, and the three of them ask completely different questions. So
+# each one owns an accent: bone for the swarmer, CYAN for the charger, ember for
+# the brute. The charger is the cold one, blue-slate rather than violet, with
+# eyes you can pick out across a field.
 C_SPEC = {
-    "shell": ((0.19, 0.21, 0.26), 0.55),
-    "plate": ((0.27, 0.30, 0.36), 0.40),
-    "flesh": ((0.60, 0.39, 0.34), 0.80),
-    "eye":   ((1.00, 0.52, 0.24), 0.30, 3.2),
+    "shell": ((0.15, 0.20, 0.28), 0.55),
+    "plate": ((0.24, 0.34, 0.46), 0.35),
+    "flesh": ((0.46, 0.33, 0.32), 0.80),
+    "eye":   ((0.32, 0.94, 1.00), 0.30, 3.6),
 }
 
 N_PLATES = 5

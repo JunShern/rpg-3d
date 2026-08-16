@@ -157,8 +157,15 @@ function installHelpers() {
      * plaza encounter refills. Both produced "it never attacked" and "no
      * bellow" on features that work.
      */
-    summon(name, x, z, back) {
+    /** Spawn a test subject, TAGGED so `fresh()` can clear it away again. */
+    make(name, x, z) {
       const e = combat.spawn(name, x, z);
+      if (e) { e.testSpawn = true; e.home.set(x, e.pos.y, z); }
+      return e;
+    },
+
+    summon(name, x, z, back) {
+      const e = window.__t.make(name, x, z);
       if (!e) throw new Error('could not spawn ' + name);
       for (const o of combat.enemies) {
         if (o === e || o.dead || !o.spec.hostile) continue;
@@ -397,6 +404,15 @@ async function run() {
   // poisons everything after it. Reset between groups.
   const fresh = () => page.evaluate(() => {
     combat.respawn();
+    // Clear test subjects away. Leaving them behind crowded the plaza with
+    // seven nettles, and separation then shoved the real encounter eight to
+    // twelve metres off its own posts -- which read as "the leash is broken".
+    for (const e of combat.enemies) {
+      if (!e.testSpawn || e.dead) continue;
+      e.dead = true;
+      e.deadT = 99;
+      e.group.visible = false;
+    }
     // un-park from the remembered original, not by undoing an offset
     for (const e of combat.enemies) {
       if (!e.home0) continue;
@@ -467,7 +483,14 @@ async function run() {
     if (!grp.length) return { ok: false, detail: 'plaza group is empty' };
     grp.forEach((e) => { e.hp = e.spec.hp * 0.5; });
     __sim({ warp: [3, 6, -44], steps: 40 });
-    __sim({ steps: 600, dt: 1 / 20 });
+    // KEEP THE PLAYER ALIVE while we wait. Standing thirty seconds in the
+    // meadow gets you killed, and dying respawns you in the plaza -- next to
+    // the very group whose leash we are measuring, which wakes them up and
+    // reports "0/3 home" about a leash that works.
+    for (let i = 0; i < 600; i++) {
+      combat.player.hp = combat.player.maxHP;
+      __sim({ steps: 1, dt: 1 / 20 });
+    }
     // A NEIGHBOURHOOD, NOT A POINT. They snap back onto their posts and then
     // push apart from each other, so after crossing fifty metres home they end
     // up one to three metres off it. Measured 1.0, 2.1, 2.6.
@@ -556,9 +579,9 @@ async function run() {
     // and because the bug being tested only shows up with three or more
     combat.respawn();
     __sim({ warp: [0.5, 6, 6.2], steps: 20 });
-    const made = [combat.spawn('nettle', 2.4, 6.2),
-                  combat.spawn('nettle', -1.4, 6.2),
-                  combat.spawn('nettle', 0.5, 4.0)].filter(Boolean);
+    const made = [window.__t.make('nettle', 2.4, 6.2),
+                  window.__t.make('nettle', -1.4, 6.2),
+                  window.__t.make('nettle', 0.5, 4.0)].filter(Boolean);
     __sim({ steps: 10 });
     const seen = new Set();
     for (let i = 0; i < 8; i++) { const t = combat.cycleLock(); if (t) seen.add(t); }

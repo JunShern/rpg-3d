@@ -85,6 +85,26 @@ instrument the measurement before you change the thing.
       to eat the hit teaches you to stop attacking
 - [x] it has a cooldown (0.62 s) so it is a read rather than a held button
 
+### The enemy half  ← added after the first external audit found it missing
+- [x] an enemy attack is a shape in space at a moment in time — a cone around
+      the attacker's committed facing, opening at a per-species impact frame
+      (Curler 10% and 1.1 rad, Nettle 22% and 1.5, Bellow 62% and 2.5). It was
+      a facing-less sphere fired 0.05 s into a state it entered *because* you
+      were in range, so it could not miss and it hit you from behind
+- [x] an interrupted attacker still works afterwards — `didHit` was cleared only
+      in the branch that completes an attack, and being hit forces `hurt`, so
+      one interruption disarmed an enemy permanently. Probe: interrupt, then
+      take 72 HP over 15 s from the same enemy
+- [x] committed attacks have **poise**, so a telegraph is not cancellable by
+      mashing — the Bellow's slam cannot be interrupted at all; the Nettle's can,
+      which is what makes a swarm fair
+- [x] hitstun is the hit's, not a constant — 0.20 s on hit 1, 0.55 s on the
+      finisher, 0.36 s on the falling cut
+- [x] the player has a hit reaction: a `hurt` clip, the swing cancelled, a
+      throw, and a third of a second of not being in control
+- [x] hit-stop is genuinely global — it scaled combat's clock only, so the swing
+      clip raced ~17× ahead of its own hitbox windows on every connected hit
+
 ### Impact  ← the single most load-bearing section
 - [x] hit-stop — global dt scaled to 6% for 55 ms (115 ms on the finisher)
 - [x] knockback proportional to the hit, finisher launches
@@ -178,6 +198,51 @@ Updated each iteration. Empty until measured.
 ## Open faults
 
 Newest audit at the top. Each entry: what is wrong, not what to do about it.
+
+**iteration 4 — after the first external audit**
+
+The audit was harsh and almost entirely right. Its verdict on "polish exceeds
+KH1 on the elements it implements" was **FALSE**, and its single biggest charge
+was that *the enemy half of the fight does not actually run* — every telegraph
+the creature pipeline was built to deliver was cancellable by mashing, enemy
+attacks could not miss, and one interruption disarmed an enemy for good. That
+whole cluster is fixed above. What it found that is still open:
+
+1. **No textures anywhere.** Every surface is flat colour plus a toon ramp; the
+   material named `cobble` has no cobble in it. This is the biggest remaining
+   visual gap and it is a whole subsystem, not a fix.
+2. **No verticality.** Nothing to climb, no upper storey, no balcony, no
+   below-grade. The jump clears a 1.1 m terrace and that is the entire vertical
+   vocabulary.
+3. **Shadow acne on the gate pillar** — a herringbone speckle over a ±16 m ortho
+   frustum that shimmers as you walk, because the light translates with the
+   player with no texel snapping.
+4. **Hard-edged terrain material splotches** — grass/dirt assigned per face on a
+   1.6 m grid with no blend, which reads as discoloured patches.
+5. **Damage numbers have no occlusion** and are drawn over whatever is behind
+   them.
+6. **The move list is small** even for one weapon: chain, air attack, dodge. No
+   guard, parry, dash attack, charged hit or jump-cancel.
+7. **The playable characters are not generated.** They are imported meshes from
+   another project, retargeted and re-rigged here — the README says so, but the
+   "everything is scripted geometry" framing does not hold for the character you
+   look at the whole time.
+8. **Enemy tells are silhouette-only** on a target ~45 px tall at fighting
+   distance. Palette now carries role (bone / cyan / ember), which helps, but
+   there is no ground indicator or flash on the wind-up itself.
+
+*Answered from the audit:* the whole enemy-attack cluster above; three hostiles
+that were mutually indistinguishable at range (each now owns an accent colour —
+bone for the swarmer, cyan for the charger, ember for the brute, and the
+Bellow's sack glows as it inflates); no swing VFX at all (there is now a blade
+trail); a lock reticle that drew on the player's own back (there is now a ring
+on the ground under the target, and the 2D bracket hides when it would overlap
+the player); `cycleLock` reaching only two targets; outline shells never being
+frustum-culled (626k → 496k triangles, 287 → 120 draws in the plaza); and **no
+landmark and no skyline** — the roofs and chimneys existed but the gameplay
+camera never saw them, so the town now has a belltower on the gate's axis, tall
+enough to clear a 9.5 m roofline and visible from the ridge at the far end of
+the meadow.
 
 **iteration 3 — self-observed, no external audit yet**
 

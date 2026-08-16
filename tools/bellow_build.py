@@ -28,11 +28,15 @@ import creature_lib as C
 
 NAME = "bellow"
 
+# The brute owns EMBER (see the note in curler_build for why role is a colour).
+# It is the warm one -- dark maroon hide with a sack that glows as it fills, so
+# the inflate is legible from further away than the silhouette alone would be,
+# and so "big warm glowing thing" is unmistakably not "small cold spiky thing".
 C_SPEC = {
-    "hide":  ((0.30, 0.26, 0.34), 0.80),
-    "sack":  ((0.52, 0.34, 0.40), 0.70),
-    "horn":  ((0.80, 0.74, 0.60), 0.50),
-    "eye":   ((1.00, 0.44, 0.26), 0.30, 3.2),
+    "hide":  ((0.28, 0.19, 0.19), 0.80),
+    "sack":  ((0.84, 0.34, 0.14), 0.55, 0.9),
+    "horn":  ((0.86, 0.78, 0.62), 0.50),
+    "eye":   ((1.00, 0.62, 0.20), 0.30, 3.4),
 }
 
 BODY_Z = 0.62

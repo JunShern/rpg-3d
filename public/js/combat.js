@@ -96,7 +96,8 @@ export const SPECIES = {
     // it is a rolling ball on a locked line: narrow, and dangerous almost at once
     impact: 0.10, hitArc: 1.1, poise: 26,
     charge: 12.5, roll: 13.0,
-    look: { shell: { rimStrength: 0.55 }, plate: { rimStrength: 0.85 },
+    look: { shell: { rimStrength: 0.55 },
+            plate: { rimStrength: 1.0, rimColor: 0x8fe8ff },
             flesh: { rimStrength: 0.45 } },
     flat: ['eye'], hostile: true,
   },
@@ -116,9 +117,12 @@ export const SPECIES = {
     // the slam lands late and wide, and NOTHING interrupts it once it starts --
     // this is the enemy that punishes greed, so greed has to be punishable
     impact: 0.62, hitArc: 2.5, poise: 999,
-    look: { hide: { rimStrength: 0.55 }, sack: { rimStrength: 0.70 },
+    look: { hide: { rimStrength: 0.55 },
+            sack: { rimStrength: 1.0, rimColor: 0xffb060 },
             horn: { rimStrength: 1.0, rimColor: 0xfff0c0 } },
-    flat: ['eye'], hostile: true,
+    // the sack is the tell, so it stays unlit and keeps its ember value even
+    // when the body falls into the shadow band
+    flat: ['eye', 'sack'], hostile: true,
   },
 
   // GRAZER, and the only thing out here that does not want to fight. It exists
