@@ -380,15 +380,31 @@ def rounded_box(name, center, size, bevel, bone, mat=None, segments=3, smooth=Tr
 
 
 def set_uvs(obj, uv_per_vertex, name="UVMap"):
-    """Attach a UV layer from a per-VERTEX uv list (loops inherit by index)."""
+    """Attach a UV layer from a per-VERTEX uv list (loops inherit by index).
+
+    ACTIVE AND ACTIVE_RENDER both get set. A texture node with nothing wired to
+    its Vector input resolves to the mesh's render UV layer, and the glTF
+    exporter follows the same rule -- so a layer that exists but is not flagged
+    exports no TEXCOORD_0 at all, and the texture arrives in the file attached
+    to geometry that has no way to sample it.
+    """
     me = obj.data
     uvl = me.uv_layers.get(name) or me.uv_layers.new(name=name)
     for li, loop in enumerate(me.loops):
         uvl.data[li].uv = uv_per_vertex[loop.vertex_index]
+    me.uv_layers.active = uvl
+    uvl.active_render = True
+    # `export_apply=True` exports the DEPSGRAPH-EVALUATED mesh, and writing UVs
+    # straight into mesh data does not on its own mark that copy dirty -- so a
+    # layer added after a join was present in Blender and absent from the file.
+    me.update()
+    obj.update_tag()
+    bpy.context.view_layer.update()
     return uvl
 
 
-def image_material(name, image, roughness=0.7, preview=(0.8, 0.8, 0.8)):
+def image_material(name, image, roughness=0.7, preview=(0.8, 0.8, 0.8),
+                   uv_layer="UVMap"):
     """A material whose base colour comes from an image."""
     if name in bpy.data.materials:
         return bpy.data.materials[name]
@@ -398,6 +414,14 @@ def image_material(name, image, roughness=0.7, preview=(0.8, 0.8, 0.8)):
     tex = mat.node_tree.nodes.new("ShaderNodeTexImage")
     tex.image = image
     tex.interpolation = 'Linear'
+    # AN EXPLICIT UV MAP NODE. With nothing wired to the texture's Vector input
+    # the sampling UVs are implicit, and the glTF exporter then declined to emit
+    # TEXCOORD_0 at all -- the image shipped inside the file attached to geometry
+    # with no way to sample it, and the ground rendered flat grey. Naming the
+    # layer here makes the dependency something the exporter can see.
+    uvn = mat.node_tree.nodes.new("ShaderNodeUVMap")
+    uvn.uv_map = uv_layer
+    mat.node_tree.links.new(uvn.outputs["UV"], tex.inputs["Vector"])
     # links.new(FROM output, TO input) -- reversed, it silently creates nothing
     # and the texture never reaches the shader
     mat.node_tree.links.new(tex.outputs["Color"], bsdf.inputs["Base Color"])

@@ -358,7 +358,7 @@ def main():
     bpy.ops.export_scene.gltf(
         filepath=out, export_format='GLB', use_selection=True,
         export_apply=True, export_animations=False, export_yup=True,
-        export_materials='EXPORT', export_texcoords=False, export_normals=True)
+        export_materials='EXPORT', export_texcoords=True, export_normals=True)
     print(f"[meadow] exported {out} ({os.path.getsize(out)/1024:.0f} KB)")
 
     man = t.manifest()

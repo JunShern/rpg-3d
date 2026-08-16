@@ -26,6 +26,7 @@ from mathutils import Vector
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import kh_lib as K
 import arch_lib as A
+import ground_tex
 
 
 # Plaza interior is roughly X -13..13, Y -10..11.  Buildings ring it just
@@ -33,10 +34,47 @@ import arch_lib as A
 PLAZA = dict(x0=-13.0, x1=13.0, y0=-10.0, y1=11.0)
 
 
+TEX_DIR = "public/assets/tex"
+
+
+def paved(obj, tile=2.6):
+    """Planar UVs from world X/Y, so `tile` metres of ground is one tile.
+
+    APPLIED AFTER THE JOIN, on the merged floor. Planar UVs are a pure function
+    of world position, so every vertex gets the right one no matter which source
+    mesh it came from -- and setting them before the join loses them, because
+    joining objects where only some carry a UV layer does not reliably carry it
+    through. The floor is flat, so planar projection is correct here rather than
+    a compromise: nothing stretches and there is no seam to hide.
+    """
+    if obj is None:
+        return obj
+    uvs = [(v.co.x / tile, v.co.y / tile) for v in obj.data.vertices]
+    K.set_uvs(obj, uvs)
+    return obj
+
+
+def ground_material(name, img_fn, tile_preview):
+    """Generate the texture, write it next to the assets, load it as a material."""
+    os.makedirs(TEX_DIR, exist_ok=True)
+    path = os.path.abspath(os.path.join(TEX_DIR, f"{name}.png"))
+    ground_tex.write_png(path, img_fn())
+    image = bpy.data.images.load(path, check_existing=True)
+    return K.image_material(name, image, roughness=0.85, preview=tile_preview)
+
+
 def build_ground(t):
     M = t.M
+    # THE GROUND FILLS MOST OF EVERY FRAME, so it is the surface where "no
+    # textures anywhere" hurt most -- the plaza read as one uniform grey no
+    # matter how much detail the facades carried.
+    # NOTE the `_tex` suffix: `image_material` returns any existing material
+    # with that name, and the palette already owns a flat one called "cobble" --
+    # so naming this "cobble" silently handed back the untextured original and
+    # the generated paving never reached the export.
+    cob = ground_material("cobble_tex", ground_tex.cobble, (0.52, 0.50, 0.53))
     t.walk(A.box("floor_plaza", (0, -1.0, -0.25), (22.0, 20.0, 0.25),
-                 M["cobble"], bevel=0.12, seg=1))
+                 cob, bevel=0.12, seg=1))
 
     # a paved ring around the fountain: a colour change is the cheapest way to
     # tell the player where the centre of a space is
@@ -49,8 +87,11 @@ def build_ground(t):
                  up=(0, 0, 1)))          # 0.85 wide, 0.06 proud -- not the reverse
 
     # raised terrace on the east side, reachable only by the stairs
+    # coarser slabs on the terrace, so two paved areas beside each other do not
+    # read as one surface
+    flag = ground_material("flagstone_tex", ground_tex.flagstone, (0.62, 0.60, 0.58))
     t.walk(A.box("floor_terrace", (10.0, 4.0, 0.55), (3.5, 5.0, 0.55),
-                 M["stone"], bevel=0.07, seg=2))
+                 flag, bevel=0.07, seg=2))
     A.stairs(t, 5.05, 4.0, w=4.2, rise=0.275, run=0.42, steps=4, yaw=-90)
 
     # balustrade along the terrace edges the player can fall off
@@ -182,6 +223,7 @@ def main():
     lights = build_props(t)
 
     town, floor = A.finish(t)
+    paved(floor, tile=3.2)     # one UV set for the whole walkable mesh
 
     tris = 0
     for o in (town, floor):
@@ -206,7 +248,10 @@ def main():
     bpy.ops.export_scene.gltf(
         filepath=out, export_format='GLB', use_selection=True,
         export_apply=True, export_animations=False, export_yup=True,
-        export_materials='EXPORT', export_texcoords=False, export_normals=True)
+        # texcoords ON: this was False, left over from when nothing in the
+        # town used a texture, and it silently dropped every UV -- the paving
+        # arrived in the file with no way to sample it
+        export_materials='EXPORT', export_texcoords=True, export_normals=True)
     print(f"[town] exported {out} ({os.path.getsize(out)/1024:.0f} KB)")
 
     # collision + lights, in three.js space, from the same run that built them

@@ -153,10 +153,19 @@ function applyTownLook(root) {
   for (const m of meshes) {
     const name = (m.material?.name || '').toLowerCase();
     const color = m.material?.color?.clone() || new THREE.Color(0xffffff);
+    // CARRY THE TEXTURE THROUGH. This rebuilt every material from scratch and
+    // dropped the map with it, so the generated paving arrived in the GLB and
+    // was thrown away one line into the runtime.
+    const map = m.material?.map || null;
+    if (map) {
+      map.wrapS = map.wrapT = THREE.RepeatWrapping;
+      map.colorSpace = THREE.SRGBColorSpace;
+      map.anisotropy = 4;
+    }
     m.material = TOWN_FLAT.has(name)
       ? flatMaterial(color)
       : toonMaterial(color, {
-          gradient: RAMP_SOFT, rimStrength: 0.28,
+          gradient: RAMP_SOFT, rimStrength: 0.28, map,
           key: 'town:' + name, ...(TOWN_LOOK[name] || {}),
         });
     // NOT EVERYTHING CASTS. The shadow map is a second full pass over the
