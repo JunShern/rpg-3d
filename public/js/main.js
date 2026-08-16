@@ -921,6 +921,7 @@ function startCombat() {
   trail = makeTrail(scene);
   scene.add(lockRing);
   scene.add(threatLine);
+  scene.add(threatArc);
   combat = createCombat({
     scene,
     camera,
@@ -1156,15 +1157,55 @@ const threatLine = (() => {
   return mesh;
 })();
 
+/**
+ * The wedge a swinger is about to cover — the same idea as the charge line, but
+ * an ARC rather than a lane, because a slam is an area and a charge is a path.
+ *
+ * Built as a circle sector so the shape itself carries the arc width: the
+ * Bellow's 2.5 rad reads as most of a half-circle, the Nettle's 1.45 as a
+ * narrow slice, and you can tell which you are standing in without being told.
+ */
+function sectorMesh(color) {
+  const g = new THREE.CircleGeometry(1, 28, -Math.PI / 2, Math.PI);
+  g.rotateX(-Math.PI / 2);
+  const m = new THREE.MeshBasicMaterial({
+    color, transparent: true, opacity: 0.34,
+    depthWrite: false, side: THREE.DoubleSide,
+  });
+  const mesh = new THREE.Mesh(g, m);
+  mesh.renderOrder = 1;
+  mesh.visible = false;
+  mesh.frustumCulled = false;
+  return mesh;
+}
+const threatArc = sectorMesh(0xff8a3a);
+
 function updateThreatLines(dt) {
   if (!combat) return;
-  let shown = null;
+  let shown = null, arced = null;
   for (const e of combat.enemies) {
-    if (e.dead || !e.spec.charge || e.state !== 'telegraph') continue;
-    if (!e.group.visible) continue;
-    shown = e;
-    break;                          // one charger at a time is the common case
+    if (e.dead || e.state !== 'telegraph' || !e.group.visible) continue;
+    if (e.spec.charge) { if (!shown) shown = e; }
+    else if (!arced) arced = e;
   }
+
+  // the swingers: an arc sized to the reach and width of what is coming
+  threatArc.visible = !!arced;
+  if (arced) {
+    const r = arced.spec.strikeRange + 0.35;
+    const k = Math.min(1, arced.t / Math.max(0.05, arced.spec.telegraph));
+    threatArc.position.set(arced.pos.x, arced.pos.y + 0.13, arced.pos.z);
+    threatArc.rotation.y = arced.facing;
+    // CircleGeometry's sector is authored at PI wide, so scaling it is wrong --
+    // set the arc by rebuilding only when the species changes would be worse.
+    // Instead squash it: a 2.5 rad slam keeps most of the half-circle, a
+    // 1.45 rad lunge is pulled in to a slice.
+    const w = (arced.spec.hitArc ?? 1.7) / Math.PI;
+    threatArc.scale.set(r * w, 1, r);
+    threatArc.material.opacity = 0.20 + 0.30 * k;
+    threatArc.material.color.set(arced.name === 'bellow' ? 0xff8a3a : 0xfff0b0);
+  }
+
   if (!shown) { threatLine.visible = false; return; }
   const reach = shown.spec.charge * shown.spec.attackTime * 0.62;
   threatLine.visible = true;

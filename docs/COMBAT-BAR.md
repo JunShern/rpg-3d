@@ -144,6 +144,12 @@ instrument the measurement before you change the thing.
 - [x] death: collapse clip with a bone-scale flatten, then a fade
 
 ### Enemy behaviour
+- [x] every attack shape is drawn on the ground during its wind-up — a lane for
+      a charge, because a charge is a path, and a circle sector for a swing,
+      because a slam is an area. The sector carries the arc width in its own
+      shape, so the Bellow's 2.5 rad reads as most of a half-circle and the
+      Nettle's 1.45 as a narrow slice, and you can tell which you are standing
+      in without being told
 - [x] a charger's line is drawn on the ground during its wind-up — its whole
       puzzle is "step off the line", and once that actually worked the next
       problem was that the line was invisible. In the world rather than over it,
