@@ -29,6 +29,7 @@ Run:
 import bpy
 import json
 import math
+import numpy as np
 import os
 import sys
 
@@ -254,9 +255,14 @@ def build_terrain(M, step=TERRAIN_STEP):
     # The three tones the vertex colours interpolate between. They are the same
     # values the three textures used to carry, so the meadow reads as it did --
     # it is the transition between them that changed, not the palette.
-    GRASS = (0.46, 0.64, 0.34)
-    VERGE = (0.55, 0.60, 0.39)
-    DIRT = (0.62, 0.53, 0.41)
+    # DEEPER THAN THE TEXTURES WERE. The old grass image ran 0.52-0.62 in the
+    # green and looked right; the same values as a vertex colour came out a
+    # washed lime, because the texture is now neutral mottle centred near 1.0
+    # and the toon ramp's lit band is 255 -- so the vertex colour is carrying
+    # the whole of the hue with nothing pulling it down.
+    GRASS = (0.36, 0.55, 0.25)
+    VERGE = (0.47, 0.53, 0.32)
+    DIRT = (0.58, 0.49, 0.37)
 
     def mix(a, b, k):
         return tuple(a[i] + (b[i] - a[i]) * k for i in range(3))
@@ -384,7 +390,11 @@ def scatter(M, t):
             # lowest bedding plane is buried on both sides.
             for k in range(layers):
                 u = k / max(1, layers - 1)
-                lz = z + s * (-0.20 + 0.78 * u)
+                # -0.42, not -0.20. Deep enough that a flat slab stays bedded
+                # on the steep flanks too -- the shallower value worked on the
+                # gentle middle of the map and left boulders hanging off the
+                # hillsides with their own shadows under them.
+                lz = z + s * (-0.42 + 0.78 * u)
                 lr = s * (1.0 - 0.30 * u) * (0.86 + 0.22 * rnd())
                 # 0.34, not 0.26: at the thinner value a two-layer boulder was
                 # a pair of discs lying on the grass, and sixty of them read as
@@ -1042,6 +1052,27 @@ def main():
         "ridge_b":  K.material("ridge_b", (0.60, 0.71, 0.79), roughness=1.0),
     })
 
+    # TEXTURE THE STONE AND THE BARK. The town runs a texture pass and the
+    # meadow never did, so its boulders, walls, standing stones, ruin and tree
+    # trunks were flat palette colours -- which is most of what you look at out
+    # here, and it read as a clear step down from the plaza. One greyscale
+    # generator per surface kind, TINTED per material, the same arrangement the
+    # town uses. `stone`, not ashlar: coursed masonry is right for a dressed
+    # wall and wrong for a boulder.
+    #
+    # This has to happen BEFORE `A.Town(M)`, or the pieces built during
+    # assembly capture the old flat materials -- the same ordering trap the
+    # town's ground textures hit.
+    for key, fn, tint in (("rock", surface_tex.stone_rough, (0.52, 0.50, 0.48)),
+                          ("stone", surface_tex.stone_rough, (0.74, 0.72, 0.68)),
+                          ("bark", surface_tex.bark_rough, (0.34, 0.25, 0.19)),
+                          ("bark_dead", surface_tex.bark_rough, (0.44, 0.41, 0.36))):
+        path = os.path.abspath(f"public/assets/tex/m_{key}.png")
+        surface_tex.write_png(path, np.clip(fn() * np.array(tint, np.float32), 0, 1))
+        M[key] = K.image_material(
+            f"m_{key}_tex", bpy.data.images.load(path, check_existing=True),
+            roughness=0.95, preview=tint)
+
     t = A.Town(M)
     t.walk(build_terrain(M))
     landmark(M, t)
@@ -1078,6 +1109,9 @@ def main():
     scatter(M, t)
 
     town, floor = A.finish(t, name_town="MEADOW", name_floor="FLOOR_MEADOW")
+    # Per-face planar projection for everything that is not the ground -- the
+    # floor carries its own world-planar UVs from `build_terrain`.
+    K.box_uvs(town, tile=1.6)
     tris = sum(sum(len(p.vertices) - 2 for p in o.data.polygons)
                for o in (town, floor) if o)
     print(f"[meadow] {len(t.parts)} parts -> {tris} tris, {len(t.solids)} solids")

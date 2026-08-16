@@ -182,6 +182,45 @@ def dirt(res=RES, seed=17, a=(0.70, 0.61, 0.49), b=(0.76, 0.68, 0.56)):
     return np.clip(img, 0, 1)
 
 
+def stone_rough(res=RES, seed=131):
+    """Undressed stone: mottle, grain and a few dark pits.
+
+    The town textures its `stone` into coursed ashlar, which is right for
+    dressed masonry and wrong for everything outdoors -- and the meadow ran no
+    texture pass at all, so its boulders, dry-stone walls, standing stones and
+    ruin were flat palette colours. An audit called that 80% of what you look
+    at outdoors and a clear fidelity step down from the town, which it was.
+
+    Greyscale and centred near 1.0 so one image serves rock, stone and the
+    ruin, each tinted by its own material.
+    """
+    n = _fbm(res, seed, octaves=5, base=6)
+    v = 0.90 + 0.20 * n
+    grain = _fbm(res, seed + 7, octaves=3, base=23)
+    v = v * (0.965 + 0.070 * grain)
+    # pits: sparse and dark, the thing that says "this was never cut"
+    pit = _fbm(res, seed + 19, octaves=2, base=13)
+    v = v * np.where(pit > 0.80, 0.86, 1.0)
+    return np.clip(np.repeat(v[..., None], 3, axis=2), 0, 1)
+
+
+def bark_rough(res=RES, seed=149):
+    """Bark: coarse vertical-ish fibre with deep splits.
+
+    Projected per face by `box_uvs`, so the direction is only right on about a
+    third of a trunk -- which at the size a trunk is seen is a trade worth
+    making for having any surface at all instead of a flat brown cylinder.
+    """
+    yy = np.linspace(0, 1, res, dtype=np.float32)[:, None]
+    xx = np.linspace(0, 1, res, dtype=np.float32)[None, :]
+    fibre = 0.5 + 0.5 * np.sin(xx * 62.0 + _fbm(res, seed, octaves=3, base=4) * 9.0)
+    v = 0.90 + 0.18 * fibre
+    split = _fbm(res, seed + 5, octaves=3, base=9)
+    v = v * np.where(split > 0.72, 0.80, 1.0)
+    v = v * (0.97 + 0.06 * _fbm(res, seed + 11, octaves=2, base=17))
+    return np.clip(np.repeat(v[..., None], 3, axis=2), 0, 1)
+
+
 def ground_detail(res=RES, seed=91):
     """A NEUTRAL detail map for the meadow floor -- mottle, not colour.
 

@@ -132,7 +132,14 @@ function addOutline(mesh, width = 0.0032, sway = 0) {
 //
 // So the suffix is stripped ONCE, here, and every table below is keyed on the
 // surface, not on whatever the exporter happened to call it.
-const surfaceOf = (matName) => (matName || '').toLowerCase().replace(/_tex$/, '');
+const surfaceOf = (matName) => (matName || '')
+  .toLowerCase()
+  // `m_` marks a MEADOW-textured variant of a shared surface: the town's
+  // `stone` is coursed ashlar and the meadow's is undressed rock, so they
+  // cannot be the same image, but they must land on the same look entry or
+  // every table in this file needs a second row that will drift from the first.
+  .replace(/^m_/, '')
+  .replace(/_tex$/, '');
 
 // Materials that must NOT be shaded: a lamp that falls into the shadow band
 // stops looking lit, and glass reads better as a flat pane than as a surface.
@@ -203,7 +210,13 @@ const TOWN_LOOK = {
   // 0.05: same argument as the ground below -- a ninety-metre water plane is
   // seen almost entirely at a grazing angle, so any rim at all is a uniform
   // lightening of the whole surface rather than a highlight on its edge.
-  water:   { rimStrength: 0.05, rimColor: 0xd8f4ff },
+  // TRANSPARENT, because an opaque plane with a straight-cut edge is not
+  // water, it is a painted floor -- which is what an audit called it. At 0.72
+  // the bed and the bank stones read through it, so the shoreline becomes the
+  // line where the plane meets the ground rather than a hard edge drawn on top
+  // of it, and the ford's stepping stones stop looking like they are resting
+  // on a lid.
+  water:   { rimStrength: 0.05, rimColor: 0xd8f4ff, opacity: 0.72 },
   foam:    { rimStrength: 0.35, rimColor: 0xffffff },
   brass:   { rimStrength: 1.00, rimColor: 0xfff0c0 },
   // meadow
