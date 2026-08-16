@@ -37,6 +37,18 @@ export const TUNE = {
     hang: 0.19,            // seconds of held breath at the top
     pogo: 7.4,             // upward kick on a hit -- the whole point
   },
+  // THE SLIP. The only defensive option, and the answer the Curler's design has
+  // been asking for since it was built: its charge commits to a straight line
+  // and cannot correct, so there has to be a way to not be on that line.
+  //
+  // It cancels attack recovery. That is the whole feel of it -- committing to a
+  // swing is supposed to be a risk, not a trap, and a game where the only way
+  // out of a recovery is to eat the hit teaches you to stop attacking.
+  dodge: {
+    clip: 'dodge', time: 0.42, dist: 3.6,
+    iFrom: 0.05, iTo: 0.28,      // invulnerable across the middle of it
+    cooldown: 0.62,
+  },
   comboWindow: 0.42,       // how long after a swing a follow-up still chains
   playerHP: 100,
   playerIFrames: 0.85,
@@ -126,6 +138,7 @@ export const SPECIES = {
 const _v = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
 const _fv = new THREE.Vector3();
+const _hit = { x: 0, z: 0 };
 
 function pickClip(clips, want, fallback) {
   return clips[want] ? want : (clips[fallback] ? fallback : null);
@@ -148,6 +161,10 @@ export function createCombat(ctx) {
     maxHP: TUNE.playerHP,
     invuln: 0,
     step: -1,               // index into TUNE.combo, -1 = not attacking
+    airChain: 0,            // pogos since last touching the ground
+    dodging: 0,             // seconds left in a slip
+    dodgeT: 0,
+    dodgeCd: 0,
     phase: 'none',          // windup | active | recover
     t: 0,
     buffered: false,
@@ -259,6 +276,20 @@ export function createCombat(ctx) {
     return e;
   }
 
+  // THE LEGS HAVE TO KEEP UP WITH THE GROUND.
+  //
+  // Every `move` clip is authored at one pace, and the AI drives speed from
+  // spec.speed modified by knockback, slopes and crowding -- so the legs skated
+  // whenever those disagreed. Scaling the clip to actual travel is one line and
+  // it is the difference between a creature walking and a creature being slid.
+  function matchGait(e, dt) {
+    const clip = e.clips.move;
+    if (!clip || e.current !== clip) return;
+    const speed = Math.hypot(e.vel.x, e.vel.z);
+    const want = THREE.MathUtils.clamp(speed / (e.spec.speed * 1.6), 0.35, 2.2);
+    clip.timeScale += (want - clip.timeScale) * Math.min(1, dt * 12);
+  }
+
   function play(e, name, fade = 0.14) {
     const next = e.clips[name];
     if (!next || next === e.current) return;
@@ -268,6 +299,24 @@ export function createCombat(ctx) {
   }
 
   // ------------------------------------------------------------ the combo
+
+  /**
+   * Start a slip if one is allowed. Returns the direction-agnostic timing the
+   * movement code needs; main.js owns which way the player actually goes,
+   * because it owns the camera basis that "left" is relative to.
+   */
+  function dodge() {
+    if (player.dead || player.dodgeCd > 0) return null;
+    // cancels a swing's recovery, but not its active frames: you do not get to
+    // erase a whiff you are still in the middle of
+    if (player.step >= 0 && player.phase !== 'recover') return null;
+    player.step = -1;
+    player.phase = 'none';
+    player.dodging = TUNE.dodge.time;
+    player.dodgeT = 0;
+    player.dodgeCd = TUNE.dodge.cooldown;
+    return TUNE.dodge;
+  }
 
   function attack(airborne = false) {
     if (player.dead) return false;
@@ -379,6 +428,10 @@ export function createCombat(ctx) {
 
   function hurtPlayer(dmg, fromPos) {
     if (player.invuln > 0 || player.dead) return;
+    // the slip's i-frames: a window inside the move, not the whole of it, so
+    // it is a read rather than a panic button
+    if (player.dodging > 0
+        && player.dodgeT >= TUNE.dodge.iFrom && player.dodgeT <= TUNE.dodge.iTo) return;
     player.hp -= dmg;
     player.invuln = TUNE.playerIFrames;
     hitStop = Math.max(hitStop, 0.07);
@@ -427,6 +480,8 @@ export function createCombat(ctx) {
     separate(scaled);
 
     if (player.invuln > 0) player.invuln -= raw;
+    if (player.dodgeCd > 0) player.dodgeCd -= raw;
+    if (player.dodging > 0) { player.dodging -= raw; player.dodgeT += raw; }
     player.sinceCombo += raw;
     if (lockTarget && (lockTarget.dead
         || lockTarget.pos.distanceTo(ctx.playerPos()) > TUNE.lockDrop)) {
@@ -482,7 +537,13 @@ export function createCombat(ctx) {
       hurtEnemy(e, s.damage, p, s.knock, s.lift, s.stop, s.shake);
       // combat.js does not own the player's vertical velocity, so it raises a
       // flag and the movement code decides what to do with it
-      if (s.pogo) player.pogo = s.pogo;
+      // DIMINISHING, or a perfect player never has to land. Each bounce
+      // without touching the ground gives less than the last, so a juggle is a
+      // few hits long by construction rather than by the player's patience.
+      if (s.pogo) {
+        player.pogo = s.pogo * Math.pow(0.74, player.airChain);
+        player.airChain++;
+      }
     }
   }
 
@@ -588,6 +649,7 @@ export function createCombat(ctx) {
       }
     }
 
+    matchGait(e, dt);
     integrate(e, dt);
     e.group.position.copy(e.pos);
     e.group.rotation.y = e.facing;
@@ -620,9 +682,28 @@ export function createCombat(ctx) {
     e.group.visible = !far;
     setDetail(e, d2 < (cut * 0.72) * (cut * 0.72));
     if (far && !e.dead) {
-      // park it: no skinning, no AI, no draw. It is home and idle by now.
-      if (e.state !== 'return') { e.vel.set(0, 0, 0); e.state = 'idle'; }
-      else { integrate(e, dt); e.group.position.copy(e.pos); }
+      // PARK IT PROPERLY. The first version froze whatever it was doing, which
+      // meant a bird that crossed the cull line mid-flight hung in the air
+      // forever and a leashed enemy walking home coasted to a stop in a field.
+      // Both showed up in the smoke test as "3/6 back down" and "1/3 home".
+      //
+      // Nobody can see it, so the honest thing is to finish the journey for it:
+      // resolve to its post, on the ground, at full health.
+      // UNCONDITIONALLY back to its post. An earlier version skipped anything
+      // already reading 'idle', which sounds like an optimisation and is
+      // actually a hole: something idling far from home then stays there
+      // forever, invisible, and the encounter it belongs to is quietly empty.
+      // An enemy that IS at home makes this a no-op, so there is nothing to save.
+      e.vel.set(0, 0, 0);
+      e.fly = false;
+      e.pos.copy(e.home);
+      e.pos.y = ctx.groundAt(e.home.x, e.home.z, e.home.y + 3) ?? e.home.y;
+      e.hp = e.spec.hp;
+      e.token = false;
+      e.lockDir = null;
+      e.state = 'idle';
+      e.t = 0;
+      e.group.position.copy(e.pos);
       return;
     }
     e.mixer.update(dt);
@@ -722,6 +803,11 @@ export function createCombat(ctx) {
           hurtPlayer(e.spec.damage, e.pos);
         }
         if (e.t >= e.spec.attackTime) {
+          // A CHARGE THAT MISSES COSTS MORE THAN ONE THAT LANDS. Stepping aside
+          // is the answer to the Curler, so stepping aside has to be worth
+          // something -- otherwise dodging and tanking have the same price and
+          // the enemy has no puzzle in it.
+          e.recoverScale = (e.spec.charge && !e.didHit) ? 1.7 : 1;
           e.state = 'recover'; e.t = 0; e.didHit = false; e.lockDir = null;
           play(e, 'recover', 0.06);
         }
@@ -729,8 +815,8 @@ export function createCombat(ctx) {
 
       case 'recover':
         e.vel.multiplyScalar(0.84);
-        if (e.t >= e.spec.recoverTime) {
-          e.state = 'approach'; e.t = 0; e.token = false;
+        if (e.t >= e.spec.recoverTime * (e.recoverScale || 1)) {
+          e.state = 'approach'; e.t = 0; e.token = false; e.recoverScale = 1;
         }
         break;
 
@@ -739,6 +825,7 @@ export function createCombat(ctx) {
         break;
     }
 
+    matchGait(e, dt);
     integrate(e, dt);
     e.group.position.copy(e.pos);
     e.group.rotation.y = e.facing;
@@ -781,6 +868,18 @@ export function createCombat(ctx) {
       if (!Number.isFinite(e.pos.x)) e.pos.copy(ctx.playerPos());
     }
     e.pos.addScaledVector(e.vel, dt);
+
+    // The same box push-out the player uses. Without it a charging Curler goes
+    // through a tree trunk, which is the sort of thing you only have to see
+    // once. Fliers are exempt: they are above everything by design, and a bird
+    // shoved sideways by a rock it is four metres over looks worse than a bird
+    // that ignores it.
+    if (ctx.pushOut && !e.fly) {
+      _hit.x = e.pos.x; _hit.z = e.pos.z;
+      ctx.pushOut(_hit, e.spec.radius);
+      e.pos.x = _hit.x; e.pos.z = _hit.z;
+    }
+
     e.vel.x *= Math.pow(0.02, dt);
     e.vel.z *= Math.pow(0.02, dt);
     if (!e.fly) e.vel.y -= 22 * dt;
@@ -829,9 +928,14 @@ export function createCombat(ctx) {
     swingSpec, attackClipFor,
     get shake() { return shake; },
     fx,
+    dodge,
+    isDodging: () => player.dodging > 0,
+    dodgePhase: () => player.dodgeT,
     isAttacking: () => player.step >= 0,
     isAirSwing: () => player.step === AIR,
     takePogo: () => { const v = player.pogo; player.pogo = 0; return v; },
+    landed: () => { player.airChain = 0; },
+    airChain: () => player.airChain,
     attackPhase: () => player.phase,
     attackStep: () => player.step,
   };

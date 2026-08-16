@@ -548,3 +548,84 @@ def anim_airattack(rig, weapon=True):
         K.key(rig, f, p, loc={"hips": loc})
     K.interp(act)
     return act
+
+
+def anim_dodge(rig, weapon=True):
+    """THE SLIP -- the defensive option, and deliberately not a roll.
+
+    Every action game reaches for a shoulder roll and it is the one move that
+    would make this character look borrowed.  She is also wearing a long coat
+    and boots, which is not what you roll in.  So: a fencer's retreat.  She
+    drops her weight onto the trailing leg, drives, and skims -- torso turned
+    away, blade held low and across the body, head still tracking whatever she
+    is backing away from.
+
+    THE HEAD IS THE WHOLE TRICK.  A retreat where the character looks where they
+    are going reads as running away.  A retreat where they keep watching the
+    thing they are avoiding reads as a decision.
+
+    The runtime carries her sideways and gives i-frames over the middle of it,
+    so the clip's job is to make 0.4 s of translation look like a choice rather
+    than a slide.  It ends standing, because whatever comes next -- a swing, a
+    second slip -- starts from there.
+    """
+    act = K.action(rig, "dodge")
+    n = _neutral(weapon)
+
+    # the load: weight drops, everything gathers to one side
+    coil = dict(n)
+    coil.update({
+        "hips": (14.0, 0.0, -10.0), "spine": (8.0, -6.0, -6.0),
+        "chest": (6.0, -12.0, -4.0), "neck": (-4.0, 14.0, 0.0),
+        "head": (-6.0, 20.0, 0.0),          # already looking back
+        "upperarm.R": (-24.0, 0.0, -18.0), "forearm.R": (74.0, 0.0, 0.0),
+        "hand.R": (-16.0, 0.0, 0.0),
+        "upperarm.L": (-14.0, 0.0, 26.0), "forearm.L": (52.0, 0.0, 0.0),
+        "thigh.L": (34.0, 0.0, 10.0), "shin.L": (-52.0, 0.0, 0.0),
+        "foot.L": (18.0, 0.0, 0.0),
+        "thigh.R": (-12.0, 0.0, -14.0), "shin.R": (-18.0, 0.0, 0.0),
+        "foot.R": (12.0, 0.0, 0.0),
+    })
+
+    # the skim: low, long, trailing leg extended behind the direction of travel
+    skim = dict(n)
+    skim.update({
+        "hips": (20.0, 0.0, -16.0), "spine": (12.0, -10.0, -10.0),
+        "chest": (8.0, -18.0, -8.0), "neck": (-6.0, 20.0, 0.0),
+        "head": (-8.0, 28.0, 0.0),
+        "upperarm.R": (-16.0, 0.0, -26.0), "forearm.R": (86.0, 0.0, 0.0),
+        "hand.R": (-22.0, 0.0, 0.0),
+        "upperarm.L": (-8.0, 0.0, 40.0), "forearm.L": (38.0, 0.0, 0.0),
+        "thigh.L": (58.0, 0.0, 14.0), "shin.L": (-74.0, 0.0, 0.0),
+        "foot.L": (24.0, 0.0, 0.0),
+        "thigh.R": (-34.0, 0.0, -18.0), "shin.R": (10.0, 0.0, 0.0),
+        "foot.R": (-18.0, 0.0, 0.0),
+    })
+
+    # the catch: the trailing leg comes under her and the coil unwinds
+    catch = dict(n)
+    catch.update({
+        "hips": (10.0, 0.0, -6.0), "spine": (6.0, -4.0, -3.0),
+        "chest": (4.0, -8.0, -2.0), "neck": (-2.0, 8.0, 0.0),
+        "head": (-4.0, 12.0, 0.0),
+        "upperarm.R": (-14.0, 0.0, -12.0), "forearm.R": (64.0, 0.0, 0.0),
+        "upperarm.L": (-10.0, 0.0, 20.0), "forearm.L": (44.0, 0.0, 0.0),
+        "thigh.L": (24.0, 0.0, 8.0), "shin.L": (-38.0, 0.0, 0.0),
+        "foot.L": (12.0, 0.0, 0.0),
+        "thigh.R": (-6.0, 0.0, -10.0), "shin.R": (-14.0, 0.0, 0.0),
+        "foot.R": (8.0, 0.0, 0.0),
+    })
+
+    # i-frames run 0.05 s -> 0.28 s == frames 1.2 to 6.7, so the skim has to be
+    # unmistakably the middle of the move and not its beginning
+    for f, p, loc in [
+        (0,  n,     (0.0, 0.000, 0.000)),
+        (2,  coil,  (0.0, 0.030, -0.075)),
+        (5,  skim,  (0.0, 0.010, -0.115)),
+        (8,  skim,  (0.0, -0.010, -0.100)),
+        (13, catch, (0.0, 0.000, -0.040)),
+        (20, n,     (0.0, 0.000, 0.000)),
+    ]:
+        K.key(rig, f, p, loc={"hips": loc})
+    K.interp(act)
+    return act

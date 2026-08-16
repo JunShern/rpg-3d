@@ -34,7 +34,13 @@ PORT=3100 node server.js      # port 3000 is Emberbrook's
 ```
 
 Open **http://localhost:3100**. `WASD`/arrows move (camera-relative), drag to
-orbit, wheel to zoom, `space` to jump, `J` to swing, `C` to swap character.
+orbit, wheel to zoom, `space` to jump, `J` to swing, `shift` to slip, `Q` to
+lock on, `Tab` to change target, `C` to swap character. Swing in the air for the
+falling cut; land it and you bounce back up.
+
+Run `node tools/smoke.mjs` to play the whole thing headlessly and assert it
+still works — see `docs/COMBAT-BAR.md` for what it covers and why frame time is
+deliberately not one of the assertions.
 
 **Vesper, Lake and Maren** — meshes authored for the Emberbrook project,
 re-rigged here — share one animation library, and each carries a generated

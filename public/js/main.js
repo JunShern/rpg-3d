@@ -133,6 +133,7 @@ const TOWN_LOOK = {
 
 const SOLIDS = [];         // oriented boxes, from every region's manifest
 let terrain = null;        // analytic ground for the meadow
+let terrainProbes = [];
 const FLOORS = [];         // meshes the ground raycast targets
 let townReady = false;
 
@@ -200,7 +201,8 @@ Promise.all([
 
   // the meadow answers ground queries analytically; prove the port agrees
   terrain = makeTerrain(meadowMan.terrain);
-  const agree = terrain.check(meadowMan.terrainProbes);
+  terrainProbes = meadowMan.terrainProbes;
+  const agree = terrain.check(terrainProbes);
   console.log(`[terrain] port agrees with the mesh to ${agree.worst} over `
     + `${agree.n} probes`);
   if (agree.worst > 1e-4) {
@@ -377,6 +379,7 @@ addEventListener('keydown', (e) => {
   keys.add(e.code);
   if (e.code === 'Space') { e.preventDefault(); jump(); }
   if (e.code === 'KeyJ' || e.code === 'KeyE') { e.preventDefault(); attack(); }
+  if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') { e.preventDefault(); dodge(); }
   if (e.code === 'KeyC') { e.preventDefault(); cycleCharacter(); }
   if (e.code === 'KeyQ') { e.preventDefault(); if (combat) combat.toggleLock(); }
   if (e.code === 'Tab') { e.preventDefault(); if (combat) combat.cycleLock(); }
@@ -404,6 +407,38 @@ function jump() {
   landing = false;
   vy = JUMP_V;
   playOnce('jump', 0.06);
+}
+
+/**
+ * The slip. Direction is decided HERE and not in combat.js, because "left"
+ * only means anything relative to the camera and the camera lives up here.
+ *
+ * With no input it goes backwards -- away from the lock target if there is one,
+ * which is what you want when a Curler has committed to a line through you.
+ */
+function dodge() {
+  if (!cur || !combat || !grounded) return;
+  const spec = combat.dodge();
+  if (!spec) return;
+
+  let dx = 0, dz = 0;
+  if (keys.has('KeyW') || keys.has('KeyS') || keys.has('KeyA') || keys.has('KeyD')) {
+    const fx2 = -Math.sin(cam.az), fz2 = -Math.cos(cam.az);
+    const rx = -fz2, rz = fx2;
+    const iz = (keys.has('KeyW') ? 1 : 0) - (keys.has('KeyS') ? 1 : 0);
+    const ix = (keys.has('KeyD') ? 1 : 0) - (keys.has('KeyA') ? 1 : 0);
+    dx = fx2 * iz + rx * ix;
+    dz = fz2 * iz + rz * ix;
+  }
+  if (!dx && !dz) {
+    const lt = combat.lockTarget;
+    if (lt && !lt.dead) { dx = pos.x - lt.pos.x; dz = pos.z - lt.pos.z; }
+    else { dx = -Math.sin(facing); dz = -Math.cos(facing); }
+  }
+  const len = Math.hypot(dx, dz) || 1;
+  slip.x = dx / len; slip.z = dz / len;
+  slip.t = spec.time; slip.total = spec.time; slip.dist = spec.dist;
+  playOnce('dodge', 0.05);
 }
 
 function attack() {
@@ -692,6 +727,7 @@ let vy = 0;
 let grounded = true;
 let lastAirPhase = 'none';
 let plungeT = 0;
+const slip = { x: 0, z: 0, t: 0, total: 1, dist: 0 };
 let landing = false;
 
 const groundRay = new THREE.Raycaster();
@@ -796,6 +832,7 @@ function startCombat() {
     camera,
     world,
     groundAt,
+    pushOut,
     playerPos: () => pos,
     playerFacing: () => facing,
   });
@@ -970,6 +1007,18 @@ function step(dt) {
     facing += d * Math.min(1, dt * (lt ? 10 : 14));
   }
 
+  // THE SLIP MOVES YOU. Eased so the speed is highest in the middle, which is
+  // also where the i-frames are -- the fast part of the move and the safe part
+  // of the move being the same part is what makes it readable.
+  if (slip.t > 0) {
+    const k0 = 1 - slip.t / slip.total;
+    slip.t = Math.max(0, slip.t - dt);
+    const k1 = 1 - slip.t / slip.total;
+    const ease = (u) => u * u * (3 - 2 * u);
+    const step = (ease(k1) - ease(k0)) * slip.dist;
+    tryMove(slip.x * step, slip.z * step);
+  }
+
   // ...and the falling cut carries FORWARD as well as down. The pose is a dive
   // -- body horizontal, legs trailing, blade leading -- and a dive that moves
   // straight down reads as a belly-flop. Motion has to agree with the drawing.
@@ -1026,6 +1075,7 @@ function step(dt) {
       vy = 0;
       grounded = true;
       landing = true;
+      if (combat) combat.landed();     // the juggle's diminishing return resets
       playOnce('land', 0.05);
     }
   } else {
@@ -1038,7 +1088,7 @@ function step(dt) {
   if (cur) { cur.group.position.copy(pos); cur.group.rotation.y = facing; }
 
   // locomotion only reclaims the body once we are grounded and done landing
-  if (cur && !attacking && grounded && !landing) {
+  if (cur && !attacking && grounded && !landing && slip.t <= 0) {
     play(isMoving ? 'run' : 'idle');
   }
 
@@ -1116,7 +1166,7 @@ function frame(dt) {
   if (cur) { cur.mixer.update(dt); applyFootIK(cur, dt); }
   renderer.render(scene, camera);
   hud.textContent =
-    `${fps} fps  ·  ${cur ? cur.name : '—'}  ·  ${attacking ? 'attack' : !grounded ? 'air'
+    `${fps} fps  ·  ${cur ? cur.name : '—'}  ·  ${slip.t > 0 ? 'slip' : attacking ? 'attack' : !grounded ? 'air'
         : landing ? 'land' : isMoving ? 'run' : 'idle'}`
     + `${combat ? `  ·  ${combat.enemies.filter((e) => !e.dead).length} foes` : ''}`
     + `${combat && combat.lockTarget ? '  ·  LOCK' : ''}`
@@ -1197,6 +1247,25 @@ function cycleCharacter() {
 }
 
 globalThis.__cycle = cycleCharacter;
+/**
+ * QA hook: point the character at a spot.
+ *
+ * Swing tests need a known facing, and the only in-game way to get one is
+ * lock-on -- which picks the nearest valid target, not the one a test pinned.
+ * Three swings once landed cleanly on a nettle nobody was measuring while the
+ * assertion reported that the finisher does not launch. Aim directly instead,
+ * and let lock-on be tested by the lock-on test.
+ */
+globalThis.__groundAt = groundAt;
+globalThis.__face = (x, z) => {
+  facing = Math.atan2(x - pos.x, z - pos.z);
+  return facing;
+};
+// hooks the smoke test needs and nothing else does
+globalThis.__clipNames = (n) => (chars[n] ? Object.keys(chars[n].clips).sort() : null);
+Object.defineProperty(globalThis, '__terrainProbes', {
+  get: () => terrainProbes, configurable: true,
+});
 Object.defineProperty(globalThis, 'terrain', { get: () => terrain, configurable: true });
 Object.defineProperty(globalThis, 'combat', { get: () => combat, configurable: true });
 globalThis.__ik = IK_ENABLED;   // __ik.value = false to A/B it

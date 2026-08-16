@@ -300,7 +300,7 @@ def main():
     K.rest(rig)
     for fn in (anim_lib.anim_idle, anim_lib.anim_run, anim_lib.anim_attack,
                anim_lib.anim_attack2, anim_lib.anim_attack3,
-               anim_lib.anim_airattack,
+               anim_lib.anim_airattack, anim_lib.anim_dodge,
                anim_lib.anim_jump, anim_lib.anim_land):
         fn(rig, weapon=True)           # they carry a sword
     print(f"[{NAME[0]}] actions: {sorted(a.name for a in bpy.data.actions)}")
@@ -317,7 +317,7 @@ def main():
     K.rest(rig)
     path = K.export_glb(out, rig)
     info = K.verify_glb(path, animations=["idle", "run", "attack", "attack2", "attack3",
-                                          "airattack",
+                                          "airattack", "dodge",
                                     "jump", "land"])
     print(f"[{NAME[0]}] exported {path} ({os.path.getsize(path)/1024:.0f} KB)")
     print(f"[{NAME[0]}] verified: clips={info['animations']} images={info['images']}")

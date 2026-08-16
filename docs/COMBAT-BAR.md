@@ -31,6 +31,15 @@ Each line is either DONE (with the probe that proves it) or open. Nothing is
 marked DONE on the strength of a screenshot alone — it needs an assertion in
 `tools/smoke.mjs` or a measured number.
 
+`node tools/smoke.mjs` drives the real game in headless Chromium — real
+renderer, real GLBs, stepped frame by frame through `__sim` so there is no
+wall-clock flakiness — and asserts the lines below. It takes a few minutes.
+**Frame time is deliberately not one of its assertions**: headless reports
+~1400 fps because swiftshader is not doing a real GPU's rasterising, and a
+check that cannot fail is worse than no check. It asserts draw-call and
+triangle budgets instead, which are meaningful headless and are the thing that
+actually regressed. Frame time stays a hand-measurement, recorded below.
+
 ### Lock-on
 - [x] acquires the nearest valid target in front of the player — probe: `lockAcquired`
 - [x] swaps targets on input (`cycleLock`)
@@ -56,6 +65,17 @@ marked DONE on the strength of a screenshot alone — it needs an assertion in
       frame the blade went live, travelled 2.08 m forward, connected at 2.20 m
       and bounced the player from 1.55 m to 2.54 m
 
+### Defence
+- [x] a dodge exists and is the only defensive option — the **slip**: a low
+      fencer's retreat, deliberately not a shoulder roll. 3.6 m over 0.42 s,
+      eased so the fast part and the invulnerable part are the same part
+- [x] it grants i-frames across the middle of the move (0.05 s → 0.28 s), not
+      all of it — measured: 63 HP lost standing in a fight for 10 s, 36 slipping
+- [x] it cancels attack recovery but not active frames — committing to a swing
+      is a risk, not a trap, and a game where the only way out of a recovery is
+      to eat the hit teaches you to stop attacking
+- [x] it has a cooldown (0.62 s) so it is a read rather than a held button
+
 ### Impact  ← the single most load-bearing section
 - [x] hit-stop — global dt scaled to 6% for 55 ms (115 ms on the finisher)
 - [x] knockback proportional to the hit, finisher launches
@@ -70,6 +90,13 @@ marked DONE on the strength of a screenshot alone — it needs an assertion in
       enemies in `telegraph` and `attack` states
 - [x] the telegraph is a 520 ms held shape change (spines snap upright)
 - [x] enemies do not all attack at once — max 2 attack tokens
+- [x] a whiffed charge costs more than a landed one — measured: tanking a
+      Curler charge gives 1.43 s of recovery to punish, stepping aside gives
+      2.38 s. Dodging has to be worth something or the enemy has no puzzle in it
+- [x] enemies collide with the world, not just with each other — measured 0
+      overlap against all 91 solids across plaza, meadow and ridge
+- [x] locomotion clips scale to actual travel, so nothing skates — measured
+      2.11 m/s → 0.74× and 3.46 m/s → 1.16×, slowing as they close
 - [x] three hostile types — Nettle (swarmer), Curler (charger), Bellow (brute).
       Probe saw each run `approach → telegraph → attack → recover` and die
 - [x] two ambient types — Woolt (grazer: grazes, wanders, startles, bolts,
