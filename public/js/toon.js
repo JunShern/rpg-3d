@@ -88,9 +88,11 @@ export function toonMaterial(color, opts = {}) {
     key = 'default',
     map = null,
     sway = 0,
+    vertexColors = false,
   } = opts;
 
-  const mat = new THREE.MeshToonMaterial({ color, gradientMap: gradient, map });
+  const mat = new THREE.MeshToonMaterial({ color, gradientMap: gradient, map,
+                                           vertexColors });
 
   mat.onBeforeCompile = (shader) => {
     if (sway > 0) {

@@ -403,6 +403,34 @@ def set_uvs(obj, uv_per_vertex, name="UVMap"):
     return uvl
 
 
+def set_vertex_colors(obj, rgb_per_vertex, name="Col"):
+    """Write a per-vertex colour layer, for blending materials that cannot be
+    blended any other way.
+
+    WHY THIS EXISTS. The meadow's ground assigned one of three materials PER
+    FACE, so the grass/path transition could never be finer than a 1.6 m quad --
+    an audit's description was "large axis-aligned rectangles of different tint
+    in effectively every outdoor frame", and it was right, and no amount of
+    noise on the threshold fixes it because the threshold is evaluated once per
+    face. A vertex colour interpolates ACROSS the face, so the boundary stops
+    being made of quads at all.
+
+    glTF carries COLOR_0 and three.js multiplies it into the material when
+    `vertexColors` is on, so this survives the export intact.
+    """
+    me = obj.data
+    layer = me.color_attributes.get(name)
+    if layer is None:
+        layer = me.color_attributes.new(name=name, type='FLOAT_COLOR',
+                                        domain='POINT')
+    for i, c in enumerate(rgb_per_vertex):
+        layer.data[i].color = (c[0], c[1], c[2], 1.0)
+    me.color_attributes.active_color = layer
+    me.color_attributes.render_color_index = 0
+    me.update()
+    return layer
+
+
 def box_uvs(obj, tile=2.0, name="UVMap"):
     """Per-face planar projection along each face's dominant normal axis.
 
@@ -437,8 +465,17 @@ def box_uvs(obj, tile=2.0, name="UVMap"):
 
 
 def image_material(name, image, roughness=0.7, preview=(0.8, 0.8, 0.8),
-                   uv_layer="UVMap"):
-    """A material whose base colour comes from an image."""
+                   uv_layer="UVMap", vertex_color=None):
+    """A material whose base colour comes from an image.
+
+    `vertex_color` names a colour attribute to MULTIPLY the texture by. It has
+    to be wired into the node tree and not merely present on the mesh: the glTF
+    exporter decides what to emit from the graph, and with the attribute unused
+    it says so plainly -- "The active Vertex Color will not be exported, as it
+    is not used in the node tree of the material" -- and ships geometry with no
+    COLOR_0. Which, for a ground whose entire grass-to-path blend lives in that
+    attribute, is a field of flat mottled white.
+    """
     if name in bpy.data.materials:
         return bpy.data.materials[name]
     mat = bpy.data.materials.new(name)
@@ -457,7 +494,18 @@ def image_material(name, image, roughness=0.7, preview=(0.8, 0.8, 0.8),
     mat.node_tree.links.new(uvn.outputs["UV"], tex.inputs["Vector"])
     # links.new(FROM output, TO input) -- reversed, it silently creates nothing
     # and the texture never reaches the shader
-    mat.node_tree.links.new(tex.outputs["Color"], bsdf.inputs["Base Color"])
+    if vertex_color:
+        att = mat.node_tree.nodes.new("ShaderNodeVertexColor")
+        att.layer_name = vertex_color
+        mix = mat.node_tree.nodes.new("ShaderNodeMix")
+        mix.data_type = 'RGBA'
+        mix.blend_type = 'MULTIPLY'
+        mix.inputs["Factor"].default_value = 1.0
+        mat.node_tree.links.new(tex.outputs["Color"], mix.inputs[6])
+        mat.node_tree.links.new(att.outputs["Color"], mix.inputs[7])
+        mat.node_tree.links.new(mix.outputs[2], bsdf.inputs["Base Color"])
+    else:
+        mat.node_tree.links.new(tex.outputs["Color"], bsdf.inputs["Base Color"])
     bsdf.inputs["Roughness"].default_value = roughness
     mat.diffuse_color = (*preview, 1.0)
     return mat

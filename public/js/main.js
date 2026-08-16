@@ -164,7 +164,7 @@ const NO_OUTLINE_ENV = new Set([
   // The visible symptom of getting this wrong was a stray black line drawn
   // across open grass; the invisible one was half the build's triangles being
   // outline.
-  'grass', 'dirt', 'verge', 'cobble', 'cobble_b', 'flagstone', 'ring',
+  'grass', 'dirt', 'verge', 'ground', 'cobble', 'cobble_b', 'flagstone', 'ring',
   'ridge_a', 'ridge_b',
 ]);
 // Ground casts nothing useful onto itself; tufts and blooms cast nothing at all.
@@ -177,7 +177,7 @@ const NO_OUTLINE_ENV = new Set([
 // shadow map off and watching a hard-edged wedge of "brighter" ground vanish is
 // what found it; from inside the frame it looked like a lighting bug.
 const NO_SHADOW_ENV = new Set([
-  'grass', 'dirt', 'verge', 'cobble', 'cobble_b', 'flagstone', 'ring',
+  'grass', 'dirt', 'verge', 'ground', 'cobble', 'cobble_b', 'flagstone', 'ring',
   'grass_hi', 'bloom_a', 'bloom_b', 'leaf_lo', 'pod', 'ridge_a', 'ridge_b',
 ]);
 const TINY_ENV = new Set(['grass_hi', 'bloom_a', 'bloom_b', 'leaf_lo']);
@@ -188,6 +188,7 @@ const TOWN_LOOK = {
   // paving lost its contrast from about six metres out and the far side of the
   // square read as overexposed white. 0.06 keeps stone from going dead flat
   // and is not enough to bleach anything.
+  ground:    { gradient: RAMP_SOFT, rimStrength: 0.06 },
   cobble:    { gradient: RAMP_SOFT, rimStrength: 0.06 },
   cobble_b:  { gradient: RAMP_SOFT, rimStrength: 0.06 },
   flagstone: { gradient: RAMP_SOFT, rimStrength: 0.06 },
@@ -264,11 +265,15 @@ function applyTownLook(root) {
     // applied the tint twice and every textured surface came out a shade of
     // itself squared.
     const base = map ? new THREE.Color(0xffffff) : color;
+    // VERTEX COLOURS, where the geometry carries them. The meadow floor is one
+    // material whose entire grass-to-path transition is a COLOR_0 attribute --
+    // ignoring it ships a field of flat mottled white.
+    const vcol = !!m.geometry.getAttribute('color');
     m.material = TOWN_FLAT.has(name)
       ? flatMaterial(base)
       : toonMaterial(base, {
-          gradient: RAMP_SOFT, rimStrength: 0.28, map,
-          key: 'town:' + name, ...(TOWN_LOOK[name] || {}),
+          gradient: RAMP_SOFT, rimStrength: 0.28, map, vertexColors: vcol,
+          key: `town:${name}:${vcol ? 'v' : ''}`, ...(TOWN_LOOK[name] || {}),
         });
     // NOT EVERYTHING CASTS. The shadow map is a second full pass over the
     // scene, so a 6k-triangle terrain and 500 grass tufts casting shadows

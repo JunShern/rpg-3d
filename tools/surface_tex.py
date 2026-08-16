@@ -182,6 +182,27 @@ def dirt(res=RES, seed=17, a=(0.70, 0.61, 0.49), b=(0.76, 0.68, 0.56)):
     return np.clip(img, 0, 1)
 
 
+def ground_detail(res=RES, seed=91):
+    """A NEUTRAL detail map for the meadow floor -- mottle, not colour.
+
+    The ground used to be three tinted textures assigned per face, which is what
+    made the grass/path boundary a staircase of 1.6 m rectangles. It is one
+    material now, coloured by a vertex attribute that interpolates across every
+    face, so the texture's only remaining job is to stop the surface reading as
+    a flat fill. Centred on 1.0 so it MODULATES whatever colour the vertices
+    carry rather than imposing one of its own -- the same image has to work
+    under green, under tan and under the band between them.
+    """
+    n = _fbm(res, seed, octaves=4, base=5)
+    k = np.where(n > 0.52, 1.0, 0.0) * 0.055 + np.where(n > 0.68, 1.0, 0.0) * 0.045
+    clump = _fbm(res, seed + 5, octaves=3, base=11)
+    grit = _fbm(res, seed + 9, octaves=2, base=29)
+    v = 0.955 + k
+    v = v * np.where(clump > 0.74, 0.945, 1.0)
+    v = v * np.where(grit > 0.82, 0.965, 1.0)
+    return np.clip(np.repeat(v[..., None], 3, axis=2), 0, 1)
+
+
 def plaster(res=RES, seed=23, tone=(1.0, 1.0, 1.0), strength=0.05):
     """Rendered wall.
 

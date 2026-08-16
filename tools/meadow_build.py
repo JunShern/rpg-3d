@@ -209,8 +209,16 @@ def _path_x(y):
 
 
 def _path_weight(x, y):
+    # 1.8 / 4.8, NOT 2.6 / 6.4. At the old figures bare earth reached 3.6 m
+    # either side of the centreline and the worn band nearly twelve metres --
+    # which is a highway across a meadow, and once the ground blend became
+    # smooth it was obvious that most of every outdoor frame was road. A track
+    # a shepherd uses is about four metres wide including its verge.
+    #
+    # This also narrows the FLATTENING, since the same weight blends the road's
+    # height into the terrain: the land now rolls closer to the path.
     d = abs(x - _path_x(y))
-    return 1.0 - _ramp(d, 2.6, 6.4)
+    return 1.0 - _ramp(d, 1.8, 4.8)
 
 
 def on_path(x, y, margin=0.0):
@@ -223,71 +231,81 @@ TERRAIN_STEP = 1.6
 
 
 def build_terrain(M, step=TERRAIN_STEP):
+    """The meadow floor: ONE material, coloured per vertex.
+
+    IT USED TO BE THREE MATERIALS ASSIGNED PER FACE, and that is what made the
+    grass/path boundary a staircase of 1.6 m rectangles -- an audit's phrase was
+    "large axis-aligned quads of different tint in effectively every outdoor
+    frame", verified against `__shadows(false)` so it was definitely the ground
+    and not the shadow map. Noise on the threshold could only move the
+    staircase, never remove it: the threshold is evaluated once per face, so the
+    finest possible detail IS a face.
+
+    A vertex colour interpolates across the face. The blend is now continuous,
+    the noise can be sampled per vertex at whatever frequency suits, and the
+    floor went from three materials to one -- so it is also two fewer draw
+    calls and one fewer texture.
+    """
     x0, x1 = MEADOW["x0"], MEADOW["x1"]
     y0, y1 = MEADOW["y0"] - 2.0, MEADOW["y1"]   # tuck under the plaza edge
     nx = int((x1 - x0) / step) + 1
     ny = int((y1 - y0) / step) + 1
 
-    verts, faces, grass, dirt, verge = [], [], [], [], []
+    # The three tones the vertex colours interpolate between. They are the same
+    # values the three textures used to carry, so the meadow reads as it did --
+    # it is the transition between them that changed, not the palette.
+    GRASS = (0.46, 0.64, 0.34)
+    VERGE = (0.55, 0.60, 0.39)
+    DIRT = (0.62, 0.53, 0.41)
+
+    def mix(a, b, k):
+        return tuple(a[i] + (b[i] - a[i]) * k for i in range(3))
+
+    verts, faces, cols = [], [], []
     for j in range(ny):
         for i in range(nx):
             x = x0 + i * step
             y = y0 + j * step
             verts.append(Vector((x, y, height(x, y))))
+            # PER VERTEX, and at a frequency finer than the grid. Three octaves
+            # so the edge has both large bays and small fingers; the wavelengths
+            # are chosen to beat against the 1.6 m spacing rather than line up
+            # with it, which is what stops the result looking gridded again.
+            n = (0.052 * math.sin(x * 2.10 + y * 1.70)
+                 + 0.038 * math.sin(x * 4.37 - y * 3.91 + 1.9)
+                 + 0.026 * math.sin(x * 7.73 + y * 6.11 + 0.4)
+                 + 0.018 * math.sin(x * 13.1 - y * 11.7 + 2.7))
+            # THE ROAD IS A TRACK, NOT A BEACH. The first vertex-coloured pass
+            # put `dirt` at w >= 0.72 and `verge` from 0.20 -- and since
+            # `_path_weight` only falls to zero at 6.4 m, that made the worn
+            # band about nine metres of dirt inside thirteen of verge, which
+            # swallowed most of every frame. Bare earth now needs 0.86, which
+            # is inside 2.9 m of the centreline, and grass holds out to 0.34.
+            w = _path_weight(x, y) + n
+            if w <= 0.34:
+                c = mix(GRASS, VERGE, max(0.0, w / 0.34) * 0.45)
+            elif w >= 0.86:
+                c = DIRT
+            else:
+                c = mix(mix(GRASS, VERGE, 0.45), DIRT, (w - 0.34) / 0.52)
+            cols.append(c)
     for j in range(ny - 1):
         for i in range(nx - 1):
             a = j * nx + i
             faces.append((a, a + 1, a + nx + 1, a + nx))
-            x = x0 + (i + 0.5) * step
-            y = y0 + (j + 0.5) * step
-            # A VERGE BETWEEN THEM. This was a binary `on_path` test on a 1.6 m
-            # grid, so the road met the grass along a hard jagged staircase that
-            # read as discoloured patches rather than as a worn edge. The smooth
-            # `_path_weight` field that describes the transition already existed
-            # and was being used only for height -- it is what picks the band
-            # now, and a third material fills the middle of it.
-            # ...AND THE BAND EDGE IS RAGGED, not a contour line.
-            #
-            # Three bands off a smooth field still put every boundary on an
-            # exact iso-line of that field, which on a regular 1.6 m grid is a
-            # clean diagonal staircase -- an audit called it a knife edge and
-            # was right, in seven separate captures, after this was written
-            # down as fixed. A dirt track's edge is not a curve; it is where the
-            # grass happens to have given up. Two octaves of cheap noise on the
-            # weight before the threshold breaks each boundary into interlocking
-            # fingers of grass and verge, which is the same three materials and
-            # no extra triangles.
-            # The frequencies matter as much as the amplitude: the grid is
-            # 1.6 m, so a five-metre wavelength makes three-face blobs and the
-            # verge reads as a checkerboard spreading into the field. These
-            # periods are 2-3 m, which is one to two faces -- fingers, not
-            # patches -- and the total amplitude is 0.165, enough to break the
-            # contour and not enough to widen the road.
-            n = (0.075 * math.sin(x * 2.10 + y * 1.70)
-                 + 0.055 * math.sin(x * 4.30 - y * 3.90 + 1.9)
-                 + 0.035 * math.sin(x * 7.70 + y * 6.10 + 0.4))
-            w = _path_weight(x, y) + n
-            (dirt if w > 0.76 else verge if w > 0.16 else grass) \
-                .append(len(faces) - 1)
 
     # recalc=False: the winding above is (i,j) -> (i+1,j) -> (i+1,j+1) -> (i,j+1),
     # whose normal is X x Y = +Z, i.e. up. A heightfield is an OPEN surface, so
     # bmesh's normal repair has no volume to infer from and guesses -- here it
     # guessed down, and the whole meadow rendered black.
-    obj = K._new_obj("floor_meadow", verts, faces, mat=M["grass_tex"], smooth=True,
+    obj = K._new_obj("floor_meadow", verts, faces, mat=M["ground_tex"], smooth=True,
                      recalc=False)
-    obj.data.materials.append(M["dirt_tex"])
-    obj.data.materials.append(M["verge_tex"])
-    for fi in dirt:
-        obj.data.polygons[fi].material_index = 1
-    for fi in verge:
-        obj.data.polygons[fi].material_index = 2
+    K.set_vertex_colors(obj, cols)
 
     # PLANAR UVs FROM WORLD X/Y. The heightfield is gentle enough that projecting
-    # straight down costs nothing visible, and it means grass and path share one
-    # continuous UV set -- so the material boundary is a change of texture rather
-    # than a change from one flat colour to another, which is what made the
-    # per-face assignment read as discoloured patches.
+    # straight down costs nothing visible, and the detail map is neutral mottle
+    # rather than colour, so one continuous UV set over the whole floor is all
+    # it needs.
     tile = 5.0
     K.set_uvs(obj, [(v.co.x / tile, v.co.y / tile) for v in obj.data.vertices])
     return obj
@@ -992,15 +1010,12 @@ def main():
     M = A.palette()
     # generated ground, written next to the assets and packed into the GLB
     os.makedirs("public/assets/tex", exist_ok=True)
-    for nm, fn in (("grass", surface_tex.grass), ("dirt", surface_tex.dirt),
-                   ("verge", surface_tex.verge)):
+    for nm, fn in (("ground", surface_tex.ground_detail),):
         path = os.path.abspath(f"public/assets/tex/{nm}.png")
         surface_tex.write_png(path, fn())
         M[f"{nm}_tex"] = K.image_material(
             f"{nm}_tex", bpy.data.images.load(path, check_existing=True),
-            roughness=0.92,
-            preview=({"grass": (0.50, 0.66, 0.38), "dirt": (0.68, 0.59, 0.47),
-                      "verge": (0.60, 0.63, 0.43)})[nm])
+            roughness=0.92, preview=(0.98, 0.98, 0.98), vertex_color="Col")
     M.update({
         "grass":    K.material("grass", (0.44, 0.62, 0.30), roughness=0.9),
         "grass_hi": K.material("grass_hi", (0.58, 0.74, 0.34), roughness=0.9),
@@ -1088,7 +1103,11 @@ def main():
     bpy.ops.export_scene.gltf(
         filepath=out, export_format='GLB', use_selection=True,
         export_apply=True, export_animations=False, export_yup=True,
-        export_materials='EXPORT', export_texcoords=True, export_normals=True)
+        export_materials='EXPORT', export_texcoords=True, export_normals=True,
+        # COLOR_0 OR THE GROUND IS ONE FLAT TONE. The meadow floor is a single
+        # material whose grass/path blend lives entirely in a vertex colour
+        # layer, so an export that drops attributes ships a beige field.
+        export_vertex_color='MATERIAL', export_all_vertex_colors=True)
     print(f"[meadow] exported {out} ({os.path.getsize(out)/1024:.0f} KB)")
 
     man = t.manifest()

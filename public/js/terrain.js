@@ -98,7 +98,10 @@ export function makeTerrain(cfg) {
     const t = Math.min(1, (y - gateY) / 9.0);
     let h = natural(x, y);
 
-    const pw = 1.0 - ramp(Math.abs(x - pathAt(y)), 2.6, 6.4);
+    // 1.8 / 4.8 -- MUST MATCH meadow_build._path_weight. Changing one and not
+    // the other is exactly the drift `check()` exists to catch, and it did:
+    // "[terrain] PORT HAS DRIFTED from the builder", worst 0.225 m.
+    const pw = 1.0 - ramp(Math.abs(x - pathAt(y)), 1.8, 4.8);
     h = h * (1 - pw) + roadZ(y) * pw;
 
     // AFTER the path blend, not before -- see meadow_build.height
