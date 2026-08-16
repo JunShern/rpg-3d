@@ -49,8 +49,13 @@ key.shadow.camera.left = -16;
 key.shadow.camera.right = 16;
 key.shadow.camera.top = 16;
 key.shadow.camera.bottom = -16;
-key.shadow.bias = -0.0006;
-key.shadow.normalBias = 0.03;
+// A LARGE normalBias AND back-face casting, tuned together against the gate
+// pillars -- the worst case in the build, being thin, bevelled and nearly
+// parallel to the light. normalBias offsets the lookup along the surface
+// normal, which is exactly the correction a grazing surface needs; bias stays
+// small so contact shadows still touch what casts them.
+key.shadow.bias = -0.0004;
+key.shadow.normalBias = 0.06;
 scene.add(key, key.target);
 
 // Fill stays LOW: piling on ambient lifts the shadow band toward the lit band
@@ -172,6 +177,15 @@ function applyTownLook(root) {
     // scene, so a 6k-triangle terrain and 500 grass tufts casting shadows
     // nobody can see is the most expensive nothing in the build. Ground
     // receives; small foliage does neither.
+    // SHADOW-CAST FROM THE BACK FACES.
+    //
+    // The town is closed, bevelled solids, so the surface nearest the light is
+    // also the surface being tested -- which is what self-shadowing acne IS.
+    // Writing only back faces into the depth map moves the reference surface to
+    // the far side of the object, where nothing visible is being compared
+    // against it. Texel snapping stopped the speckle crawling; this is what
+    // stops it existing.
+    m.material.shadowSide = THREE.BackSide;
     m.castShadow = !NO_SHADOW_ENV.has(name);
     m.receiveShadow = !TINY_ENV.has(name);
   }
@@ -1232,8 +1246,23 @@ function step(dt) {
   camera.lookAt(camTarget);
   applyShake();
 
-  key.position.set(pos.x + 7, pos.y + 24, pos.z + 9);
-  key.target.position.set(pos.x, pos.y, pos.z);
+  // SNAP THE SHADOW CAMERA TO ITS OWN TEXEL GRID.
+  //
+  // The light follows the player so a 32 m shadow frustum can cover a 200 m
+  // world. Following CONTINUOUSLY means every texel's world position drifts a
+  // fraction each frame, so the depth comparison flickers in and out of
+  // tolerance along grazing surfaces -- a herringbone speckle across the gate
+  // pillars that crawls as you walk, and reads exactly like a broken renderer.
+  //
+  // Moving in whole-texel steps makes the sampling stable: the shadow map is
+  // the same map shifted by an integer, not a slightly different projection.
+  const SPAN = 32;                       // left..right of the shadow frustum
+  const texel = SPAN / key.shadow.mapSize.x;
+  const sx = Math.round(pos.x / texel) * texel;
+  const sz = Math.round(pos.z / texel) * texel;
+  const sy = Math.round(pos.y / texel) * texel;
+  key.position.set(sx + 7, sy + 24, sz + 9);
+  key.target.position.set(sx, sy, sz);
   key.target.updateMatrixWorld();
 
   return isMoving;

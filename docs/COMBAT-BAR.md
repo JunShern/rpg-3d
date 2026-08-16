@@ -208,30 +208,34 @@ the creature pipeline was built to deliver was cancellable by mashing, enemy
 attacks could not miss, and one interruption disarmed an enemy for good. That
 whole cluster is fixed above. What it found that is still open:
 
-1. **No textures anywhere.** Every surface is flat colour plus a toon ramp; the
-   material named `cobble` has no cobble in it. This is the biggest remaining
-   visual gap and it is a whole subsystem, not a fix.
-2. **No verticality.** Nothing to climb, no upper storey, no balcony, no
+1. **No verticality.** Nothing to climb, no upper storey, no balcony, no
    below-grade. The jump clears a 1.1 m terrace and that is the entire vertical
    vocabulary.
-3. **Shadow acne on the gate pillar** — a herringbone speckle over a ±16 m ortho
-   frustum that shimmers as you walk, because the light translates with the
-   player with no texel snapping.
-4. **Hard-edged terrain material splotches** — grass/dirt assigned per face on a
-   1.6 m grid with no blend, which reads as discoloured patches.
-5. **Damage numbers have no occlusion** and are drawn over whatever is behind
+2. **Only the ground is textured.** Facades, roofs and props are still flat
+   colour plus a toon ramp. The ground was the surface that mattered most --
+   it fills the frame — but a plaster wall with no plaster in it is the same
+   fault one storey up.
+3. **Damage numbers have no occlusion** and are drawn over whatever is behind
    them.
-6. **The move list is small** even for one weapon: chain, air attack, dodge. No
+4. **The move list is small** even for one weapon: chain, air attack, dodge. No
    guard, parry, dash attack, charged hit or jump-cancel.
-7. **The playable characters are not generated.** They are imported meshes from
+5. **The playable characters are not generated.** They are imported meshes from
    another project, retargeted and re-rigged here — the README says so, but the
    "everything is scripted geometry" framing does not hold for the character you
    look at the whole time.
-8. **Enemy tells are silhouette-only** on a target ~45 px tall at fighting
+6. **Enemy tells are silhouette-only** on a target ~45 px tall at fighting
    distance. Palette now carries role (bone / cyan / ember), which helps, but
    there is no ground indicator or flash on the wind-up itself.
 
-*Answered from the audit:* the whole enemy-attack cluster above; three hostiles
+*Answered from the audit:* the whole enemy-attack cluster above; **no textures
+anywhere** (the plaza, terrace, meadow grass and worn path are all generated
+now — a Voronoi whose cell boundaries are the mortar lines for the paving,
+banded noise for the ground; four separate silent failures stood between the
+generator and a visible pixel, ending with `export_texcoords=False` sitting in
+the town's own export call); **shadow acne on the gate pillars** (texel-snapped
+shadow camera plus back-face casting and a normalBias tuned against the worst
+surface in the build); the **terrain splotches**, softened because grass and
+path now share one continuous UV set; three hostiles
 that were mutually indistinguishable at range (each now owns an accent colour —
 bone for the swarmer, cyan for the charger, ember for the brute, and the
 Bellow's sack glows as it inflates); no swing VFX at all (there is now a blade
