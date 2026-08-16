@@ -59,7 +59,13 @@ def palette():
         # pushed the lit band to near-white and a stream across a green meadow
         # read as a drift of snow. Water is the one surface here that should
         # be the darkest thing in frame.
-        "water":     (0.20, 0.44, 0.52),
+        # 0.10/0.30/0.40, not 0.20/0.44/0.52. Through the sRGB transfer the
+        # lighter value came out at 48/70/75% and, once the toon ramp put the
+        # whole surface in its lit band, the stream was almost exactly as
+        # bright as the grass it ran through -- so it read as pale plastic
+        # rather than as water. Water is DARK, and gets read as water
+        # because it is darker and bluer than everything around it.
+        "water":     (0.10, 0.30, 0.40),
         # AERATED water is nearly white. The jets first used the pool colour
         # and read as six grey pipes holding the bowl up -- falling water is
         # full of air and is the brightest thing in a fountain, not the

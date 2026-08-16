@@ -13,7 +13,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import {
   toonMaterial, flatMaterial, outlineMaterial, outlineGeometry, skyDome,
-  RAMP_3, RAMP_SOFT,
+  RAMP_3, RAMP_SOFT, setRimScale,
 } from './toon.js';
 import { createCombat, SPECIES, TUNE } from './combat.js';
 import { makeTrail } from './trail.js';
@@ -105,6 +105,21 @@ function addOutline(mesh, width = 0.0032) {
 
 // -------------------------------------------------------------------- town
 
+// ONE NAME PER SURFACE.
+//
+// The builders generate a texture for a surface and name the resulting material
+// `<surface>_tex`, because `image_material` hands back any existing material
+// with the requested name and the palette already owns a flat `cobble`. That
+// rename has now broken lookup after lookup in this file, each time silently:
+// the outline exclusions, the shadow exclusions, and -- found by rendering the
+// plaza with the rim forced to zero and watching a bleached wash disappear --
+// the entire per-material look table, so every textured ground surface in the
+// build was running the default rim meant for a creature.
+//
+// So the suffix is stripped ONCE, here, and every table below is keyed on the
+// surface, not on whatever the exporter happened to call it.
+const surfaceOf = (matName) => (matName || '').toLowerCase().replace(/_tex$/, '');
+
 // Materials that must NOT be shaded: a lamp that falls into the shadow band
 // stops looking lit, and glass reads better as a flat pane than as a surface.
 const TOWN_FLAT = new Set(['lamp']);
@@ -116,38 +131,54 @@ const NO_OUTLINE_ENV = new Set([
   // GROUND is not outlined either, and this one is about cost, not taste: an
   // inverted hull round a surface that fills the screen is a second full-screen
   // fill for an outline you only ever see at the silhouette.
-  // BOTH NAMES. Texturing the ground renamed these materials to `*_tex`, and
-  // these sets kept matching the old names -- so every ground surface, the
-  // 6,120-triangle heightfield included, silently got an inverted-hull outline
-  // shell and went back into the shadow pass. The visible symptom was a stray
-  // black line drawn across open grass; the invisible one was half the build's
-  // triangles being outline.
-  'grass', 'dirt', 'cobble', 'cobble_b',
-  'grass_tex', 'dirt_tex', 'verge_tex', 'cobble_tex', 'flagstone_tex',
+  // The visible symptom of getting this wrong was a stray black line drawn
+  // across open grass; the invisible one was half the build's triangles being
+  // outline.
+  'grass', 'dirt', 'verge', 'cobble', 'cobble_b', 'flagstone', 'ring',
 ]);
-// ground casts nothing useful onto itself; tufts and blooms cast nothing at all
+// Ground casts nothing useful onto itself; tufts and blooms cast nothing at all.
+//
+// `leaf_lo` IS A TUFT MATERIAL and was missing from this list, so 22,000
+// triangles of ankle-high grass were being drawn into a 32 m shadow map every
+// frame. The symptom was not "I can see grass shadows" -- at that size each one
+// is a texel -- it was a uniform speckled darkening of the entire meadow that
+// stopped dead at a straight line where the shadow frustum ended. Turning the
+// shadow map off and watching a hard-edged wedge of "brighter" ground vanish is
+// what found it; from inside the frame it looked like a lighting bug.
 const NO_SHADOW_ENV = new Set([
-  'grass', 'dirt', 'cobble', 'cobble_b', 'grass_hi', 'bloom_a', 'bloom_b',
-  'grass_tex', 'dirt_tex', 'verge_tex', 'cobble_tex', 'flagstone_tex',
+  'grass', 'dirt', 'verge', 'cobble', 'cobble_b', 'flagstone', 'ring',
+  'grass_hi', 'bloom_a', 'bloom_b', 'leaf_lo',
 ]);
-const TINY_ENV = new Set(['grass_hi', 'bloom_a', 'bloom_b']);
+const TINY_ENV = new Set(['grass_hi', 'bloom_a', 'bloom_b', 'leaf_lo']);
 const TOWN_LOOK = {
-  cobble:  { gradient: RAMP_SOFT, rimStrength: 0.18 },
-  cobble_b:{ gradient: RAMP_SOFT, rimStrength: 0.18 },
+  // THE GROUND GETS ALMOST NO RIM. On a plane, `1 - dot(view, normal)` is not
+  // an edge light at all -- it is a distance ramp, zero directly under the
+  // camera and approaching one at the horizon. At the default 0.28 the plaza
+  // paving lost its contrast from about six metres out and the far side of the
+  // square read as overexposed white. 0.06 keeps stone from going dead flat
+  // and is not enough to bleach anything.
+  cobble:    { gradient: RAMP_SOFT, rimStrength: 0.06 },
+  cobble_b:  { gradient: RAMP_SOFT, rimStrength: 0.06 },
+  flagstone: { gradient: RAMP_SOFT, rimStrength: 0.06 },
+  ring:      { gradient: RAMP_SOFT, rimStrength: 0.06 },
+  verge:     { gradient: RAMP_SOFT, rimStrength: 0.06 },
   stone:   { gradient: RAMP_SOFT, rimStrength: 0.30 },
   glass:   { rimStrength: 1.20, rimColor: 0xffffff },
   // 0.12, not 0.90. Rim light is `1 - dot(view, normal)`, which is small on a
   // ball and near ONE across a large flat plane seen at a grazing angle -- so a
   // value tuned on the fountain bowl added most of a cyan to every fragment of
   // a ninety-metre stream and rendered it as a drift of snow.
-  water:   { rimStrength: 0.12, rimColor: 0xd8f4ff },
+  // 0.05: same argument as the ground below -- a ninety-metre water plane is
+  // seen almost entirely at a grazing angle, so any rim at all is a uniform
+  // lightening of the whole surface rather than a highlight on its edge.
+  water:   { rimStrength: 0.05, rimColor: 0xd8f4ff },
   foam:    { rimStrength: 0.35, rimColor: 0xffffff },
   brass:   { rimStrength: 1.00, rimColor: 0xfff0c0 },
   leaf:    { rimStrength: 0.45 },
   // meadow
-  grass:    { gradient: RAMP_SOFT, rimStrength: 0.20 },
+  grass:    { gradient: RAMP_SOFT, rimStrength: 0.06 },
   grass_hi: { gradient: RAMP_SOFT, rimStrength: 0.34 },
-  dirt:     { gradient: RAMP_SOFT, rimStrength: 0.16 },
+  dirt:     { gradient: RAMP_SOFT, rimStrength: 0.06 },
   bark:     { rimStrength: 0.40 },
   leaf_lo:  { rimStrength: 0.34 },
   rock:     { gradient: RAMP_SOFT, rimStrength: 0.30 },
@@ -170,7 +201,7 @@ function applyTownLook(root) {
   // was out in the meadow.
   root.traverse((o) => { if (o.isMesh) meshes.push(o); });
   for (const m of meshes) {
-    const name = (m.material?.name || '').toLowerCase();
+    const name = surfaceOf(m.material?.name);
     // REMEMBER IT. The loop below decides outlines by material name, and by
     // then this loop has replaced the material with a fresh MeshToonMaterial
     // that carries no name at all -- so the exclusion set matched nothing and
@@ -263,10 +294,14 @@ Promise.all([
     console.error('[terrain] PORT HAS DRIFTED from the builder', agree.at);
   }
 
-  // Lantern lights are a warm ACCENT in daylight, not a second key. At full
-  // strength six of them wash the plaza flat and undo the ramp's contrast.
+  // Lantern lights are a warm ACCENT in daylight, not a second key -- and at
+  // intensity 4 over a 7.5 m range they were not even that: they painted a
+  // round yellow hotspot onto sunlit plaster next to every lamp, which reads as
+  // a rendering bug rather than as a lamp. A lit lamp at midday should be
+  // almost nothing; the glow belongs on the lamp head, not on the wall behind
+  // it, which is what the emissive `lamp` material is for.
   for (const L of townMan.lights || []) {
-    const lamp = new THREE.PointLight(0xffc879, 4.0, 7.5, 2);
+    const lamp = new THREE.PointLight(0xffc879, 1.1, 4.2, 2);
     lamp.position.set(L.x, L.y, L.z);
     world.add(lamp);
   }
@@ -337,7 +372,13 @@ function buildCharacter(def, gltf) {
   root.traverse((o) => { o.frustumCulled = false; if (o.isMesh) meshes.push(o); });
 
   for (const m of meshes) {
-    const name = (m.material?.name || '').toLowerCase();
+    const name = surfaceOf(m.material?.name);
+    // SAME TRAP AS THE TOWN. The outline loop below used to read the material
+    // name again -- from the material this loop has already replaced, which
+    // carries no name -- so `NO_OUTLINE` matched nothing and the face got an
+    // inverted hull round a flat decal, which is the one thing that comment
+    // says not to do.
+    m.userData.matName = name;
     const color = m.material?.color?.clone() || new THREE.Color(0xffffff);
     const map = m.material?.map || null;      // face decal / body texture
     m.material = FLAT_MATS.has(name)
@@ -352,9 +393,8 @@ function buildCharacter(def, gltf) {
     m.receiveShadow = false;
   }
   for (const m of meshes) {
-    const name = (m.material?.name || '').toLowerCase();
     mats.push(m.material);
-    if (NO_OUTLINE.has(name)) continue;
+    if (NO_OUTLINE.has(m.userData.matName || '')) continue;
     mats.push(addOutline(m, def.outline).material);
   }
   // transparency up front, so the close-camera fade never triggers a mid-frame
@@ -1117,9 +1157,14 @@ function updateCombat(dt, raw) {
  * still occluded by anything genuinely in front of it.
  */
 const lockRing = (() => {
-  const g = new THREE.RingGeometry(0.78, 1.0, 32, 1);
+  // FOUR ARCS, NOT A RING. The comment here used to claim "four bites out of
+  // the ring so it reads as a bracket" over a complete RingGeometry, and the
+  // spin was applied about Y -- the ring's own axis of symmetry, so a
+  // geometrically invisible no-op. Both are now true: four 68-degree arcs with
+  // gaps between them, and the spin is visible because there is something to
+  // see move.
+  const g = mergeArcs(4, 0.78, 1.0, THREE.MathUtils.degToRad(68));
   g.rotateX(-Math.PI / 2);
-  // four bites out of the ring, so it reads as a bracket rather than a halo
   const m = new THREE.MeshBasicMaterial({
     color: 0xffd15a, transparent: true, opacity: 0.85,
     depthWrite: false, side: THREE.DoubleSide,
@@ -1220,6 +1265,29 @@ function updateThreatLines(dt) {
   // it has to be seen from across a field on a beige path, so it starts
   // visible and grows -- 0.16 was invisible at the moment it mattered most
   threatLine.material.opacity = 0.30 + 0.34 * k;
+}
+
+/** Four evenly spaced ring segments, merged into one buffer geometry. */
+function mergeArcs(n, inner, outer, sweep) {
+  const pos = [], idx = [];
+  const seg = 8;
+  for (let a = 0; a < n; a++) {
+    const base = (a / n) * Math.PI * 2 - sweep / 2;
+    const v0 = pos.length / 3;
+    for (let i = 0; i <= seg; i++) {
+      const th = base + (sweep * i) / seg;
+      pos.push(Math.cos(th) * inner, Math.sin(th) * inner, 0);
+      pos.push(Math.cos(th) * outer, Math.sin(th) * outer, 0);
+    }
+    for (let i = 0; i < seg; i++) {
+      const k = v0 + i * 2;
+      idx.push(k, k + 1, k + 2, k + 2, k + 1, k + 3);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setIndex(idx);
+  return g;
 }
 
 function applyShake() {
@@ -1433,10 +1501,64 @@ function step(dt) {
   // in a town, unlike an open field, happens constantly.
   const hitD = rayCastSolids(camTarget.x, camTarget.y, camTarget.z,
                              camWant.x, camWant.y, camWant.z, cam.dist);
+  // THE GROUND LIFTS THE BOOM; IT DOES NOT SHORTEN IT.
+  //
+  // Solids are boxes and the meadow is a height field, so nothing above stopped
+  // the boom being swung into a hillside. Standing below the landmark hill with
+  // the camera downhill, the frame filled with the underside of the slope and
+  // the player was not in it.
+  //
+  // Shortening the boom -- the obvious fix, and the one tried first -- is
+  // WRONG here: on a slope the ground blocks the boom immediately, so the
+  // distance collapses to its floor and the camera ends up inside the hill
+  // instead of behind it. A hillside is not an obstacle to squeeze past, it is
+  // a floor to climb, so the boom PITCHES UP until it clears and keeps its
+  // length. That is also what it looks like from the player's side: walk into
+  // a valley and the camera rises to look down at you.
+  //
+  // Eight samples along the boom, because this runs every frame and the ground
+  // query is analytic.
+  let lift = camWant.y;
+  for (let i = 1; i <= 8; i++) {
+    const t = (hitD * i) / 8;
+    if (t < 0.2) continue;
+    const g = groundAt(camTarget.x + camWant.x * t, camTarget.z + camWant.z * t,
+                       camTarget.y + camWant.y * t + 3.0);
+    if (g === null) continue;
+    // the y-component this boom would need for THIS sample to clear the ground
+    lift = Math.max(lift, (g + 0.45 - camTarget.y) / t);
+  }
+  // 0.80 is about 53 degrees. Lifting further does clear more terrain, but at
+  // 70 degrees it is a top-down camera and the player loses their own heading,
+  // which is worse than seeing a hill -- standing on the outcrop with the
+  // landmark right behind it, the cap was reached and the shot became a map.
+  lift = Math.min(lift, 0.80);
+  if (lift > camWant.y) {
+    const flat = Math.hypot(camWant.x, camWant.z) || 1;
+    const k = Math.sqrt(Math.max(0, 1 - lift * lift)) / flat;
+    camWant.set(camWant.x * k, lift, camWant.z * k);
+  }
+  // ...and if the lifted boom STILL runs into the hill -- a rise close and
+  // steep enough that no reasonable pitch clears it -- then shorten, which is
+  // the right answer once pitching has been tried and failed. Its own floor is
+  // 2.2 m rather than the solids' 0.45 m: pressed against a facade the camera
+  // is meant to end up almost on the player's shoulder, but a hillside should
+  // never pull it closer than a normal over-the-shoulder distance.
+  let groundD = cam.dist;
+  for (let i = 1; i <= 8; i++) {
+    const t = (hitD * i) / 8;
+    if (t < 0.2) continue;
+    const g = groundAt(camTarget.x + camWant.x * t, camTarget.z + camWant.z * t,
+                       camTarget.y + camWant.y * t + 3.0);
+    if (g !== null && camTarget.y + camWant.y * t < g + 0.35) {
+      groundD = Math.max(2.2, (hitD * (i - 1)) / 8);
+      break;
+    }
+  }
   // The floor has to be SMALL.  An alley is 1.75 m wide, so a camera shoved
   // sideways has under 0.9 m before it is inside a facade; a 1.1 m minimum put
   // it through the wall and filled the screen with outline colour.
-  const d = Math.max(0.45, hitD - 0.25);
+  const d = Math.max(0.45, Math.min(hitD, groundD) - 0.25);
   camera.position.copy(camTarget).addScaledVector(camWant, d);
 
   // ...which means the camera now sometimes sits inside the hero.  Fade them
@@ -1643,4 +1765,12 @@ Object.defineProperty(globalThis, '__terrainProbes', {
 Object.defineProperty(globalThis, 'terrain', { get: () => terrain, configurable: true });
 Object.defineProperty(globalThis, 'combat', { get: () => combat, configurable: true });
 globalThis.__ik = IK_ENABLED;   // __ik.value = false to A/B it
+globalThis.__rim = setRimScale; // __rim(0) renders the frame with no rim light
+globalThis.__shadows = (on) => {
+  // shadowMap.enabled alone does nothing to already-compiled programs, so
+  // an A/B that only flips the flag renders an identical frame and 'proves'
+  // the shadows were not the cause.
+  renderer.shadowMap.enabled = !!on;
+  scene.traverse((o) => { if (o.material) o.material.needsUpdate = true; });
+};
 globalThis.__resume = () => { cam.autoDelay = 0; live(); return 'live'; };

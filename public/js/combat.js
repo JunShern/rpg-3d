@@ -1172,6 +1172,12 @@ export function createCombat(ctx) {
     // the smoke test lands a hit through the real path rather than
     // reaching into player.hp, so i-frames and the slip are actually exercised
     hurtPlayerForTest: (dmg, from) => hurtPlayer(dmg, from),
+    // QA only: put an enemy into a named state through the one legal door, so
+    // a capture can frame a telegraph without waiting for the AI to choose one.
+    // Reaching in and writing `e.state` directly skips the bookkeeping in
+    // setState and leaves `didHit` armed, which is exactly the bug that once
+    // disarmed every interrupted enemy permanently.
+    forceState: (e, name) => setState(e, name),
     isDodging: () => player.dodging > 0,
     isStaggered: () => player.stagger > 0,
     // HIT-STOP HAS TO BE GLOBAL. It scaled combat's own dt and nothing else, so

@@ -17,3 +17,7 @@ assets/source/
 
 # three.js is symlinked in from node_modules by `npm run serve`
 public/vendor/
+
+# ad-hoc probes; the durable ones live in tools/shots.mjs and tools/smoke.mjs
+tools/scratch/
+docs/shots/_*

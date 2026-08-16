@@ -27,8 +27,22 @@ export function gradientMap(steps) {
 
 // Three bands: deep shadow, a wide midtone that carries the local colour, and a
 // narrow lit band.  Four+ bands start looking like ordinary smooth shading.
-export const RAMP_3 = gradientMap([48, 48, 170, 170, 170, 255]);
+//
+// THE SHADOW BAND IS 70, NOT 48. At 48 it multiplies to 19% and anything with a
+// dark albedo goes to nearly nothing -- bark at (0.34,0.25,0.19) landed at 6%
+// luminance, so tree trunks, barrels and crates rendered as holes cut in the
+// image rather than as dark objects. A toon shadow should be a dark VALUE of
+// the colour, not the absence of one.
+export const RAMP_3 = gradientMap([70, 70, 170, 170, 170, 255]);
 export const RAMP_SOFT = gradientMap([88, 88, 166, 166, 212, 212, 255]);
+
+const RIM_UNIFORMS = [];
+const RIM_SCALE = { value: 1 };
+/** Scale every rim light at once, for A/B-ing a frame. `__rim(0)` = off. */
+export function setRimScale(k) {
+  RIM_SCALE.value = k;
+  for (const u of RIM_UNIFORMS) u.value = u.userData.base * k;
+}
 
 export function toonMaterial(color, opts = {}) {
   const {
@@ -46,6 +60,15 @@ export function toonMaterial(color, opts = {}) {
     shader.uniforms.uRimColor = { value: new THREE.Color(rimColor) };
     shader.uniforms.uRimPower = { value: rimPower };
     shader.uniforms.uRimStrength = { value: rimStrength };
+    // A/B KNOB, and the reason it exists: rim uniforms live inside the compiled
+    // program, so from outside a material there is no way to turn the rim off
+    // and look at the frame without it. Twice now a bright wash on a large flat
+    // surface has been blamed on the rim and turned out to be something else,
+    // both times after arguing about it rather than looking. `__rim(0)` renders
+    // the same frame with no rim at all.
+    RIM_UNIFORMS.push(shader.uniforms.uRimStrength);
+    shader.uniforms.uRimStrength.value = rimStrength * RIM_SCALE.value;
+    shader.uniforms.uRimStrength.userData = { base: rimStrength };
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', /* glsl */`
         #include <common>

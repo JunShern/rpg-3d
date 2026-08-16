@@ -46,17 +46,15 @@ export function makeTerrain(cfg) {
     const ends = Math.min(ramp(x, streamX0 - 4.0, streamX0),
                           ramp(-x, -streamX1 - 4.0, -streamX1));
     const d = Math.abs(y - streamLine(x));
-    if (d > streamHalf + 3.0) return 0;
-    const cut = streamDepth * (1 - ramp(d, streamHalf * 0.45, streamHalf + 3.0));
+    if (d > streamHalf + 0.8) return 0;
+    // a channel, not a dish -- see meadow_build._stream_cut
+    const cut = streamDepth * (1 - ramp(d, 1.1, streamHalf + 0.8));
     const ford = 1 - ramp(Math.abs(x - pathAt(y)), 2.2, 5.6);
     return cut * (1 - 0.55 * ford) * ends;
   }
 
-  /** Height in the BUILDER's frame (Blender x, y). */
-  function heightXY(x, y) {
-    if (y < gateY) return -0.05;
-
-    const t = Math.min(1, (y - gateY) / 9.0);
+  /** The ground before the road and the water touch it -- meadow_build._natural. */
+  function natural(x, y) {
     let h = 1.55 * Math.sin(x * 0.055) * Math.cos(y * 0.043)
           + 0.95 * Math.sin(x * 0.101 + 1.7) * Math.sin(y * 0.088 + 0.4)
           + 0.40 * Math.sin(x * 0.223 + 0.9) * Math.cos(y * 0.197 + 2.2);
@@ -67,12 +65,41 @@ export function makeTerrain(cfg) {
     h += ramp(y, y1 - 26.0, y1) * 15.0;
     h += ramp(-x, -x0 - 22.0, -x0) * 12.0;
     h += ramp(x, x1 - 22.0, x1) * 12.0;
+    // the LAND climbs, and the road rides on it -- see meadow_build._natural
+    h += ramp(y, gateY, 104.0) * 6.3;
+    return h;
+  }
+
+  // The road's height is the natural ground along its centreline, smoothed over
+  // about twenty metres. It depends only on y, and heightMesh asks for it three
+  // times per query at the same handful of grid lines, so it is memoised on the
+  // exact y rather than recomputed nine trig-heavy evaluations at a time.
+  const roadCache = new Map();
+  function roadZ(y) {
+    const hit = roadCache.get(y);
+    if (hit !== undefined) return hit;
+    let s = 0, n = 0;
+    for (let k = -4; k <= 4; k++) {
+      const yy = y + k * 2.6;
+      const w = 1 - Math.abs(k) / 5;
+      s += w * natural(pathAt(yy), yy);
+      n += w;
+    }
+    const v = s / n;
+    if (roadCache.size > 4096) roadCache.clear();
+    roadCache.set(y, v);
+    return v;
+  }
+
+  /** Height in the BUILDER's frame (Blender x, y). */
+  function heightXY(x, y) {
+    if (y < gateY) return -0.05;
+
+    const t = Math.min(1, (y - gateY) / 9.0);
+    let h = natural(x, y);
 
     const pw = 1.0 - ramp(Math.abs(x - pathAt(y)), 2.6, 6.4);
-    // two-stage climb: brisk out of town, gentler past halfway, and it never
-    // levels off -- see meadow_build._path_height
-    const road = ramp(y, gateY, 62.0) * 3.4 + ramp(y, 58.0, 104.0) * 2.9;
-    h = h * (1 - pw) + road * pw;
+    h = h * (1 - pw) + roadZ(y) * pw;
 
     // AFTER the path blend, not before -- see meadow_build.height
     h -= streamCut(x, y);

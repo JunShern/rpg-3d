@@ -61,13 +61,12 @@ PATH_X = -1.0                      # the path runs out of the gate on this line
 HILL = (27.0, 82.0, 7.2, 16.0)     # x, y, height, radius -- the destination
 
 
-def height(x, y):
-    """THE terrain function.  Sampled by the mesh, the props and the collision
-    manifest alike, so nothing can disagree about where the ground is."""
-    if y < GATE_Y:
-        return -0.05                                 # tucked under the paving
+def _natural(x, y):
+    """The ground BEFORE the road and the water touch it.
 
-    t = min(1.0, (y - GATE_Y) / 9.0)                 # ease out of the town
+    Split out of `height` so the road can ask what the land is doing along its
+    own centreline. See `_road_z` for why that matters.
+    """
     h = (1.55 * math.sin(x * 0.055) * math.cos(y * 0.043)
          + 0.95 * math.sin(x * 0.101 + 1.7) * math.sin(y * 0.088 + 0.4)
          + 0.40 * math.sin(x * 0.223 + 0.9) * math.cos(y * 0.197 + 2.2))
@@ -79,11 +78,49 @@ def height(x, y):
         h += hh * (math.cos(d * math.pi) * 0.5 + 0.5) ** 1.5
 
     # hills closing the far edge and the sides, so the world ends in landscape
-    edge = 0.0
-    edge += _ramp(y, MEADOW["y1"] - 26.0, MEADOW["y1"]) * 15.0
-    edge += _ramp(-x, -MEADOW["x0"] - 22.0, -MEADOW["x0"]) * 12.0
-    edge += _ramp(x, MEADOW["x1"] - 22.0, MEADOW["x1"]) * 12.0
-    h += edge
+    h += _ramp(y, MEADOW["y1"] - 26.0, MEADOW["y1"]) * 15.0
+    h += _ramp(-x, -MEADOW["x0"] - 22.0, -MEADOW["x0"]) * 12.0
+    h += _ramp(x, MEADOW["x1"] - 22.0, MEADOW["x1"]) * 12.0
+
+    # THE WHOLE MEADOW CLIMBS, not just the road across it. The rise used to
+    # belong to `_path_height`, an absolute height the road was blended to
+    # regardless of what the ground beside it was doing -- so by the far end the
+    # road stood on a four-metre levee with 50-degree sides, a causeway laid
+    # across a field. A transect at y=62 read -0.70 at x=4, 3.46 at x=10 and
+    # -0.92 at x=18. Putting the climb in the LAND means the walk still rises,
+    # the town still drops away behind you, and the road is a graded track on it
+    # rather than an embankment over it.
+    h += _ramp(y, GATE_Y, 104.0) * 6.3
+    return h
+
+
+def _road_z(y):
+    """The road's height: the natural ground along its own centreline, smoothed
+    over about twenty metres.
+
+    A road grades a hill -- it cuts the crests and fills the hollows and stays
+    within a metre or so of the land -- which is exactly what a low-pass filter
+    along the centreline gives, and it cannot run away from the terrain the way
+    an absolute height can.
+    """
+    s = 0.0
+    n = 0.0
+    for k in range(-4, 5):
+        yy = y + k * 2.6
+        w = 1.0 - abs(k) / 5.0
+        s += w * _natural(_path_x(yy), yy)
+        n += w
+    return s / n
+
+
+def height(x, y):
+    """THE terrain function.  Sampled by the mesh, the props and the collision
+    manifest alike, so nothing can disagree about where the ground is."""
+    if y < GATE_Y:
+        return -0.05                                 # tucked under the paving
+
+    t = min(1.0, (y - GATE_Y) / 9.0)                 # ease out of the town
+    h = _natural(x, y)
 
     # A STREAM, cut into whatever the ground is doing.
     #
@@ -96,10 +133,9 @@ def height(x, y):
     # Carved into the height function rather than modelled, so the collision,
     # the mesh and the runtime's analytic ground cannot disagree about where the
     # bank is.
-    # the path is cut flat-ish, and it climbs
+    # the path is cut flat-ish, and it climbs because the land does
     pw = _path_weight(x, y)
-    road = _path_height(y)
-    h = h * (1.0 - pw) + road * pw
+    h = h * (1.0 - pw) + _road_z(y) * pw
 
     # THE STREAM IS CUT AFTER THE PATH, not before. Cutting first meant the path
     # blend overwrote it completely at the crossing, so the road ran dead flat
@@ -113,7 +149,7 @@ def height(x, y):
 
 
 STREAM_Y = 47.0            # where it crosses, roughly half way out
-STREAM_DEPTH = 1.05
+STREAM_DEPTH = 1.60
 STREAM_HALF = 3.2          # half width of the cut at full depth
 # IT MUST STAY ON THE FLAT. The cut was swept the full width of the meadow, and
 # the flanking hills rise twelve metres inside the last twenty-two -- so the
@@ -142,9 +178,15 @@ def _stream_cut(x, y):
     ends = min(_ramp(x, STREAM_X0 - 4.0, STREAM_X0),
                _ramp(-x, -STREAM_X1 - 4.0, -STREAM_X1))
     d = abs(y - _stream_y(x))
-    if d > STREAM_HALF + 3.0:
+    if d > STREAM_HALF + 0.8:
         return 0.0
-    cut = STREAM_DEPTH * (1.0 - _ramp(d, STREAM_HALF * 0.45, STREAM_HALF + 3.0))
+    # A CHANNEL, NOT A DISH. The profile used to hold full depth only within 45%
+    # of STREAM_HALF and then taper for another three metres, so the cut was
+    # twelve metres wide and a metre deep -- a saucer, in which a three-metre
+    # ribbon of water read as blue tape stuck to a lawn. Flat bottom out to
+    # 1.1 m, then banks that climb 1.6 m over 2.9 m, which is a shore you can
+    # walk down and still see as a bank from across the field.
+    cut = STREAM_DEPTH * (1.0 - _ramp(d, 1.1, STREAM_HALF + 0.8))
     # the ford: the path crosses on a shelf two thirds of the way up the bank
     ford = 1.0 - _ramp(abs(x - _path_x(y)), 2.2, 5.6)
     # 0.55, not 0.72: the ford still has to sit BELOW the road either side of
@@ -168,18 +210,6 @@ def _path_x(y):
 def _path_weight(x, y):
     d = abs(x - _path_x(y))
     return 1.0 - _ramp(d, 2.6, 6.4)
-
-
-def _path_height(y):
-    """THE ROAD CLIMBS THE WHOLE WAY.
-
-    It used to saturate at y=62 and run dead level at 3.40 m for the last forty
-    metres -- so "elevation that reveals the space as you walk" stopped halfway
-    and the entire back half of the meadow, including the landmark and the last
-    encounter, was a table. Two stages: a brisk climb out of town and a longer,
-    gentler one past the halfway point.
-    """
-    return _ramp(y, GATE_Y, 62.0) * 3.4 + _ramp(y, 58.0, 104.0) * 2.9
 
 
 def on_path(x, y, margin=0.0):
@@ -412,11 +442,20 @@ def stream(M, t):
         # up=+Z, the frame puts rx on Y and ry on Z -- the other way round gave a
         # five-metre vertical sheet of water standing in a field. This is the
         # same rx/ry trap the fountain wall and the gate arch both hit.
-        sec.append({"p": Vector((x, y, min(bed + 0.42, bank - 0.14))),
-                    # 0.52, not 0.86: the cut only reaches full depth within 45% of
-                    # STREAM_HALF, so a wider ribbon rode up the banks and left a
-                    # straight edge of water lying across sloping ground
-                    "r": (STREAM_HALF * 0.52, 0.04), "n": 3.6})
+        # THE RIBBON IS WIDER THAN THE WATERLINE, ON PURPOSE.
+        #
+        # A narrow ribbon ends in mid-air: its edge sat 30 cm above the bank
+        # under it, so the stream read as a strip of blue vinyl laid on grass,
+        # with its own underside showing as a dark line. A water plane should be
+        # BURIED in both banks and let the shoreline be wherever the plane and
+        # the ground happen to meet -- which is also the only way the shore gets
+        # to follow the bank's own wobble instead of being a swept curve.
+        #
+        # At bed+0.30 in a channel that climbs 1.6 m between d=1.1 and d=4.0,
+        # the water meets the bank at about d=1.9, so 2.1 m of half-width puts
+        # the edge safely inside the ground.
+        sec.append({"p": Vector((x, y, min(bed + 0.30, bank - 0.14))),
+                    "r": (STREAM_HALF * 0.66, 0.04), "n": 3.6})
     t.add(K.tube("water", sec, seg=4, mat=M["water"], squircle=3.6, up=(0, 0, 1)))
 
     # WET STONES ALONG THE BANKS. A cut in a heightfield has no edge treatment,

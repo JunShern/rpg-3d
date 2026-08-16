@@ -52,7 +52,7 @@ check that cannot fail is worse than no check. It asserts draw-call and
 triangle budgets instead, which are meaningful headless and are the thing that
 actually regressed. Frame time stays a hand-measurement, recorded below.
 
-**Currently 37/37.** Roughly two thirds of the time spent writing it went on its
+**Currently 44/44.** Roughly two thirds of the time spent writing it went on its
 own bad assumptions rather than on the game: lock-on picking a different enemy
 than the one a test pinned, a check inheriting a half-finished combo from the
 check before it, enemies parked outside the world falling forever, and a pinned
@@ -209,6 +209,7 @@ instrument the measurement before you change the thing.
 
 ### Performance
 - [x] measured in a real browser — see the table below, which is the only
+      place numbers live
       place numbers live. This line used to carry its own stale figures that
       contradicted it
 - [x] draw calls and triangles recorded below
@@ -252,6 +253,13 @@ Updated each iteration. Empty until measured.
 Measured synchronously through `__sim` in a foreground tab. The numbers move
 ±30% run to run because the tab is scheduled against everything else on the
 machine, so treat them as a band, not a reading.
+
+**These are the six canned probe positions, not the worst case.** An auditor
+pointed out that the shipped captures show 209 draws in the plaza and 292 in
+the meadow, from cameras the probe never tries — so the table understates what
+the game actually draws, and the smoke suite's draw budgets are calibrated
+against the same easy angles. Treat both as a regression tripwire, not as a
+performance claim.
 | before the leash + far-cull (hostiles only) | 9.4 ms · 106 fps · 281 draws | iter 3 |
 | when ambient life landed, before LOD | 24.4 ms · 41 fps · 616 draws | iter 3 |
 | triangles (worst) | 733k | iter 3 |

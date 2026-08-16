@@ -112,15 +112,24 @@ def build_ground(t):
     t.walk(A.box("floor_plaza", (0, -1.0, -0.25), (22.0, 20.0, 0.25),
                  cob, bevel=0.12, seg=1))
 
-    # a paved ring around the fountain: a colour change is the cheapest way to
-    # tell the player where the centre of a space is
+    # A paved ring around the fountain: a surface change is the cheapest way to
+    # tell the player where the centre of a space is.
+    #
+    # IT WAS A BLEACHED HALO. The first version was 1.7 m wide, untextured, and
+    # about 30% LIGHTER than the cobble it sat in, which at a third-person
+    # camera height covered a quarter of the frame -- so the plaza read as
+    # having a bad lightmap rather than as having a paved centre. Hiding this
+    # one mesh and re-rendering was what proved it; nothing about the shading
+    # was wrong. It is now narrower, DARKER than its surround, and carries the
+    # flagstone texture, so it reads as bigger slabs laid in a circle.
     ring = []
     for i in range(41):
         a = 2 * math.pi * i / 40
         ring.append({"p": Vector((5.2 * math.cos(a), 0.5 + 5.2 * math.sin(a), 0.005)),
-                     "r": (0.85, 0.06), "n": 3.0})
-    t.add(K.tube("plaza_ring", ring, seg=8, mat=M["cobble_b"], squircle=3.0,
-                 up=(0, 0, 1)))          # 0.85 wide, 0.06 proud -- not the reverse
+                     "r": (0.55, 0.05), "n": 3.0})
+    ringmat = ground_material("ring_tex", surface_tex.flagstone, (0.44, 0.42, 0.44))
+    t.add(K.tube("plaza_ring", ring, seg=8, mat=ringmat, squircle=3.0,
+                 up=(0, 0, 1)))          # 0.55 wide, 0.05 proud -- not the reverse
 
     # raised terrace on the east side, reachable only by the stairs
     # coarser slabs on the terrace, so two paved areas beside each other do not
