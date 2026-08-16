@@ -14,3 +14,6 @@ docs/qa/
 # vendored source meshes (~40 MB); char_build.py consumes them, the built
 # characters in public/assets are what the runtime ships
 assets/source/
+
+# three.js is symlinked in from node_modules by `npm run serve`
+public/vendor/

@@ -6,7 +6,8 @@
     "doc": "docs"
   },
   "scripts": {
-    "test": "node tools/smoke.mjs"
+    "test": "node tools/smoke.mjs",
+    "serve": "mkdir -p public/vendor && ln -sfn ../../node_modules/three public/vendor/three && node tools/serve.mjs"
   },
   "keywords": [],
   "author": "",

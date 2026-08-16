@@ -70,6 +70,12 @@ export const SPECIES = {
     speed: 2.5,
     // the fight rhythm, in seconds
     notice: 12.0,          // aggro radius
+    // A DARTING LUNGE: lands early, narrow, and chip damage stops it. Being
+    // interruptible is the thing that makes a swarm fair -- but these keys were
+    // simply missing, so it silently used the generic defaults and its
+    // `poiseLeft` was always zero. COMBAT-BAR cited numbers for it that did not
+    // exist anywhere in the code.
+    impact: 0.30, hitArc: 1.45, poise: 11,
     strikeRange: 1.55,
     telegraph: 0.52,       // how long the tell is held before committing
     attackTime: 0.30,
@@ -120,9 +126,11 @@ export const SPECIES = {
     look: { hide: { rimStrength: 0.55 },
             sack: { rimStrength: 1.0, rimColor: 0xffb060 },
             horn: { rimStrength: 1.0, rimColor: 0xfff0c0 } },
-    // the sack is the tell, so it stays unlit and keeps its ember value even
-    // when the body falls into the shadow band
-    flat: ['eye', 'sack'], hostile: true,
+    // The sack is the tell, so it needs to hold its ember value in shadow AND
+    // be able to pulse. `flat` makes a MeshBasicMaterial, which has no
+    // `.emissive` at all -- so listing it here meant the wind-up pulse silently
+    // skipped the one surface the whole design points at.
+    flat: ['eye'], hostile: true,
   },
 
   // GRAZER, and the only thing out here that does not want to fight. It exists
@@ -187,6 +195,7 @@ export function createCombat(ctx) {
     invuln: 0,
     step: -1,               // index into TUNE.combo, -1 = not attacking
     airChain: 0,            // pogos since last touching the ground
+    lastStep: -1,           // the link that just ended, for comboWindow
     dodging: 0,             // seconds left in a slip
     stagger: 0,             // seconds of "you are not in control" after a hit
     knock: new THREE.Vector3(),
@@ -395,7 +404,16 @@ export function createCombat(ctx) {
     // that skips it -- being hit has to actually cost you the swing
     if (player.dead || player.stagger > 0) return false;
     if (player.step < 0) {
-      startSwing(airborne ? AIR : 0);
+      // CONTINUE THE CHAIN if the last one only just ended. `comboWindow` and
+      // `sinceCombo` both existed and neither was ever read, so the checklist
+      // line about the chain resetting after `comboWindow` described a
+      // mechanism that was not there -- a swing that ended reset you to hit 1
+      // no matter how quickly you followed it up.
+      const cont = !airborne
+        && player.lastStep >= 0
+        && player.lastStep < TUNE.combo.length - 1
+        && player.sinceCombo <= TUNE.comboWindow;
+      startSwing(airborne ? AIR : (cont ? player.lastStep + 1 : 0));
       return true;
     }
     // buffered: a press at ANY point in the current swing lands the next one,
@@ -406,6 +424,7 @@ export function createCombat(ctx) {
   }
 
   function startSwing(i) {
+    player.lastStep = -1;
     player.step = i;
     player.phase = 'windup';
     player.t = 0;
@@ -628,17 +647,35 @@ export function createCombat(ctx) {
       if (player.t >= s.active) {
         player.phase = 'recover';
         player.t -= s.active;
-        // chain on the buffered press the instant the active window closes
-        if (player.buffered && player.step !== AIR
-            && player.step < TUNE.combo.length - 1) {
-          startSwing(player.step + 1);
-        }
+        if (chainNow()) return;
       }
-    } else if (player.phase === 'recover' && player.t >= s.recover) {
-      player.step = -1;
-      player.phase = 'none';
-      player.buffered = false;
+    } else if (player.phase === 'recover') {
+      // A PRESS DURING RECOVERY CHAINS TOO.
+      //
+      // This used to fire only at the instant the active window closed, and the
+      // recover branch cleared `buffered` without ever reading it. Windup plus
+      // active is 0.21 s, so the entire input window for hit 2 was the first
+      // fifth of a second of hit 1 -- press at a natural 0.3 s rhythm and the
+      // chain silently restarted at hit 1 forever. Measured: pressing every
+      // 18 or 24 frames produced step 0 and nothing else, and the demo's
+      // headline mechanic was reachable only by mashing.
+      if (chainNow()) return;
+      if (player.t >= s.recover) {
+        player.lastStep = player.step;
+        player.sinceCombo = 0;
+        player.step = -1;
+        player.phase = 'none';
+        player.buffered = false;
+      }
     }
+  }
+
+  /** Start the next link if one is buffered and there is one to start. */
+  function chainNow() {
+    if (!player.buffered || player.step === AIR) return false;
+    if (player.step >= TUNE.combo.length - 1) return false;
+    startSwing(player.step + 1);
+    return true;
   }
 
   function testSwingHits(s) {

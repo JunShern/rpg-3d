@@ -116,11 +116,19 @@ const NO_OUTLINE_ENV = new Set([
   // GROUND is not outlined either, and this one is about cost, not taste: an
   // inverted hull round a surface that fills the screen is a second full-screen
   // fill for an outline you only ever see at the silhouette.
+  // BOTH NAMES. Texturing the ground renamed these materials to `*_tex`, and
+  // these sets kept matching the old names -- so every ground surface, the
+  // 6,120-triangle heightfield included, silently got an inverted-hull outline
+  // shell and went back into the shadow pass. The visible symptom was a stray
+  // black line drawn across open grass; the invisible one was half the build's
+  // triangles being outline.
   'grass', 'dirt', 'cobble', 'cobble_b',
+  'grass_tex', 'dirt_tex', 'cobble_tex', 'flagstone_tex',
 ]);
 // ground casts nothing useful onto itself; tufts and blooms cast nothing at all
 const NO_SHADOW_ENV = new Set([
   'grass', 'dirt', 'cobble', 'cobble_b', 'grass_hi', 'bloom_a', 'bloom_b',
+  'grass_tex', 'dirt_tex', 'cobble_tex', 'flagstone_tex',
 ]);
 const TINY_ENV = new Set(['grass_hi', 'bloom_a', 'bloom_b']);
 const TOWN_LOOK = {
@@ -162,6 +170,11 @@ function applyTownLook(root) {
   root.traverse((o) => { if (o.isMesh) meshes.push(o); });
   for (const m of meshes) {
     const name = (m.material?.name || '').toLowerCase();
+    // REMEMBER IT. The loop below decides outlines by material name, and by
+    // then this loop has replaced the material with a fresh MeshToonMaterial
+    // that carries no name at all -- so the exclusion set matched nothing and
+    // every ground surface got a shell regardless of what was listed.
+    m.userData.matName = name;
     const color = m.material?.color?.clone() || new THREE.Color(0xffffff);
     // CARRY THE TEXTURE THROUGH. This rebuilt every material from scratch and
     // dropped the map with it, so the generated paving arrived in the GLB and
@@ -200,7 +213,7 @@ function applyTownLook(root) {
     m.receiveShadow = !TINY_ENV.has(name);
   }
   for (const m of meshes) {
-    if (NO_OUTLINE_ENV.has((m.material?.name || '').toLowerCase())) continue;
+    if (NO_OUTLINE_ENV.has(m.userData.matName || '')) continue;
     addOutline(m, 0.0022);
   }
   return meshes;
@@ -1050,7 +1063,10 @@ function updateCombat(dt, raw) {
     lockRing.position.set(t.pos.x, t.pos.y + 0.12, t.pos.z);
     const r = Math.max(0.55, t.spec.radius * 1.55);
     lockRing.scale.set(r, r, r);
-    lockRing.rotation.z += dt * 1.4;
+    // Y, not Z. The geometry is laid flat with rotateX(-PI/2), which leaves Z
+    // lying IN the ring's plane -- spinning about it tumbled the ring end over
+    // end out of the ground and rendered it as a half-buried crescent.
+    lockRing.rotation.y += dt * 1.4;
     _o.copy(t.pos); _o.y += t.spec.height * 1.0;
     _o.project(camera);
     // ...and it hides when it would land on the player. A 2D bracket has no
