@@ -116,6 +116,8 @@ function installHelpers() {
      * behaviour has its own tests too; this one is about the swing.
      */
     faceOff(name, x, z, back) {
+      // no reinforcements mid-probe
+      __freezeEncounters(true);
       // DRAIN THE PREVIOUS TEST'S SWING FIRST. combat.attack() only starts a
       // new chain when nothing is running; otherwise it buffers into whatever
       // is. A check that inherited a half-finished combo from the check before
@@ -165,6 +167,7 @@ function installHelpers() {
     },
 
     summon(name, x, z, back) {
+      __freezeEncounters(true);
       const e = window.__t.make(name, x, z);
       if (!e) throw new Error('could not spawn ' + name);
       for (const o of combat.enemies) {
@@ -179,16 +182,28 @@ function installHelpers() {
       return e;
     },
 
-    /** Swing the real ground chain at a pinned target until it dies. */
+    /**
+     * Swing the real ground chain at a pinned target until it dies.
+     *
+     * Steps a FIXED number of frames per swing rather than looping on
+     * `attackPhase() !== 'none'`: if `attack()` is refused -- staggered, dead,
+     * mid-swing -- that condition is false immediately, the body never runs,
+     * no frames advance, and the helper reports "did not die" about a game
+     * that is working perfectly. It also reports WHY it stopped.
+     */
     killPinned(t, cap) {
-      let swings = 0;
+      let swings = 0, refused = 0;
       while (!t.e.dead && swings < cap) {
-        combat.attack();
-        for (let i = 0; i < 30 && combat.attackPhase() !== 'none'; i++) t.step(1);
         combat.player.hp = combat.player.maxHP;   // isolate: can it be killed
+        combat.player.stagger = 0;
+        if (combat.attack() === false) refused++;
+        for (let i = 0; i < 34; i++) {
+          t.step(1);
+          if (t.e.dead) break;
+        }
         swings++;
       }
-      return swings;
+      return { swings, refused, dead: t.e.dead, hp: Math.round(t.e.hp) };
     },
 
     frameMs(n) {
@@ -420,6 +435,7 @@ async function run() {
   // poisons everything after it. Reset between groups.
   const fresh = () => page.evaluate(() => {
     combat.respawn();
+    __freezeEncounters(false);
     // Clear test subjects away. Leaving them behind crowded the plaza with
     // seven nettles, and separation then shoved the real encounter eight to
     // twelve metres off its own posts -- which read as "the leash is broken".
@@ -470,12 +486,15 @@ async function run() {
   }
 
   for (const [sp, x, z, cap] of [['nettle', 0.5, 6.2, 10], ['curler', 6, -54, 24],
-                                 ['bellow', 24, -84, 40]]) {
+                                 ['bellow', 6, -40, 40]]) {
     await check(`${sp} dies to the ground chain`, (a) => {
       const t = window.__t.faceOff(a.sp, a.x, a.z, 1.6);
       const hp0 = t.e.spec.hp;
-      const swings = window.__t.killPinned(t, a.cap);
-      return { ok: t.e.dead, detail: `${hp0} HP down in ${swings} swings` };
+      const r = window.__t.killPinned(t, a.cap);
+      return { ok: r.dead,
+               detail: r.dead ? `${hp0} HP down in ${r.swings} swings`
+                              : `stuck at ${r.hp}/${hp0} after ${r.swings} swings, `
+                                + `${r.refused} presses refused` };
     }, { sp, x, z, cap });
   }
 
@@ -564,7 +583,9 @@ async function run() {
 
   await check('a committed attack is not cancellable by mashing', () => {
     combat.respawn();
-    const b = window.__t.summon('bellow', 24, -84, 2.2);
+    // flat open meadow: the previous spot moved onto the relocated hill's
+    // flank, where a slow brute and the player drift apart on the slope
+    const b = window.__t.summon('bellow', 6, -40, 2.2);
     let g = 0;
     while (b.state !== 'attack' && g++ < 1500) { __sim({ steps: 1 }); __face(b.pos.x, b.pos.z); }
     if (b.state !== 'attack') return { ok: false, detail: 'it never committed' };
@@ -643,18 +664,27 @@ async function run() {
     // the body is thrown.
     combat.respawn();
     __sim({ warp: [0.5, 6, 6.2], steps: 150 });
-    let hit = null;
+    // START CLEAN. Walking in mid-stagger meant the very first `attack()` was
+    // refused, the loop broke on that same frame, and the check reported "there
+    // was no swing to take away" about a working feature.
+    for (let i = 0; i < 240 && combat.isStaggered(); i++) __sim({ steps: 1 });
+    if (combat.isStaggered()) return { ok: false, detail: 'never stopped being staggered' };
+    let hit = null, swingingRecently = false;
     for (let i = 0; i < 500; i++) {
-      // keep a swing running so there is something for the hit to take away
+      // keep a swing running so there is something for the hit to take away.
+      // `wasSwinging` has to look at the frames AROUND the hit, not the single
+      // frame before it -- a swing that happened to end on that exact frame
+      // read as "there was nothing to take away" and failed a working feature.
       if (!combat.isAttacking()) combat.attack();
-      const before = { atk: combat.isAttacking(), xz: window.__t.heroXZ() };
+      const before = window.__t.heroXZ();
+      if (combat.isAttacking()) swingingRecently = true;
       __sim({ steps: 1 });
       if (combat.isStaggered()) {
         const after = window.__t.heroXZ();
         hit = {
-          wasSwinging: before.atk,
+          wasSwinging: swingingRecently,
           nowSwinging: combat.isAttacking(),
-          thrown: Math.hypot(after[0] - before.xz[0], after[1] - before.xz[1]),
+          thrown: Math.hypot(after[0] - before[0], after[1] - before[1]),
         };
         break;
       }

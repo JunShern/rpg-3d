@@ -999,7 +999,17 @@ function armEncounter(enc) {
   });
 }
 
+// Test hook: stop encounters arming and refilling.
+//
+// The plaza group refills when it is wiped, which is right for play and wrong
+// for a probe -- a check that clears the plaza to measure one enemy gets three
+// more spawned on top of it, and now that being hit cancels your swing, that
+// is enough to stop the probe landing a single hit.
+let encountersFrozen = false;
+globalThis.__freezeEncounters = (v) => { encountersFrozen = !!v; };
+
 function updateEncounters() {
+  if (encountersFrozen) return;
   for (const enc of ENCOUNTERS) {
     const d = Math.hypot(pos.x - enc.x, pos.z - enc.z);
     if (!enc.armed && d < enc.trigger) armEncounter(enc);
