@@ -280,25 +280,21 @@ Still open, in rough order of how much they cost:
    gable, chimney, window and door on every one; four plaster tints and three
    roof tints do all the differentiation. No signage, no glazed shopfronts, no
    hanging signs — nothing says what any building is.
-2. **Nobody lives there.** All the ambient life is in the meadow; the town is a
-   dead set.
-3. **One time of day, one weather, one key light.** The single biggest thing
+2. **One time of day, one weather, one key light.** The single biggest thing
    the reference does that this does not: night is half of Traverse Town's
    atmosphere and it costs nothing but a palette and a light rig.
-4. **Verticality exists but the combat ignores it.** A climb on the hill and a
+3. **Verticality exists but the combat ignores it.** A climb on the hill and a
    gallery over the plaza, and no encounter uses either — nothing fights you
    from up there and nothing makes you go up.
-5. **The fountain is the plaza's focal point and it is a lollipop** — a cylinder
-   with a ball on it over flat opaque discs. No spout, no ripple, no motion.
-6. **Tells have no ground footprint.** They pulse and change shape, but nothing
+4. **Tells have no ground footprint.** They pulse and change shape, but nothing
    shows *where* an attack will land.
-7. **The move list is still small** for one weapon: chain, falling cut, slip,
+5. **The move list is still small** for one weapon: chain, falling cut, slip,
    jump-cancel. No guard, parry, dash attack or charged hit.
-8. **The playable characters are not generated.** They are imported meshes from
+6. **The playable characters are not generated.** They are imported meshes from
    another project, retargeted and re-rigged here. The README says so, but the
    "everything is scripted geometry" framing does not hold for the character you
    look at for the entire demo.
-9. **Being hit cancels your swing**, so a dense swarm can suppress attacking.
+7. **Being hit cancels your swing**, so a dense swarm can suppress attacking.
    The 0.85 s of i-frames after each hit should leave room to act, but this has
    been measured on a probe and not played.
 

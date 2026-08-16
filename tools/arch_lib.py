@@ -60,6 +60,11 @@ def palette():
         # read as a drift of snow. Water is the one surface here that should
         # be the darkest thing in frame.
         "water":     (0.20, 0.44, 0.52),
+        # AERATED water is nearly white. The jets first used the pool colour
+        # and read as six grey pipes holding the bowl up -- falling water is
+        # full of air and is the brightest thing in a fountain, not the
+        # darkest.
+        "foam":      (0.86, 0.94, 0.96),
         "cloth":     (0.90, 0.88, 0.80),
     }
     mats = {}
@@ -407,8 +412,50 @@ def fountain(t, cx, cy, r=2.6):
         {"p": Vector((cx, cy, 1.50)), "r": (0.16, 0.16), "n": 2.4},
         {"p": Vector((cx, cy, 2.35)), "r": (0.12, 0.12), "n": 2.4},
     ], at="both", steps=2, height=0.04), seg=12, mat=M["stone"], squircle=2.4))
-    out.append(K.blob("fount_finial", (cx, cy, 2.52), (0.24, 0.24, 0.26), None,
-                      M["brass"], seg=14, rings=9))
+    # A BALL ON A STICK IS A LOLLIPOP. A reviewer's word for this, and fair: the
+    # spout ended in a brass sphere, which is the silhouette of a lollipop and
+    # not of anything that water comes out of. A small stepped cap with a lip
+    # reads as a nozzle, and the water tells you the rest.
+    out.append(K.tube("fount_cap", K.dome([
+        {"p": Vector((cx, cy, 2.34)), "r": (0.20, 0.20), "n": 3.0},
+        {"p": Vector((cx, cy, 2.46)), "r": (0.26, 0.26), "n": 3.0},
+        {"p": Vector((cx, cy, 2.52)), "r": (0.15, 0.15), "n": 3.0},
+    ], at="both", steps=2, height=0.05), seg=14, mat=M["brass"], squircle=3.0,
+        up=(0, 0, 1)))
+
+    # WATER THAT FALLS. This is the whole difference between a fountain and a
+    # stone ornament: six arcs from the upper dish out over the rim and down
+    # into the basin, each a swept tube tapering as it goes, so the eye reads
+    # motion from a shape that never moves.
+    for k in range(6):
+        a_ = 2 * math.pi * k / 6 + 0.26
+        dx, dy = math.cos(a_), math.sin(a_)
+        arc = []
+        n = 9
+        for i in range(n + 1):
+            u = i / n
+            # out and over, then down: a quadratic in height, linear in radius
+            rad = 0.86 + 0.92 * u
+            z = 1.56 + 0.16 * u - 1.16 * u * u
+            # taper HARD -- a jet of even thickness is a pipe, and the thing
+            # that says 'water' is a stream that thins as it stretches
+            w = 0.105 * (1.0 - 0.78 * u)
+            arc.append({"p": Vector((cx + dx * rad, cy + dy * rad, z)),
+                        "r": (w, w), "n": 2.2})
+        out.append(K.tube(f"fount_jet{k}", arc, seg=7, mat=M["foam"],
+                          squircle=2.2))
+
+    # ripple rings on the basin, barely proud -- enough to catch the ramp's edge
+    for rr, zz in ((r * 0.52, 0.605), (r * 0.78, 0.601)):
+        ring2 = []
+        for i in range(33):
+            a2 = 2 * math.pi * i / 32
+            ring2.append({"p": Vector((cx + rr * math.cos(a2),
+                                       cy + rr * math.sin(a2), zz)),
+                          "r": (0.075, 0.012), "n": 3.0})
+        out.append(K.tube(f"fount_ripple{int(rr * 10)}", ring2, seg=6,
+                          mat=M["foam"], squircle=3.0, up=(0, 0, 1)))
+
     t.add(*out)
     t.solid(cx, cy, r + 0.15, r + 0.15, top=0.9)
     return out

@@ -141,6 +141,7 @@ const TOWN_LOOK = {
   // value tuned on the fountain bowl added most of a cyan to every fragment of
   // a ninety-metre stream and rendered it as a drift of snow.
   water:   { rimStrength: 0.12, rimColor: 0xd8f4ff },
+  foam:    { rimStrength: 0.35, rimColor: 0xffffff },
   brass:   { rimStrength: 1.00, rimColor: 0xfff0c0 },
   leaf:    { rimStrength: 0.45 },
   // meadow
@@ -965,6 +966,13 @@ const HERDS = [
 
 // Flocks sit ON the route, unlike the herds -- you are meant to walk into them.
 const FLOCKS = [
+  // THE TOWN WAS A DEAD SET. All the ambient life was in the meadow, so a
+  // reviewer's word for the plaza was "dead" and it was fair. Birds in a square
+  // are the cheapest possible inhabitants, and they do something better than
+  // decorate: a fight breaking out scatters them, so the plaza reacts to the
+  // thing happening in it.
+  { x: -4.5, z: 1.5,  n: 6 },
+  { x: 6.5,  z: -6.0, n: 5 },
   { x: -2,  z: -24, n: 5 },
   { x: 6,   z: -44, n: 6 },
   { x: 10,  z: -62, n: 5 },
