@@ -37,6 +37,7 @@ from mathutils import Vector
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import kh_lib as K
 import arch_lib as A
+import ground_tex
 
 # The meadow lies SOUTH of the plaza in Blender terms (+Y), beyond the gateway
 # arch at y = 11.  The plaza's own paving stops around y = 20.
@@ -139,11 +140,19 @@ def build_terrain(M, step=TERRAIN_STEP):
     # whose normal is X x Y = +Z, i.e. up. A heightfield is an OPEN surface, so
     # bmesh's normal repair has no volume to infer from and guesses -- here it
     # guessed down, and the whole meadow rendered black.
-    obj = K._new_obj("floor_meadow", verts, faces, mat=M["grass"], smooth=True,
+    obj = K._new_obj("floor_meadow", verts, faces, mat=M["grass_tex"], smooth=True,
                      recalc=False)
-    obj.data.materials.append(M["dirt"])
+    obj.data.materials.append(M["dirt_tex"])
     for fi in dirt:
         obj.data.polygons[fi].material_index = 1
+
+    # PLANAR UVs FROM WORLD X/Y. The heightfield is gentle enough that projecting
+    # straight down costs nothing visible, and it means grass and path share one
+    # continuous UV set -- so the material boundary is a change of texture rather
+    # than a change from one flat colour to another, which is what made the
+    # per-face assignment read as discoloured patches.
+    tile = 5.0
+    K.set_uvs(obj, [(v.co.x / tile, v.co.y / tile) for v in obj.data.vertices])
     return obj
 
 
@@ -314,6 +323,15 @@ def main():
 
     K.clear_scene()
     M = A.palette()
+    # generated ground, written next to the assets and packed into the GLB
+    os.makedirs("public/assets/tex", exist_ok=True)
+    for nm, fn in (("grass", ground_tex.grass), ("dirt", ground_tex.dirt)):
+        path = os.path.abspath(f"public/assets/tex/{nm}.png")
+        ground_tex.write_png(path, fn())
+        M[f"{nm}_tex"] = K.image_material(
+            f"{nm}_tex", bpy.data.images.load(path, check_existing=True),
+            roughness=0.92,
+            preview=(0.50, 0.66, 0.38) if nm == "grass" else (0.68, 0.59, 0.47))
     M.update({
         "grass":    K.material("grass", (0.44, 0.62, 0.30), roughness=0.9),
         "grass_hi": K.material("grass_hi", (0.58, 0.74, 0.34), roughness=0.9),

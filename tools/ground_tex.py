@@ -131,3 +131,52 @@ if __name__ == '__main__':
     out = sys.argv[1] if len(sys.argv) > 1 else '/tmp/cobble.png'
     write_png(out, cobble())
     print(out)
+
+
+def _fbm(res, seed, octaves=4, base=6):
+    """Cheap value noise, summed. Used only where a HARD-edged pattern would be
+    wrong -- grass and dirt are made of thousands of tiny things, not of shapes
+    you can name, so this is the one place a gradient is the honest answer."""
+    rng = _rng(seed)
+    out = np.zeros((res, res), np.float32)
+    amp, n = 1.0, base
+    for _ in range(octaves):
+        g = rng.random((n, n)).astype(np.float32)
+        g = np.concatenate([g, g[:1]], 0)
+        g = np.concatenate([g, g[:, :1]], 1)          # wrap
+        u = np.linspace(0, n, res, endpoint=False)
+        i0 = np.floor(u).astype(int)
+        f = (u - i0)[:, None]
+        f = f * f * (3 - 2 * f)
+        row = g[i0] * (1 - f) + g[i0 + 1] * f
+        f2 = (u - np.floor(u))[None, :]
+        f2 = f2 * f2 * (3 - 2 * f2)
+        j0 = np.floor(u).astype(int)
+        out += amp * (row[:, j0] * (1 - f2) + row[:, j0 + 1] * f2)
+        amp *= 0.5
+        n *= 2
+    return out / out.max()
+
+
+def grass(res=RES, seed=11, a=(0.52, 0.68, 0.40), b=(0.62, 0.75, 0.47)):
+    """Meadow. Two greens, banded rather than blended, plus sparse darker
+    clumps -- under a toon ramp a smooth blend collapses to one flat colour, so
+    the variation has to survive quantisation to be worth having."""
+    n = _fbm(res, seed, octaves=4, base=5)
+    k = np.where(n > 0.52, 1.0, 0.0) * 0.7 + np.where(n > 0.68, 1.0, 0.0) * 0.3
+    img = (np.array(a, np.float32)[None, None, :] * (1 - k[..., None])
+           + np.array(b, np.float32)[None, None, :] * k[..., None])
+    clump = _fbm(res, seed + 5, octaves=3, base=11)
+    img *= np.where(clump > 0.74, 0.90, 1.0)[..., None]
+    return np.clip(img, 0, 1)
+
+
+def dirt(res=RES, seed=17, a=(0.70, 0.61, 0.49), b=(0.76, 0.68, 0.56)):
+    """The worn path: the same treatment a shade warmer, with grit."""
+    n = _fbm(res, seed, octaves=4, base=7)
+    k = np.where(n > 0.50, 1.0, 0.0)
+    img = (np.array(a, np.float32)[None, None, :] * (1 - k[..., None])
+           + np.array(b, np.float32)[None, None, :] * k[..., None])
+    grit = _fbm(res, seed + 3, octaves=2, base=27)
+    img *= np.where(grit > 0.80, 0.88, 1.0)[..., None]
+    return np.clip(img, 0, 1)
