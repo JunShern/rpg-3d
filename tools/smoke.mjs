@@ -437,10 +437,15 @@ async function run() {
     grp.forEach((e) => { e.hp = e.spec.hp * 0.5; });
     __sim({ warp: [3, 6, -44], steps: 40 });
     __sim({ steps: 600, dt: 1 / 20 });
-    const home = grp.filter((e) => e.pos.distanceTo(e.home) < 1.5).length;
+    // A NEIGHBOURHOOD, NOT A POINT. They snap back onto their posts and then
+    // push apart from each other, so after crossing fifty metres home they end
+    // up one to three metres off it. Measured 1.0, 2.1, 2.6.
+    const away = grp.map((e) => +e.pos.distanceTo(e.home).toFixed(1));
+    const home = away.filter((d) => d < 3.5).length;
     const healed = grp.filter((e) => e.hp >= e.spec.hp - 0.01).length;
     return { ok: home === grp.length && healed === grp.length,
-             detail: `${home}/${grp.length} home, ${healed}/${grp.length} at full HP` };
+             detail: `${home}/${grp.length} home (${away.join(', ')} m), `
+                   + `${healed}/${grp.length} at full HP` };
   });
 
   await check('distant enemies are not drawn', () => {
@@ -501,6 +506,9 @@ async function run() {
 
   await check('it cancels recovery but not the active frames', () => {
     const t = window.__t.faceOff('nettle', 0.5, 6.2, 1.5);
+    // clear the cooldown the previous check left behind, or "refused during
+    // active" passes for the wrong reason and "allowed in recovery" fails
+    for (let i = 0; i < 60; i++) t.step(1);
     combat.attack();
     let duringActive = null, duringRecover = null;
     for (let i = 0; i < 40; i++) {

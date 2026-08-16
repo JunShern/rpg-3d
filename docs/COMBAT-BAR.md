@@ -31,7 +31,7 @@ Each line is either DONE (with the probe that proves it) or open. Nothing is
 marked DONE on the strength of a screenshot alone — it needs an assertion in
 `tools/smoke.mjs` or a measured number.
 
-`node tools/smoke.mjs` drives the real game in headless Chromium — real
+`npm test` (`node tools/smoke.mjs`) drives the real game in headless Chromium — real
 renderer, real GLBs, stepped frame by frame through `__sim` so there is no
 wall-clock flakiness — and asserts the lines below. It takes a few minutes.
 **Frame time is deliberately not one of its assertions**: headless reports
@@ -39,6 +39,15 @@ wall-clock flakiness — and asserts the lines below. It takes a few minutes.
 check that cannot fail is worse than no check. It asserts draw-call and
 triangle budgets instead, which are meaningful headless and are the thing that
 actually regressed. Frame time stays a hand-measurement, recorded below.
+
+**Currently 37/37.** Roughly two thirds of the time spent writing it went on its
+own bad assumptions rather than on the game: lock-on picking a different enemy
+than the one a test pinned, a check inheriting a half-finished combo from the
+check before it, enemies parked outside the world falling forever, and a pinned
+enemy leashing and out-healing the damage. All of those produced confident
+failure messages about features that worked. The lesson is the same one this
+project keeps relearning: when a measurement disagrees with what you can see,
+instrument the measurement before you change the thing.
 
 ### Lock-on
 - [x] acquires the nearest valid target in front of the player — probe: `lockAcquired`
