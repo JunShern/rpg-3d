@@ -140,6 +140,15 @@ instrument the measurement before you change the thing.
 - [x] enemies can kill you — three Nettles took 45 HP in ~7 s of standing still
 
 ### Place
+- [x] somewhere to climb, with a reason to — five rock shelves spiralling
+      around the standing stones, each a 0.42 m rise against the runtime's
+      0.45 m step so it is a walk rather than a platforming test. Measured
+      3.40 m at the hilltop up to 5.50 m on the plateau, and from up there the
+      path, the meadow and the town are one frame
+- [x] surfaces above the analytic ground are standable — the meadow answers
+      "where is the floor" from a closed-form function for speed, which only
+      knows about terrain, so platforms are declared in the manifest and tested
+      as axis-aligned tops
 - [x] a path leaving the plaza — bends, climbs, waymarked with posts
 - [x] an outdoor area that reads as somewhere: a landmark hill with standing
       stones visible from the gate, elevation that reveals the space as you
@@ -208,9 +217,9 @@ the creature pipeline was built to deliver was cancellable by mashing, enemy
 attacks could not miss, and one interruption disarmed an enemy for good. That
 whole cluster is fixed above. What it found that is still open:
 
-1. **No verticality.** Nothing to climb, no upper storey, no balcony, no
-   below-grade. The jump clears a 1.1 m terrace and that is the entire vertical
-   vocabulary.
+1. **Verticality is one climb.** The outcrop on the landmark hill stacks five
+   shelves and is the only place in the build where levels sit above each other;
+   the town still has no upper storey, balcony or roof you can reach.
 2. **Props are still flat colour** — lamps, planters, crates, barrels, the
    fountain, the arch. Ground, walls and roofs are textured; the furniture in
    front of them is not.

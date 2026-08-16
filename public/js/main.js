@@ -143,6 +143,7 @@ const TOWN_LOOK = {
 };
 
 const SOLIDS = [];         // oriented boxes, from every region's manifest
+const PLATFORMS = [];      // flat tops ABOVE the analytic ground
 let terrain = null;        // analytic ground for the meadow
 let terrainProbes = [];
 const FLOORS = [];         // meshes the ground raycast targets
@@ -213,6 +214,7 @@ function absorbRegion(root, manifest) {
     if (!o.isMesh || o.material?.isShaderMaterial) return;
     if (/FLOOR/i.test(o.name || '')) FLOORS.push(o);
   });
+  for (const p of manifest.platforms || []) PLATFORMS.push(p);
   for (const s of manifest.solids || []) {
     SOLIDS.push({
       x: s.x, z: s.z, hx: s.hx, hz: s.hz, top: s.top ?? 3,
@@ -778,9 +780,28 @@ const DOWN = new THREE.Vector3(0, -1, 0);
 const _o = new THREE.Vector3();
 
 function groundAt(x, z, fromY) {
+  // PLATFORMS FIRST. The meadow answers "where is the floor" from a closed-form
+  // terrain function rather than by raycasting -- which is what made it playable
+  // -- but that function only knows about terrain, so anything standing on top
+  // of it would be scenery you walk through. A handful of axis-aligned tops is
+  // a point-in-box test, so this costs nothing next to the raycast it replaces.
+  //
+  // Highest top AT OR BELOW the query height wins, which is what lets you stand
+  // on a shelf and also walk out from under one.
+  let best = null;
+  for (const p of PLATFORMS) {
+    if (Math.abs(x - p.x) > p.hx || Math.abs(z - p.z) > p.hz) continue;
+    if (p.top > fromY + 0.45) continue;         // it is above you, not under you
+    if (best === null || p.top > best) best = p.top;
+  }
+
   // Ask the terrain function where it owns the ground. Raycasting the meadow
   // heightfield instead was, on its own, the single largest cost in the frame.
-  if (terrain && terrain.owns(x, z)) return terrain.heightAt(x, z);
+  if (terrain && terrain.owns(x, z)) {
+    const g = terrain.heightAt(x, z);
+    return best !== null && best > g ? best : g;
+  }
+  if (best !== null) return best;
   if (!FLOORS.length) return 0;
   groundRay.set(_o.set(x, fromY + 2.0, z), DOWN);
   groundRay.far = 12;

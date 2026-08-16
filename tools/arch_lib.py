@@ -78,6 +78,7 @@ class Town:
         self.parts = []
         self.floors = []
         self.solids = []
+        self.platforms = []
 
     def add(self, *objs):
         for o in objs:
@@ -99,16 +100,32 @@ class Town:
         over a barrel."""
         self.solids.append((cx, cy, hx, hy, math.radians(yaw), top))
 
+    def platform(self, cx, cy, hx, hy, top):
+        """A surface ABOVE the analytic ground that the player can stand on.
+
+        The meadow answers "where is the floor" from a closed-form terrain
+        function rather than by raycasting, which is what made it playable -- but
+        that function only knows about terrain. Anything standing on top of it
+        has to be declared, or it is scenery you walk straight through.
+        """
+        self.platforms.append((cx, cy, hx, hy, top))
+
     def manifest(self):
         """Collision boxes in THREE.JS space (Blender x,y -> three x,-y).
 
         A yaw about Blender +Z maps to the same yaw about three +Y, and the
         half-extent along Blender Y becomes the half-extent along three Z."""
-        return {"solids": [
-            {"x": round(cx, 4), "z": round(-cy, 4),
-             "hx": round(hx, 4), "hz": round(hy, 4),
-             "yaw": round(yaw, 5), "top": round(top, 3)}
-            for cx, cy, hx, hy, yaw, top in self.solids]}
+        return {
+            "solids": [
+                {"x": round(cx, 4), "z": round(-cy, 4),
+                 "hx": round(hx, 4), "hz": round(hy, 4),
+                 "yaw": round(yaw, 5), "top": round(top, 3)}
+                for cx, cy, hx, hy, yaw, top in self.solids],
+            "platforms": [
+                {"x": round(cx, 4), "z": round(-cy, 4),
+                 "hx": round(hx, 4), "hz": round(hy, 4), "top": round(top, 3)}
+                for cx, cy, hx, hy, top in self.platforms],
+        }
 
 
 # ------------------------------------------------------------------ pieces

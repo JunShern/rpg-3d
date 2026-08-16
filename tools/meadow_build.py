@@ -294,6 +294,59 @@ def landmark(M, t):
         t.solid(hx + dx, hy + dy, r, r * 0.8, top=z + ht)
 
 
+def outcrop(M, t):
+    """A CLIMB, and the one place in the demo that stacks levels.
+
+    The meadow already has elevation -- the path climbs and the hill rises --
+    but that is a slope, not verticality: you are always on the one surface. An
+    audit put it plainly, that the entire vertical vocabulary was a jump that
+    clears a 1.1 m terrace.
+
+    So: five rock shelves staggered around the standing stones, each rising
+    0.42 m -- under the runtime's 0.45 m step, so it is a walk rather than a
+    platforming test -- ending on a plateau a little over two metres above the
+    hilltop. From up there the town, the path and the far hills are all in one
+    frame, which is the only view in the build that shows you the whole walk you
+    just made.
+
+    Each shelf is emitted as a PLATFORM in the manifest. The meadow's ground is
+    an analytic function for speed, and that function only knows about terrain --
+    so anything standing above it has to be told to the runtime separately or it
+    is scenery you walk through.
+    """
+    hx, hy, _, _ = HILL
+    z0 = height(hx, hy)
+    # spiralling out from the stones, so climbing it walks you around the
+    # landmark rather than straight at it
+    shelves = [
+        (hx - 3.4, hy - 2.6, 2.2, 1.8, 0.42),
+        (hx - 4.6, hy + 0.6, 2.0, 2.0, 0.84),
+        (hx - 3.2, hy + 3.4, 2.1, 1.9, 1.26),
+        (hx - 0.2, hy + 4.4, 2.3, 2.0, 1.68),
+        (hx + 2.9, hy + 3.1, 2.6, 2.4, 2.10),
+    ]
+    for i, (cx, cy, rx, ry, rise) in enumerate(shelves):
+        top = z0 + rise
+        # a slab with a slightly smaller base, so it reads as stacked rock
+        # rather than as a stack of boxes
+        t.walk(K.tube(f"shelf{i}", [
+            {"p": Vector((cx, cy, top - 1.6)), "r": (rx * 0.86, ry * 0.86), "n": 3.4},
+            {"p": Vector((cx, cy, top - 0.30)), "r": (rx, ry), "n": 3.6},
+            {"p": Vector((cx, cy, top)), "r": (rx * 0.97, ry * 0.97), "n": 3.8},
+        ], seg=12, mat=M["rock"], squircle=3.6, up=(0, 0, 1)))
+        t.platform(cx, cy, rx * 0.94, ry * 0.94, top)
+
+    # a lip of loose stones round the top shelf: something to read the edge by
+    cx, cy, rx, ry, rise = shelves[-1]
+    for k in range(7):
+        a = 6.2831 * k / 7 + 0.4
+        t.add(K.blob(f"shelf_lip{k}",
+                     (cx + math.cos(a) * rx * 0.86, cy + math.sin(a) * ry * 0.86,
+                      z0 + rise + 0.16),
+                     (0.30, 0.30, 0.22), None, M["rock"], seg=9, rings=7,
+                     squircle=2.4))
+
+
 def waymarks(M, t):
     """Posts along the path. They do the job a corridor wall does in a town --
     tell you where the road goes -- without enclosing anything."""
@@ -347,6 +400,7 @@ def main():
     t = A.Town(M)
     t.walk(build_terrain(M))
     landmark(M, t)
+    outcrop(M, t)
     waymarks(M, t)
     scatter(M, t)
 
