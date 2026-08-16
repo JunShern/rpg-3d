@@ -1281,6 +1281,31 @@ function step(dt) {
     facing += d * Math.min(1, dt * (lt ? 10 : 14));
   }
 
+  // THE SWING CARRIES YOU, and steers onto the target.
+  //
+  // A three-hit chain moved the character 0.000 m, and movement is forbidden
+  // while attacking, so a fight was walk in, plant, swing, walk in again with
+  // no way to correct a miss. Each link now steps into its own strike; with a
+  // lock target it also homes, which is what closes the gap between "the enemy
+  // drifted 40 cm" and "the swing whiffs".
+  {
+    const adv = combat ? combat.swingAdvance() : 0;
+    if (adv > 0) {
+      let ax = Math.sin(facing), az2 = Math.cos(facing);
+      const lt = combat.lockTarget;
+      if (lt && !lt.dead) {
+        const dx = lt.pos.x - pos.x, dz = lt.pos.z - pos.z;
+        const d = Math.hypot(dx, dz);
+        // stop steering once you are already inside your own reach, or the
+        // homing shoves you through the thing you are hitting
+        if (d > 1.25) { ax = dx / d; az2 = dz / d; }
+        else { ax = 0; az2 = 0; }
+      }
+      const k = adv * dt;
+      if (ax || az2) tryMove(ax * k, az2 * k);
+    }
+  }
+
   // BEING HIT TAKES THE BODY AWAY FROM YOU for a third of a second, and throws
   // it. Without this the character eats a third of their health and keeps
   // swinging, which reads as the hit not having happened.

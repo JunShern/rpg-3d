@@ -515,7 +515,12 @@ def fountain(t, cx, cy, r=2.6):
                           mat=M["foam"], squircle=3.0, up=(0, 0, 1)))
 
     t.add(*out)
-    t.solid(cx, cy, r + 0.15, r + 0.15, top=0.9)
+    # A SQUARE BOX ROUND A ROUND BASIN leaves 1.3 m of invisible wall at each
+    # corner -- and this thing sits on the line from the respawn point to the
+    # gate, so holding forward from spawn walked you into nothing and stopped
+    # dead. Inscribed rather than circumscribed: you can clip the rim visually,
+    # which is far better than being stopped by air.
+    t.solid(cx, cy, r * 0.76, r * 0.76, top=0.9)
     return out
 
 

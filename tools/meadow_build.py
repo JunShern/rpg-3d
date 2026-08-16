@@ -115,6 +115,12 @@ def height(x, y):
 STREAM_Y = 47.0            # where it crosses, roughly half way out
 STREAM_DEPTH = 1.05
 STREAM_HALF = 3.2          # half width of the cut at full depth
+# IT MUST STAY ON THE FLAT. The cut was swept the full width of the meadow, and
+# the flanking hills rise twelve metres inside the last twenty-two -- so the
+# water surface climbed with the ground and ran over both crests, at up to an
+# 84% grade, reading as a cyan pipe laid across a hillside. These bounds sit
+# inside where `_ramp` starts lifting the edges.
+STREAM_X0, STREAM_X1 = -23.0, 23.0
 
 
 def _stream_y(x):
@@ -127,7 +133,14 @@ def _stream_y(x):
 def _stream_cut(x, y):
     """How far the ground drops here. Zero outside the banks, full in the middle,
     and SHALLOWED where the path crosses so the crossing is a ford you walk
-    through rather than a hole you fall into."""
+    through rather than a hole you fall into.
+
+    Fades out at both ends rather than stopping dead, so the channel runs into
+    the rising ground instead of being sliced off in mid-air."""
+    if x < STREAM_X0 - 4.0 or x > STREAM_X1 + 4.0:
+        return 0.0
+    ends = min(_ramp(x, STREAM_X0 - 4.0, STREAM_X0),
+               _ramp(-x, -STREAM_X1 - 4.0, -STREAM_X1))
     d = abs(y - _stream_y(x))
     if d > STREAM_HALF + 3.0:
         return 0.0
@@ -136,7 +149,7 @@ def _stream_cut(x, y):
     ford = 1.0 - _ramp(abs(x - _path_x(y)), 2.2, 5.6)
     # 0.55, not 0.72: the ford still has to sit BELOW the road either side of
     # it, or the water surface spills over the crossing
-    return cut * (1.0 - 0.55 * ford)
+    return cut * (1.0 - 0.55 * ford) * ends
 
 
 def _ramp(v, a, b):
@@ -342,7 +355,13 @@ def tuft(M, t, x, y, rnd):
             {"p": Vector((px + lean, py + lean * 0.4, z + hh * 0.6)),
              "r": (0.020, 0.008), "n": 2.2},
             {"p": Vector((px + lean * 2.0, py + lean, z + hh)), "r": 0.0, "n": 2.2},
-        ], seg=4, mat=M["grass_hi"] if rnd() < 0.5 else M["leaf"],
+        # BOTH TUFT TONES MUST BE OUTLINE-EXEMPT. Half of them used `leaf`,
+        # which tree canopies also use -- and canopies SHOULD be outlined. So
+        # the exclusion list could not name `leaf` without flattening the trees,
+        # and 33k triangles of grass got inverted-hull shells whose width is
+        # constant in screen space: on a 3 cm blade that is nearly all outline,
+        # which is the black scribble across the meadow floor.
+        ], seg=4, mat=M["grass_hi"] if rnd() < 0.5 else M["leaf_lo"],
             squircle=2.2, up=(0, 0, 1)))
 
 
@@ -376,7 +395,7 @@ def stream(M, t):
     at the other. A stylised stream that follows its bed reads correctly and a
     physically level one does not -- this is the same trade the path makes.
     """
-    x0, x1 = MEADOW["x0"] + 2.0, MEADOW["x1"] - 2.0
+    x0, x1 = STREAM_X0, STREAM_X1
     sec = []
     n = 40
     for i in range(n + 1):
@@ -582,6 +601,7 @@ def main():
         "gateY": GATE_Y, "pathX": PATH_X, "hill": list(HILL),
         "x0": MEADOW["x0"], "x1": MEADOW["x1"], "y1": MEADOW["y1"],
         "streamY": STREAM_Y, "streamDepth": STREAM_DEPTH, "streamHalf": STREAM_HALF,
+        "streamX0": STREAM_X0, "streamX1": STREAM_X1,
         # the GRID the mesh was built on. The runtime interpolates the same
         # triangles the player is looking at rather than the smooth function --
         # a 1.6 m quad chords up to 21 cm below the true surface on the hill,

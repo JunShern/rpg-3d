@@ -35,16 +35,21 @@ export function makeTerrain(cfg) {
   // the bank the player walks down is the same bank the mesh draws. Ported from
   // meadow_build._stream_y / _stream_cut; `check()` below is what catches it
   // when one of the two drifts.
-  const { streamY, streamDepth, streamHalf } = cfg;
+  const { streamY, streamDepth, streamHalf, streamX0, streamX1 } = cfg;
   const streamLine = (x) =>
     streamY + 3.4 * Math.sin(x * 0.055) + 1.5 * Math.sin(x * 0.128 + 1.1);
 
   function streamCut(x, y) {
+    // fades out at both ends: the channel has to stay on the flat middle, or it
+    // rides up the flanking hills -- see meadow_build's STREAM_X0/STREAM_X1
+    if (x < streamX0 - 4.0 || x > streamX1 + 4.0) return 0;
+    const ends = Math.min(ramp(x, streamX0 - 4.0, streamX0),
+                          ramp(-x, -streamX1 - 4.0, -streamX1));
     const d = Math.abs(y - streamLine(x));
     if (d > streamHalf + 3.0) return 0;
     const cut = streamDepth * (1 - ramp(d, streamHalf * 0.45, streamHalf + 3.0));
     const ford = 1 - ramp(Math.abs(x - pathAt(y)), 2.2, 5.6);
-    return cut * (1 - 0.55 * ford);
+    return cut * (1 - 0.55 * ford) * ends;
   }
 
   /** Height in the BUILDER's frame (Blender x, y). */

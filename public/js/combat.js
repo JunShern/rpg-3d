@@ -16,16 +16,22 @@ import { toonMaterial, flatMaterial, outlineMaterial, outlineGeometry } from './
 export const TUNE = {
   // Three swings. The third is the finisher: slower to start, bigger payoff.
   // Recovery is what makes a combo a commitment rather than a spam button.
+  //
+  // `advance` is how far the swing CARRIES you. A chain used to translate the
+  // player exactly 0.000 m, so a fight was walk in, plant, swing three times,
+  // walk in again -- and because movement is forbidden mid-swing there was no
+  // way to correct. Each link now steps into its own strike, and the finisher
+  // steps through it.
   combo: [
     { clip: 'attack',  windup: 0.10, active: 0.11, recover: 0.20,
       damage: 12, knock: 2.6, lift: 0.0, stop: 0.055, shake: 0.09, reach: 1.75,
-      arc: 1.5, stun: 0.20 },
+      arc: 1.5, stun: 0.20, advance: 1.15 },
     { clip: 'attack2', windup: 0.09, active: 0.11, recover: 0.20,
       damage: 13, knock: 2.8, lift: 0.0, stop: 0.055, shake: 0.10, reach: 1.80,
-      arc: 1.7, stun: 0.24 },
+      arc: 1.7, stun: 0.24, advance: 1.30 },
     { clip: 'attack3', windup: 0.17, active: 0.14, recover: 0.40,
       damage: 28, knock: 7.0, lift: 3.2, stop: 0.115, shake: 0.26, reach: 2.05,
-      arc: 1.9, stun: 0.55 },
+      arc: 1.9, stun: 0.55, advance: 2.10 },
   ],
   // THE FALLING CUT. Not part of the chain, and deliberately not a fourth hit:
   // it exists because the finisher LAUNCHES, and a launch with nothing to do
@@ -78,7 +84,14 @@ export const SPECIES = {
     // simply missing, so it silently used the generic defaults and its
     // `poiseLeft` was always zero. COMBAT-BAR cited numbers for it that did not
     // exist anywhere in the code.
-    impact: 0.30, hitArc: 1.45, poise: 11,
+    // POISE HAS TO EXCEED THE SMALLEST HIT OR IT IS NOT POISE. This was 11
+    // against a minimum jab of 12, so the budget could never absorb even one
+    // chip and every swarmer telegraph in the game was cancellable by every
+    // swing. Measured consequence: the final encounter -- a Bellow and three
+    // Nettles -- fell to holding the attack button for zero damage taken.
+    // 22 means two jabs to break it: still the most interruptible thing in the
+    // roster, which is what keeps a swarm fair, but no longer free.
+    impact: 0.30, hitArc: 1.45, poise: 22,
     strikeRange: 1.55,
     telegraph: 0.52,       // how long the tell is held before committing
     attackTime: 0.30,
@@ -1167,6 +1180,13 @@ export function createCombat(ctx) {
     // ~17x ahead of its own hitbox windows.
     timeScale: () => (hitStop > 0 ? 0.06 : 1),
     dodgePhase: () => player.dodgeT,
+    swingAdvance: () => {
+      if (player.step < 0 || player.step === AIR) return 0;
+      // during the wind-up and the active window, not the recovery --
+      // the step is part of the strike, not part of standing up again
+      if (player.phase === 'recover') return 0;
+      return specFor(player.step).advance || 0;
+    },
     isAttacking: () => player.step >= 0,
     isAirSwing: () => player.step === AIR,
     takePogo: () => { const v = player.pogo; player.pogo = 0; return v; },
