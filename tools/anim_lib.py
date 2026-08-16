@@ -629,3 +629,59 @@ def anim_dodge(rig, weapon=True):
         K.key(rig, f, p, loc={"hips": loc})
     K.interp(act)
     return act
+
+
+def anim_hurt(rig, weapon=True):
+    """Taking one.
+
+    Half of every exchange had no weight at all: an enemy could land a third of
+    the player's health and the character would not visibly acknowledge it and
+    would keep swinging.  This is the missing half.
+
+    It is a SHORT clip on purpose -- 0.35 s, because a long stagger in a game
+    with a swarm enemy is a death sentence you cannot answer.  The read has to
+    come from the shape rather than from the duration: chest caves away from the
+    hit, shoulders come up and in, head snaps back and down, weapon arm flies
+    out and loses its guard, and the back foot skids to catch the weight.
+    Then it recovers on its own, because being able to act again is the point.
+    """
+    act = K.action(rig, "hurt")
+    n = _neutral(weapon)
+
+    snap = dict(n)
+    snap.update({
+        "hips": (-14.0, 0.0, 8.0), "spine": (-16.0, 0.0, 6.0),
+        "chest": (-22.0, -6.0, 4.0), "neck": (14.0, 0.0, -6.0),
+        "head": (22.0, -8.0, -8.0),
+        "shoulder.R": (-14.0, 0.0, -10.0),
+        "upperarm.R": (-38.0, 0.0, -34.0), "forearm.R": (58.0, 0.0, 0.0),
+        "hand.R": (-24.0, 0.0, 0.0),
+        "upperarm.L": (-30.0, 0.0, 44.0), "forearm.L": (40.0, 0.0, 0.0),
+        "thigh.L": (-26.0, 0.0, 6.0), "shin.L": (34.0, 0.0, 0.0),
+        "foot.L": (-16.0, 0.0, 0.0),
+        "thigh.R": (18.0, 0.0, -8.0), "shin.R": (-40.0, 0.0, 0.0),
+        "foot.R": (20.0, 0.0, 0.0),
+    })
+
+    # the catch: weight goes onto the back foot and the guard starts to come back
+    catch = dict(n)
+    catch.update({
+        "hips": (-6.0, 0.0, 4.0), "spine": (-7.0, 0.0, 3.0),
+        "chest": (-10.0, -3.0, 2.0), "neck": (6.0, 0.0, -3.0),
+        "head": (10.0, -4.0, -4.0),
+        "upperarm.R": (-18.0, 0.0, -16.0), "forearm.R": (48.0, 0.0, 0.0),
+        "upperarm.L": (-16.0, 0.0, 26.0), "forearm.L": (36.0, 0.0, 0.0),
+        "thigh.L": (-12.0, 0.0, 4.0), "shin.L": (16.0, 0.0, 0.0),
+        "thigh.R": (8.0, 0.0, -5.0), "shin.R": (-22.0, 0.0, 0.0),
+    })
+
+    for f, p, loc in [
+        (0, n,     (0.0,  0.000, 0.000)),
+        (2, snap,  (0.0,  0.075, -0.045)),   # thrown back and down
+        (5, snap,  (0.0,  0.090, -0.040)),
+        (9, catch, (0.0,  0.045, -0.015)),
+        (17, n,    (0.0,  0.000, 0.000)),
+    ]:
+        K.key(rig, f, p, loc={"hips": loc})
+    K.interp(act)
+    return act

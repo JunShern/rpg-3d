@@ -18,11 +18,14 @@ export const TUNE = {
   // Recovery is what makes a combo a commitment rather than a spam button.
   combo: [
     { clip: 'attack',  windup: 0.10, active: 0.11, recover: 0.20,
-      damage: 12, knock: 2.6, lift: 0.0, stop: 0.055, shake: 0.09, reach: 1.75, arc: 1.5 },
+      damage: 12, knock: 2.6, lift: 0.0, stop: 0.055, shake: 0.09, reach: 1.75,
+      arc: 1.5, stun: 0.20 },
     { clip: 'attack2', windup: 0.09, active: 0.11, recover: 0.20,
-      damage: 13, knock: 2.8, lift: 0.0, stop: 0.055, shake: 0.10, reach: 1.80, arc: 1.7 },
+      damage: 13, knock: 2.8, lift: 0.0, stop: 0.055, shake: 0.10, reach: 1.80,
+      arc: 1.7, stun: 0.24 },
     { clip: 'attack3', windup: 0.17, active: 0.14, recover: 0.40,
-      damage: 28, knock: 7.0, lift: 3.2, stop: 0.115, shake: 0.26, reach: 2.05, arc: 1.9 },
+      damage: 28, knock: 7.0, lift: 3.2, stop: 0.115, shake: 0.26, reach: 2.05,
+      arc: 1.9, stun: 0.55 },
   ],
   // THE FALLING CUT. Not part of the chain, and deliberately not a fourth hit:
   // it exists because the finisher LAUNCHES, and a launch with nothing to do
@@ -33,7 +36,7 @@ export const TUNE = {
   air: {
     clip: 'airattack', windup: 0.19, active: 0.20, recover: 0.26,
     damage: 18, knock: 2.2, lift: 2.4, stop: 0.085, shake: 0.17,
-    reach: 1.90, arc: 2.1,
+    reach: 1.90, arc: 2.1, stun: 0.36,
     hang: 0.19,            // seconds of held breath at the top
     pogo: 7.4,             // upward kick on a hit -- the whole point
   },
@@ -90,6 +93,8 @@ export const SPECIES = {
     hp: 78, radius: 0.52, height: 0.55, speed: 2.0,
     notice: 15.0, strikeRange: 3.4, telegraph: 0.62, attackTime: 1.05,
     recoverTime: 1.35, damage: 14,
+    // it is a rolling ball on a locked line: narrow, and dangerous almost at once
+    impact: 0.10, hitArc: 1.1, poise: 26,
     charge: 12.5, roll: 13.0,
     look: { shell: { rimStrength: 0.55 }, plate: { rimStrength: 0.85 },
             flesh: { rimStrength: 0.45 } },
@@ -108,6 +113,9 @@ export const SPECIES = {
     // version of standing in it that is worth doing, which is the whole design.
     notice: 14.0, strikeRange: 2.5, telegraph: 1.05, attackTime: 0.42,
     recoverTime: 1.5, damage: 32,
+    // the slam lands late and wide, and NOTHING interrupts it once it starts --
+    // this is the enemy that punishes greed, so greed has to be punishable
+    impact: 0.62, hitArc: 2.5, poise: 999,
     look: { hide: { rimStrength: 0.55 }, sack: { rimStrength: 0.70 },
             horn: { rimStrength: 1.0, rimColor: 0xfff0c0 } },
     flat: ['eye'], hostile: true,
@@ -167,6 +175,9 @@ export function createCombat(ctx) {
     step: -1,               // index into TUNE.combo, -1 = not attacking
     airChain: 0,            // pogos since last touching the ground
     dodging: 0,             // seconds left in a slip
+    stagger: 0,             // seconds of "you are not in control" after a hit
+    knock: new THREE.Vector3(),
+    hitEvent: 0,            // bumps once per hit taken, so main.js can react
     dodgeT: 0,
     dodgeCd: 0,
     phase: 'none',          // windup | active | recover
@@ -294,6 +305,30 @@ export function createCombat(ctx) {
     clip.timeScale += (want - clip.timeScale) * Math.min(1, dt * 12);
   }
 
+  /**
+   * The ONLY way an enemy changes state.
+   *
+   * `didHit` used to be set when an attack connected and cleared only in the
+   * branch that completes the attack -- and `hurtEnemy` forces 'hurt', so an
+   * enemy interrupted mid-swing never reached that branch. Its `didHit` stayed
+   * true forever and it could never damage the player again for the rest of
+   * its life. A swarm you had hit once was permanently harmless, and the check
+   * that claimed "enemies can kill you" passed only because it never fought
+   * back.
+   *
+   * Anything that is true "for this attack" gets cleared here, so there is no
+   * exit from a state that can forget to.
+   */
+  function setState(e, name) {
+    e.state = name;
+    e.t = 0;
+    if (name !== 'attack') {
+      e.didHit = false;
+      e.lockDir = null;
+    }
+    if (name !== 'telegraph' && name !== 'attack') e.poiseLeft = 0;
+  }
+
   function play(e, name, fade = 0.14) {
     const next = e.clips[name];
     if (!next || next === e.current) return;
@@ -310,7 +345,7 @@ export function createCombat(ctx) {
    * because it owns the camera basis that "left" is relative to.
    */
   function dodge() {
-    if (player.dead || player.dodgeCd > 0) return null;
+    if (player.dead || player.stagger > 0 || player.dodgeCd > 0) return null;
     // cancels a swing's recovery, but not its active frames: you do not get to
     // erase a whiff you are still in the middle of
     if (player.step >= 0 && player.phase !== 'recover') return null;
@@ -323,7 +358,9 @@ export function createCombat(ctx) {
   }
 
   function attack(airborne = false) {
-    if (player.dead) return false;
+    // guarded HERE and not only in main.js's wrapper, so there is no way in
+    // that skips it -- being hit has to actually cost you the swing
+    if (player.dead || player.stagger > 0) return false;
     if (player.step < 0) {
       startSwing(airborne ? AIR : 0);
       return true;
@@ -373,32 +410,46 @@ export function createCombat(ctx) {
     return lockTarget;
   }
 
+  /** Lower is a better target. Infinity means not a target at all. */
+  function targetScore(e) {
+    _v.subVectors(e.pos, ctx.playerPos());
+    const d = _v.length();
+    if (d > TUNE.lockRange) return Infinity;
+    _v.divideScalar(d || 1);
+    const fwd = _v2.set(Math.sin(ctx.playerFacing()), 0, Math.cos(ctx.playerFacing()));
+    // prefer things in front, but do not refuse something just behind you
+    return d * (1.35 - 0.35 * _v.dot(fwd));
+  }
+
   function nearestTarget(exclude = null) {
     let best = null, bestScore = Infinity;
-    const fwd = _v2.set(Math.sin(ctx.playerFacing()), 0, Math.cos(ctx.playerFacing()));
     for (const e of validTargets()) {
       if (e === exclude) continue;
-      _v.subVectors(e.pos, ctx.playerPos());
-      const d = _v.length();
-      if (d > TUNE.lockRange) continue;
-      _v.normalize();
-      // prefer things in front, but do not refuse something just behind you
-      const score = d * (1.35 - 0.35 * _v.dot(fwd));
+      const score = targetScore(e);
       if (score < bestScore) { bestScore = score; best = e; }
     }
     return best;
   }
 
+  // Cycle through ALL of them, in order of how good a target they are.
+  // This used to be `nearestTarget(exclude: lockTarget)` -- strictly the
+  // second-nearest -- so with three enemies you could toggle between two of
+  // them forever and never select the third.
   function cycleLock() {
-    if (!lockTarget) { lockTarget = nearestTarget(); return lockTarget; }
-    const next = nearestTarget(lockTarget);
-    lockTarget = next || lockTarget;
+    const list = validTargets()
+      .map((e) => ({ e, s: targetScore(e) }))
+      .filter((x) => x.s < Infinity)
+      .sort((a, b) => a.s - b.s)
+      .map((x) => x.e);
+    if (!list.length) { lockTarget = null; return null; }
+    const i = list.indexOf(lockTarget);
+    lockTarget = list[(i + 1) % list.length];
     return lockTarget;
   }
 
   // -------------------------------------------------------------- damage
 
-  function hurtEnemy(e, dmg, fromPos, knock, lift, stop, shakeMag) {
+  function hurtEnemy(e, dmg, fromPos, knock, lift, stop, shakeMag, stun) {
     if (e.dead) return;
     e.hp -= dmg;
     e.flash = 0.16;
@@ -422,12 +473,29 @@ export function createCombat(ctx) {
       e.state = 'dead';
       play(e, 'die', 0.05);
       if (lockTarget === e) lockTarget = nearestTarget(e);
-    } else {
-      e.hitLock = 0.22;
-      e.state = 'hurt';
-      e.t = 0;
-      play(e, 'hurt', 0.04);
+      return;
     }
+
+    // POISE. Every hit used to cancel every state, telegraph included -- and a
+    // combo lands roughly every 0.31 s against a 0.52 s wind-up, so mashing
+    // meant no tell in the game ever completed and none of them had to be
+    // respected. A committed attack now has a damage budget: chip at it and it
+    // flinches and keeps coming, break the budget and it staggers.
+    //
+    // The budget only exists while it is committed. Poking something that is
+    // walking towards you still interrupts it, which is what makes closing the
+    // distance the enemy's problem rather than a formality.
+    const committed = e.state === 'telegraph' || e.state === 'attack';
+    if (committed && (e.poiseLeft -= dmg) > 0) {
+      e.flash = 0.16;                 // it registers, it just does not stop
+      return;
+    }
+
+    // ...and the stun is the hit's, not a constant. A finisher that buys the
+    // same 0.22 s as a jab makes the finisher pointless.
+    e.hitLock = stun ?? 0.22;
+    setState(e, 'hurt');
+    play(e, 'hurt', 0.04);
   }
 
   function hurtPlayer(dmg, fromPos) {
@@ -443,6 +511,22 @@ export function createCombat(ctx) {
     shake.t = 0.3;
     fx.number(ctx.playerPos().clone().setY(ctx.playerPos().y + 1.9), dmg, 0xff6b5a);
     fx.hurtFlash();
+
+    // A HIT HAS TO COST YOU SOMETHING BESIDES A NUMBER.
+    //
+    // Until now this subtracted HP and drew a vignette, and the character kept
+    // swinging as though nothing had happened -- so half of every exchange had
+    // no weight in it at all. Now it cancels what you were doing and throws you,
+    // and main.js turns the flag into a stagger and a knockback direction.
+    player.step = -1;
+    player.phase = 'none';
+    player.buffered = false;
+    player.dodging = 0;
+    player.stagger = 0.34;
+    _v.subVectors(ctx.playerPos(), fromPos).setY(0);
+    if (_v.lengthSq() < 1e-6) _v.set(0, 0, 1);
+    player.knock.copy(_v.normalize()).multiplyScalar(dmg > 24 ? 5.0 : 3.0);
+    player.hitEvent++;
     if (player.hp <= 0) {
       player.hp = 0;
       player.dead = true;
@@ -485,6 +569,7 @@ export function createCombat(ctx) {
 
     if (player.invuln > 0) player.invuln -= raw;
     if (player.dodgeCd > 0) player.dodgeCd -= raw;
+    if (player.stagger > 0) player.stagger -= raw;
     if (player.dodging > 0) { player.dodging -= raw; player.dodgeT += raw; }
     player.sinceCombo += raw;
     if (lockTarget && (lockTarget.dead
@@ -538,7 +623,7 @@ export function createCombat(ctx) {
         if (_v.x * fx2 + _v.z * fz < Math.cos(s.arc / 2)) continue;
       }
       player.hitThisSwing.add(e);
-      hurtEnemy(e, s.damage, p, s.knock, s.lift, s.stop, s.shake);
+      hurtEnemy(e, s.damage, p, s.knock, s.lift, s.stop, s.shake, s.stun);
       // combat.js does not own the player's vertical velocity, so it raises a
       // flag and the movement code decides what to do with it
       // DIMINISHING, or a perfect player never has to land. Each bounce
@@ -741,12 +826,12 @@ export function createCombat(ctx) {
     // finishes its swing.
     if (LEASHABLE.has(e.state)
         && e.pos.distanceTo(e.home) > e.spec.notice * 1.5) {
-      e.state = 'return'; e.t = 0; e.token = false; e.lockDir = null;
+      setState(e, 'return'); e.token = false;
     }
 
     switch (e.state) {
       case 'idle':
-        if (dist < e.spec.notice) { e.state = 'approach'; e.t = 0; play(e, 'move'); }
+        if (dist < e.spec.notice) { setState(e, 'approach'); play(e, 'move'); }
         else play(e, 'idle');
         break;
 
@@ -757,7 +842,7 @@ export function createCombat(ctx) {
         _v.subVectors(e.home, e.pos).setY(0);
         const d = _v.length();
         e.hp = Math.min(e.spec.hp, e.hp + e.spec.hp * 0.35 * dt);
-        if (d < 0.6) { e.state = 'idle'; e.t = 0; e.hp = e.spec.hp; break; }
+        if (d < 0.6) { setState(e, 'idle'); e.hp = e.spec.hp; break; }
         faceToward(e, e.home, dt, 5);
         e.vel.addScaledVector(_v.divideScalar(d), e.spec.speed * 7 * dt);
         break;
@@ -772,7 +857,8 @@ export function createCombat(ctx) {
         }
         // do not all pile in at once: only a couple hold an attack token
         if (dist <= e.spec.strikeRange && attackTokens() < 2) {
-          e.state = 'telegraph'; e.t = 0; e.token = true;
+          setState(e, 'telegraph'); e.token = true;
+          e.poiseLeft = e.spec.poise ?? 0;
           play(e, 'telegraph', 0.06);
         }
         break;
@@ -784,7 +870,8 @@ export function createCombat(ctx) {
         faceToward(e, p, dt, e.spec.charge ? 2.2 : 4);
         e.vel.multiplyScalar(0.80);
         if (e.t >= e.spec.telegraph) {
-          e.state = 'attack'; e.t = 0;
+          setState(e, 'attack');
+          e.poiseLeft = e.spec.poise ?? 0;
           play(e, 'attack', 0.04);
           _v.subVectors(p, e.pos).setY(0).normalize();
           // a charger COMMITS: the direction is locked in now, and no amount
@@ -802,9 +889,28 @@ export function createCombat(ctx) {
           e.facing = Math.atan2(e.lockDir.x, e.lockDir.z);
           if (e.spec.roll) e.spin = (e.spin || 0) + e.spec.roll * dt;
         }
-        if (dist < e.spec.strikeRange + 0.55 && e.t > 0.05 && !e.didHit) {
-          e.didHit = true;
-          hurtPlayer(e.spec.damage, e.pos);
+        // AN ATTACK IS A SHAPE IN SPACE AT A MOMENT IN TIME.
+        //
+        // This used to be `dist < strikeRange + 0.55 && t > 0.05` -- a
+        // facing-less sphere that fired 0.05 s into the state it had just
+        // entered *because* you were in range. It could not miss, it hit you
+        // from behind, and it landed before the animation moved. That deleted
+        // both designs the roster is built on: there was no line to step off
+        // the Curler's charge, and no wind-up to walk out of on the Bellow.
+        if (!e.didHit && e.t >= e.spec.attackTime * (e.spec.impact ?? 0.35)) {
+          _v.subVectors(p, e.pos).setY(0);
+          const d2 = _v.length();
+          const facing = e.lockDir
+            ? Math.atan2(e.lockDir.x, e.lockDir.z)
+            : e.facing;
+          const dot = d2 > 1e-4
+            ? (_v.x / d2) * Math.sin(facing) + (_v.z / d2) * Math.cos(facing)
+            : 1;
+          if (d2 < e.spec.strikeRange + 0.35
+              && dot > Math.cos((e.spec.hitArc ?? 1.7) / 2)) {
+            e.didHit = true;
+            hurtPlayer(e.spec.damage, e.pos);
+          }
         }
         if (e.t >= e.spec.attackTime) {
           // A CHARGE THAT MISSES COSTS MORE THAN ONE THAT LANDS. Stepping aside
@@ -812,7 +918,7 @@ export function createCombat(ctx) {
           // something -- otherwise dodging and tanking have the same price and
           // the enemy has no puzzle in it.
           e.recoverScale = (e.spec.charge && !e.didHit) ? 1.7 : 1;
-          e.state = 'recover'; e.t = 0; e.didHit = false; e.lockDir = null;
+          setState(e, 'recover');
           play(e, 'recover', 0.06);
         }
         break;
@@ -820,12 +926,12 @@ export function createCombat(ctx) {
       case 'recover':
         e.vel.multiplyScalar(0.84);
         if (e.t >= e.spec.recoverTime * (e.recoverScale || 1)) {
-          e.state = 'approach'; e.t = 0; e.token = false; e.recoverScale = 1;
+          setState(e, 'approach'); e.token = false; e.recoverScale = 1;
         }
         break;
 
       case 'hurt':
-        if (e.hitLock <= 0) { e.state = 'approach'; e.t = 0; e.token = false; }
+        if (e.hitLock <= 0) { setState(e, 'approach'); e.token = false; }
         break;
     }
 
@@ -933,7 +1039,16 @@ export function createCombat(ctx) {
     get shake() { return shake; },
     fx,
     dodge,
+    // the smoke test lands a hit through the real path rather than
+    // reaching into player.hp, so i-frames and the slip are actually exercised
+    hurtPlayerForTest: (dmg, from) => hurtPlayer(dmg, from),
     isDodging: () => player.dodging > 0,
+    isStaggered: () => player.stagger > 0,
+    // HIT-STOP HAS TO BE GLOBAL. It scaled combat's own dt and nothing else, so
+    // during a 55 ms stop the swing's state machine advanced 3.3 ms while its
+    // clip advanced the full 55 -- every connected hit shoved the animation
+    // ~17x ahead of its own hitbox windows.
+    timeScale: () => (hitStop > 0 ? 0.06 : 1),
     dodgePhase: () => player.dodgeT,
     isAttacking: () => player.step >= 0,
     isAirSwing: () => player.step === AIR,

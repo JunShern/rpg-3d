@@ -148,6 +148,30 @@ function installHelpers() {
       return t;
     },
 
+    /**
+     * Spawn a fresh subject where the test wants it, and stand in front of it.
+     *
+     * Reaching into `species(name)[0]` picks whatever is first in the enemy
+     * list, which may be forty metres away in a different encounter -- and
+     * anything killed by an earlier check never comes back, because only the
+     * plaza encounter refills. Both produced "it never attacked" and "no
+     * bellow" on features that work.
+     */
+    summon(name, x, z, back) {
+      const e = combat.spawn(name, x, z);
+      if (!e) throw new Error('could not spawn ' + name);
+      for (const o of combat.enemies) {
+        if (o === e || o.dead || !o.spec.hostile) continue;
+        if (!o.home0) o.home0 = o.home.clone();
+        o.home.set(x + 300, o.home.y, z + 300);
+        o.pos.set(x + 300, o.pos.y, z + 300);
+        o.state = 'idle';
+      }
+      __sim({ warp: [x, 6, z + back], steps: 4 });
+      __face(x, z);
+      return e;
+    },
+
     /** Swing the real ground chain at a pinned target until it dies. */
     killPinned(t, cap) {
       let swings = 0;
@@ -170,6 +194,13 @@ function installHelpers() {
     },
 
     heroXZ() { const p = __sim({ steps: 0 }).heroPos; return [p[0], p[2]]; },
+
+    /** Land a hit on the player from a fixed direction, through the real path. */
+    hurt(dmg) {
+      const e = combat.enemies.find((x) => !x.dead && x.spec.hostile);
+      const src = e ? e.pos : { x: 0, y: 0, z: 0 };
+      combat.hurtPlayerForTest(dmg, src);
+    },
   };
 }
 /* eslint-enable no-undef */
@@ -190,8 +221,8 @@ async function run() {
 
   group('World');
 
-  await check('every character has all nine clips', () => {
-    const want = ['airattack', 'attack', 'attack2', 'attack3', 'dodge',
+  await check('every character has all ten clips', () => {
+    const want = ['airattack', 'attack', 'attack2', 'attack3', 'dodge', 'hurt',
                   'idle', 'jump', 'land', 'run'];
     const bad = [];
     for (const name of ['vesper', 'lake', 'maren']) {
@@ -460,7 +491,101 @@ async function run() {
   });
 
   await fresh();
+  group('The enemy half of the fight');
+
+  await check('an interrupted attacker can still hurt you afterwards', () => {
+    // `didHit` used to be set on a connect and cleared only in the branch that
+    // COMPLETES the attack -- and being hit forces 'hurt', which never reaches
+    // it. One interruption disarmed an enemy permanently.
+    combat.respawn();
+    const e = window.__t.summon('nettle', 0.5, 6.2, 2.2);
+    let g = 0;
+    while (e.state !== 'attack' && g++ < 900) { __sim({ steps: 1 }); __face(e.pos.x, e.pos.z); }
+    if (e.state !== 'attack') return { ok: false, detail: 'it never attacked' };
+    combat.attack();                                  // interrupt it mid-swing
+    for (let i = 0; i < 20; i++) __sim({ steps: 1 });
+    const stuck = e.didHit;
+    combat.respawn();
+    __sim({ warp: [e.pos.x, e.pos.y + 1, e.pos.z + 1.2], steps: 10 });
+    const hp0 = combat.player.hp;
+    for (let i = 0; i < 900; i++) __sim({ steps: 1 });
+    const lost = Math.round(hp0 - combat.player.hp);
+    return { ok: !stuck && lost > 10,
+             detail: `didHit stuck=${stuck}, then took ${lost} HP over 15 s` };
+  });
+
+  await check('a committed attack is not cancellable by mashing', () => {
+    combat.respawn();
+    const b = window.__t.summon('bellow', 15, -92, 2.2);
+    let g = 0;
+    while (b.state !== 'attack' && g++ < 1500) { __sim({ steps: 1 }); __face(b.pos.x, b.pos.z); }
+    if (b.state !== 'attack') return { ok: false, detail: 'it never committed' };
+    for (let i = 0; i < 24; i++) { combat.attack(); __sim({ steps: 1 }); }
+    return { ok: b.state !== 'hurt',
+             detail: `after 24 frames of mashing it is in '${b.state}'` };
+  });
+
+  await check('a swarmer IS cancellable, which is what makes a swarm fair', () => {
+    combat.respawn();
+    const e = window.__t.summon('nettle', 0.5, 6.2, 1.6);
+    let g = 0;
+    while (e.state !== 'telegraph' && g++ < 900) { __sim({ steps: 1 }); __face(e.pos.x, e.pos.z); }
+    if (e.state !== 'telegraph') return { ok: false, detail: 'never wound up' };
+    combat.attack();
+    for (let i = 0; i < 24; i++) { __sim({ steps: 1 }); __face(e.pos.x, e.pos.z); }
+    return { ok: e.state === 'hurt' || e.state === 'approach',
+             detail: `low-poise enemy went to '${e.state}'` };
+  });
+
+  await check('hit-stop freezes the player too', () => {
+    // it used to scale only combat's clock, so the swing clip raced ~17x ahead
+    // of the hitbox windows it is meant to line up with
+    const t = window.__t.faceOff('nettle', 0.5, 6.2, 1.5);
+    let frozen = null;
+    combat.attack();
+    for (let i = 0; i < 30; i++) {
+      t.step(1);
+      if (combat.timeScale() < 1) { frozen = combat.timeScale(); break; }
+    }
+    return { ok: frozen !== null && frozen < 0.2,
+             detail: frozen === null ? 'hit-stop never fired' : `timeScale ${frozen}` };
+  });
+
+  await check('lock-on cycles through every target, not just two', () => {
+    // summon its own three, because the checks above park everything else --
+    // and because the bug being tested only shows up with three or more
+    combat.respawn();
+    __sim({ warp: [0.5, 6, 6.2], steps: 20 });
+    const made = [combat.spawn('nettle', 2.4, 6.2),
+                  combat.spawn('nettle', -1.4, 6.2),
+                  combat.spawn('nettle', 0.5, 4.0)].filter(Boolean);
+    __sim({ steps: 10 });
+    const seen = new Set();
+    for (let i = 0; i < 8; i++) { const t = combat.cycleLock(); if (t) seen.add(t); }
+    const reachedAll = made.every((e) => seen.has(e));
+    return { ok: reachedAll && seen.size >= 3,
+             detail: `${seen.size} distinct targets, all three summoned reached=${reachedAll}` };
+  });
+
+  await fresh();
   group('Defence');
+
+  await check('being hit takes the swing away from you', () => {
+    combat.respawn();
+    __sim({ warp: [0.5, 6, 6.2], steps: 150 });
+    let staggered = false, refused = false;
+    for (let i = 0; i < 400; i++) {
+      __sim({ steps: 1 });
+      if (combat.isStaggered()) {
+        staggered = true;
+        refused = combat.attack() === false && combat.dodge() === null;
+        break;
+      }
+    }
+    return { ok: staggered && refused,
+             detail: staggered ? `staggered, attack+dodge refused=${refused}`
+                               : 'never got hit' };
+  });
 
   await check('the slip carries you', () => {
     // open meadow, not the plaza edge -- with no input the slip goes backwards,
@@ -474,23 +599,30 @@ async function run() {
     return { ok: d > 3.0 && d < 4.5, detail: `${d.toFixed(2)} m` };
   });
 
-  await check('slipping through a fight halves the damage', () => {
-    const run = (useSlip) => {
+  await check('the slip refuses damage across its i-window and not outside it', () => {
+    // A direct assertion, not a statistical one. The blunt "slip on a timer and
+    // compare HP" version measured the i-frames the player gets after ANY hit
+    // more than it measured the slip, and got noisier the moment being hit
+    // started cancelling the slip.
+    combat.respawn();
+    const e = window.__t.summon('nettle', 0.5, 6.2, 6.0);
+    e.pos.set(0.5, e.pos.y, 6.2);
+    const probe = (atTime) => {
       combat.respawn();
-      __sim({ warp: [0.5, 6, 6.2], steps: 60 });
-      combat.player.hp = combat.player.maxHP;
-      for (let i = 0; i < 600; i++) {
-        if (useSlip && i % 40 === 0) {
-          dispatchEvent(new KeyboardEvent('keydown', { code: 'ShiftLeft' }));
-        }
-        __sim({ steps: 1 });
-      }
-      return Math.round(combat.player.hp);
+      combat.player.invuln = 0;
+      combat.dodge();
+      let t = 0;
+      while (t < atTime) { __sim({ steps: 1 }); t += 1 / 60; }
+      const before = combat.player.hp;
+      combat.player.invuln = 0;             // isolate: only the slip may save us
+      window.__t.hurt(20);
+      return before - combat.player.hp;
     };
-    const still = run(false);
-    const slipping = run(true);
-    return { ok: still < 95 && slipping > still + 12,
-             detail: `${100 - still} HP lost standing still, ${100 - slipping} slipping` };
+    const inside = probe(0.14);              // middle of the i-window
+    combat.player.dodgeCd = 0;
+    const outside = probe(0.38);             // after it closes
+    return { ok: inside === 0 && outside > 0,
+             detail: `took ${inside} inside the window, ${outside} after it` };
   });
 
   await check('the slip has a cooldown', () => {

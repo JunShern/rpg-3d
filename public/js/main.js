@@ -16,6 +16,7 @@ import {
   RAMP_3, RAMP_SOFT,
 } from './toon.js';
 import { createCombat, SPECIES, TUNE } from './combat.js';
+import { makeTrail } from './trail.js';
 import { makeTerrain } from './terrain.js';
 
 // ------------------------------------------------------------------ renderer
@@ -87,7 +88,12 @@ function addOutline(mesh, width = 0.0032) {
   }
   clone.castShadow = false;
   clone.receiveShadow = false;
-  clone.frustumCulled = false;
+  // CULL THE SHELL EXACTLY WHEN ITS SOURCE IS CULLED. This was hard-false, so
+  // iteration 2's fix for "frustum culling disabled on static environment
+  // meshes" only ever applied to the meshes and not to their outlines -- and
+  // the shells are half the triangles. The plaza was drawing 626k triangles for
+  // two buildings, a fountain and two enemies, most of it off-screen.
+  clone.frustumCulled = mesh.frustumCulled;
   OUTLINES.push(mat);
   return clone;
 }
@@ -322,7 +328,8 @@ function buildCharacter(def, gltf) {
     }
   }
   const ch = { name: def.name, group, mixer, clips, mats, current: null,
-               legs: collectLegs(group) };
+               legs: collectLegs(group),
+               hand: findBone(group, 'handr') };
   mixer.addEventListener('finished', (e) => {
     if (e.action === clips.land) {
       landing = false;
@@ -403,6 +410,7 @@ function playOnce(name, fade = 0.10) {
 
 function jump() {
   if (!cur || !grounded || attacking) return;
+  if (combat && combat.isStaggered()) return;
   grounded = false;
   landing = false;
   vy = JUMP_V;
@@ -417,7 +425,7 @@ function jump() {
  * which is what you want when a Curler has committed to a line through you.
  */
 function dodge() {
-  if (!cur || !combat || !grounded) return;
+  if (!cur || !combat || !grounded || combat.isStaggered()) return;
   const spec = combat.dodge();
   if (!spec) return;
 
@@ -442,7 +450,7 @@ function dodge() {
 }
 
 function attack() {
-  if (!cur || !combat) return;
+  if (!cur || !combat || combat.isStaggered()) return;
   // airborne presses run the falling cut instead of the ground chain
   combat.attack(!grounded);
 }
@@ -534,6 +542,7 @@ const IK_ENABLED = { value: true };
 const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _c = new THREE.Vector3();
 const _t = new THREE.Vector3(), _u = new THREE.Vector3(), _v = new THREE.Vector3();
 const _ax = new THREE.Vector3();
+const _o2 = new THREE.Vector3();
 const _q = new THREE.Quaternion(), _qp = new THREE.Quaternion();
 const _qi = new THREE.Quaternion(), _qt = new THREE.Quaternion();
 
@@ -731,6 +740,9 @@ let grounded = true;
 let lastAirPhase = 'none';
 let plungeT = 0;
 const slip = { x: 0, z: 0, t: 0, total: 1, dist: 0 };
+let lastHitEvent = 0;
+let trail = null;
+let trailLive = false;
 let landing = false;
 
 const groundRay = new THREE.Raycaster();
@@ -830,6 +842,8 @@ const ENCOUNTERS = [
 ];
 
 function startCombat() {
+  trail = makeTrail(scene);
+  scene.add(lockRing);
   combat = createCombat({
     scene,
     camera,
@@ -942,20 +956,67 @@ function updateCombat(dt, raw) {
   }
 
   // reticle
+  //
+  // The projected bracket alone was the wrong marker: it is a 2D overlay with
+  // no depth, so a target standing behind the player put a lock indicator
+  // squarely on the player's own back with nothing else marked. The RING is the
+  // real indicator -- it is in the world, under the target's feet, and it
+  // cannot land on anything but the thing it belongs to. The bracket stays as a
+  // secondary read for a target you cannot see the ground of.
   const t = combat.lockTarget;
   if (t && !t.dead) {
-    _o.copy(t.pos); _o.y += t.spec.height * 0.75;
+    lockRing.visible = true;
+    // 12 cm, not 3: the visible ground is a triangulated heightfield and the
+    // enemy's y comes from the analytic surface, so a 3 cm lift got buried on
+    // any slope and the ring simply never appeared
+    lockRing.position.set(t.pos.x, t.pos.y + 0.12, t.pos.z);
+    const r = Math.max(0.55, t.spec.radius * 1.55);
+    lockRing.scale.set(r, r, r);
+    lockRing.rotation.z += dt * 1.4;
+    _o.copy(t.pos); _o.y += t.spec.height * 1.0;
     _o.project(camera);
-    const on = _o.z < 1;
-    reticle.style.display = on ? 'block' : 'none';
+    // ...and it hides when it would land on the player. A 2D bracket has no
+    // depth, so a target directly behind the character drew a lock indicator on
+    // the character's own back with nothing else marked -- the single worst
+    // reading a lock marker can have. The ring in the world covers that case.
+    _o2.copy(pos); _o2.y += 1.0;
+    const behindPlayer = camera.position.distanceToSquared(t.pos)
+                       > camera.position.distanceToSquared(pos);
+    _o2.project(camera);
+    const overlaps = behindPlayer
+      && Math.abs(_o.x - _o2.x) < 0.10 && Math.abs(_o.y - _o2.y) < 0.16;
+    reticle.style.display = (_o.z < 1 && !overlaps) ? 'block' : 'none';
     reticle.style.left = `${(_o.x * 0.5 + 0.5) * innerWidth}px`;
     reticle.style.top = `${(-_o.y * 0.5 + 0.5) * innerHeight}px`;
   } else {
+    lockRing.visible = false;
     reticle.style.display = 'none';
   }
 }
 
 /** Camera shake, applied after the camera is placed so it never fights it. */
+/**
+ * A ring on the ground under whatever is locked.
+ *
+ * Flat, banded and slightly larger than the target's own radius, drawn face-up
+ * with `depthWrite` off so it sits on uneven terrain without z-fighting but is
+ * still occluded by anything genuinely in front of it.
+ */
+const lockRing = (() => {
+  const g = new THREE.RingGeometry(0.78, 1.0, 32, 1);
+  g.rotateX(-Math.PI / 2);
+  // four bites out of the ring, so it reads as a bracket rather than a halo
+  const m = new THREE.MeshBasicMaterial({
+    color: 0xffd15a, transparent: true, opacity: 0.85,
+    depthWrite: false, side: THREE.DoubleSide,
+  });
+  const mesh = new THREE.Mesh(g, m);
+  mesh.renderOrder = 2;
+  mesh.visible = false;
+  mesh.frustumCulled = false;
+  return mesh;
+})();
+
 function applyShake() {
   if (!combat) return;
   const sh = combat.shake;
@@ -981,7 +1042,9 @@ function step(dt) {
   // A slip is a commitment: no steering it, and no adding walk speed to it.
   // Without this, holding a direction through one turned 3.6 m into 6 and let
   // you change your mind halfway, which is exactly what a dodge should not be.
-  const wants = dir.lengthSq() > 0 && !attacking && slip.t <= 0 && townReady;
+  const staggered = combat && combat.isStaggered();
+  const wants = dir.lengthSq() > 0 && !attacking && slip.t <= 0
+    && !staggered && townReady;
   let isMoving = false;
 
   if (wants) {
@@ -1011,6 +1074,21 @@ function step(dt) {
       : Math.atan2(wx, wz);
     const d = ((want - facing + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
     facing += d * Math.min(1, dt * (lt ? 10 : 14));
+  }
+
+  // BEING HIT TAKES THE BODY AWAY FROM YOU for a third of a second, and throws
+  // it. Without this the character eats a third of their health and keeps
+  // swinging, which reads as the hit not having happened.
+  if (combat && combat.isStaggered()) {
+    slip.t = 0;
+    const k = combat.player.knock;
+    const f = 6.0 * dt;
+    tryMove(k.x * f, k.z * f);
+    k.multiplyScalar(Math.pow(0.02, dt));
+  }
+  if (combat && combat.player.hitEvent !== lastHitEvent) {
+    lastHitEvent = combat.player.hitEvent;
+    playOnce('hurt', 0.04);
   }
 
   // THE SLIP MOVES YOU. Eased so the speed is highest in the middle, which is
@@ -1094,7 +1172,7 @@ function step(dt) {
   if (cur) { cur.group.position.copy(pos); cur.group.rotation.y = facing; }
 
   // locomotion only reclaims the body once we are grounded and done landing
-  if (cur && !attacking && grounded && !landing && slip.t <= 0) {
+  if (cur && !attacking && grounded && !landing && slip.t <= 0 && !staggered) {
     play(isMoving ? 'run' : 'idle');
   }
 
@@ -1166,13 +1244,57 @@ const hud = document.getElementById('hud');
 const clock = new THREE.Clock();
 let acc = 0, frames = 0, fps = 0;
 
+// THE BLADE'S PATH, sampled from the weapon hand rather than from the body.
+//
+// The sword is joined into the character mesh at build time and rigged to
+// `hand.R`, whose local +Y runs down the blade (props.place_in_hand maps the
+// canonical blade axis onto it). So the guard is the bone's origin and the tip
+// is that origin plus its +Y axis times the blade length -- no separate object
+// to find, and it survives every clip because it IS the rig.
+// The ribbon spans the OUTER part of the blade, not hand-to-tip. Hand-to-tip is
+// a metre wide and the first pass read as a flag being waved rather than a
+// sword being swung -- the part of a blade that leaves a mark is the fast end.
+const BLADE_NEAR = 0.34;
+const BLADE_FAR = 0.72;
+const _tg = new THREE.Vector3(), _tt = new THREE.Vector3();
+const _tm = new THREE.Matrix4();
+
+function updateTrail(dt) {
+  if (!trail) return;
+  // ONLY the active window. Including the wind-up drew the arc of the load as
+  // well as the arc of the strike, which is most of a circle and reads as a
+  // sheet rather than a slash.
+  const swinging = combat && combat.isAttacking()
+    && combat.attackPhase() === 'active';
+  if (swinging && !trailLive) { trail.start(); trailLive = true; }
+  if (!swinging && trailLive) { trail.stop(); trailLive = false; }
+
+  if (swinging && cur && cur.hand) {
+    cur.hand.updateWorldMatrix(true, false);
+    _tm.copy(cur.hand.matrixWorld);
+    _tg.setFromMatrixPosition(_tm);
+    _tt.set(_tm.elements[4], _tm.elements[5], _tm.elements[6])   // local +Y
+      .normalize();
+    trail.sample(_tt.clone().multiplyScalar(BLADE_NEAR).add(_tg),
+                 _tt.clone().multiplyScalar(BLADE_FAR).add(_tg));
+  }
+  trail.update(dt);
+}
+
 function frame(dt) {
-  const isMoving = step(dt);
+  // HIT-STOP IS GLOBAL OR IT IS A DESYNC. combat.js used to scale only its own
+  // clock, so a 55 ms freeze advanced the swing's state machine by 3.3 ms and
+  // its animation by the full 55 -- the clip raced ~17x ahead of the hitbox
+  // windows it is supposed to line up with, on every single connected hit.
+  const scale = combat ? combat.timeScale() : 1;
+  const sdt = dt * scale;
+  const isMoving = step(sdt);
   updateCombat(dt, dt);
-  if (cur) { cur.mixer.update(dt); applyFootIK(cur, dt); }
+  if (cur) { cur.mixer.update(sdt); applyFootIK(cur, sdt); }
+  updateTrail(sdt);
   renderer.render(scene, camera);
   hud.textContent =
-    `${fps} fps  ·  ${cur ? cur.name : '—'}  ·  ${slip.t > 0 ? 'slip' : attacking ? 'attack' : !grounded ? 'air'
+    `${fps} fps  ·  ${cur ? cur.name : '—'}  ·  ${combat && combat.isStaggered() ? 'hurt' : slip.t > 0 ? 'slip' : attacking ? 'attack' : !grounded ? 'air'
         : landing ? 'land' : isMoving ? 'run' : 'idle'}`
     + `${combat ? `  ·  ${combat.enemies.filter((e) => !e.dead).length} foes` : ''}`
     + `${combat && combat.lockTarget ? '  ·  LOCK' : ''}`
