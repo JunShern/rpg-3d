@@ -283,6 +283,51 @@ Two rules, both learned the hard way by an auditor catching them:
 
 Newest audit at the top. Each entry: what is wrong, not what to do about it.
 
+**iteration 5 — after a rendering pass driven by A/B captures**
+
+Nothing in this round was found by reading code. Every one of it came from
+rendering the same framing twice with exactly one thing changed, which is now
+what `tools/shots.mjs` and the `__rim` / `__shadows` knobs exist for.
+
+The pattern worth remembering: **three separate "lighting bugs" were not
+lighting.** A bleached halo round the fountain was one untextured mesh 30%
+lighter than the paving. A wash that ate the plaza's contrast with distance was
+the rim light, which on a plane is a distance ramp rather than an edge light.
+And straight-edged pale wedges across the meadow, which looked exactly like a
+shadow-frustum boundary, were *nothing at all* — a luminance scan across the
+same row with shadows on and off came back identical, so that one was me
+reading a pattern into a texture. Instrumenting the measurement is as important
+as instrumenting the thing.
+
+The two that were real scene-design faults rather than shading:
+
+* the road was an absolute height blended into the terrain, so by the far end
+  it stood on a **four-metre levee with 50-degree sides** — a causeway laid
+  across a field. The climb now belongs to the land and the road is the
+  natural ground along its own centreline, smoothed. Transect at z=-62 went
+  from 4.1 m of embankment to 0.7 m of fall.
+* the stream was a 3 m ribbon of pale blue in a 12 m saucer with its underside
+  showing. The channel is 1.6 m deep with real banks, the water is dark, and
+  the ribbon is deliberately *wider* than the waterline so the shoreline is
+  where the plane meets the ground.
+
+And one gameplay regression the suite caught that no capture would have: the
+swing advance added last iteration only stopped for `lockTarget`, so **unlocked
+it walked the player past a stationary enemy** and every link after the second
+whiffed from behind it. It surfaced as "the nettle does not die" — 28 of 40 HP
+left after ten swings — which is the shape of bug that looks like damage and is
+actually movement. The step now stops at the nearest hostile within 3.6 m and
+±60° whether or not you locked on.
+
+Two checks were rewritten because they asserted the design as it stood *before*
+the poise fix, not as it stands now. `a swarmer IS cancellable` pressed attack
+once and demanded the enemy be in `hurt`, which was only ever true while a
+Nettle's poise (11) sat below the weakest link's damage (12) — i.e. while poise
+could not absorb a single chip. It now checks both halves: one link does not
+break a wind-up, a chain does. `an interrupted attacker...` had the same
+problem one layer down; it pressed once, assumed the swing was interrupted, and
+reported a `didHit` leak that was not there.
+
 **iteration 4 — after two external audits**
 
 Both audits returned **FALSE** on "polish exceeds KH1". The first said the
@@ -294,6 +339,10 @@ showed they restated the code instead of testing the game.
 
 Still open, in rough order of how much they cost:
 
+0. **The world ends in sky.** From the outcrop the town reads as four buildings
+   with nothing under or beside them, and every horizon is terrain silhouette
+   against flat blue. There are no distant hills, no haze band, nothing past
+   the fog's 130 m.
 1. **The town's upper floors are still one window repeated.** Ground floors now
    differ — shopfronts, doors, signs — but every storey above them is the same
    shuttered pane at the same spacing on all nine buildings.
@@ -311,7 +360,12 @@ Still open, in rough order of how much they cost:
    another project, retargeted and re-rigged here. The README says so, but the
    "everything is scripted geometry" framing does not hold for the character you
    look at for the entire demo.
-7. **Being hit cancels your swing**, so a dense swarm can suppress attacking.
+7. **Tree canopies band with a stair-stepped terminator.** The toon ramp's
+   edge runs along the facets of a low-poly sphere, so at any distance the
+   shadow side of a canopy has a visible staircase in it.
+8. **Nothing is gained from winning an encounter**, and there is still one
+   attack per species.
+9. **Being hit cancels your swing**, so a dense swarm can suppress attacking.
    The 0.85 s of i-frames after each hit should leave room to act, but this has
    been measured on a probe and not played.
 

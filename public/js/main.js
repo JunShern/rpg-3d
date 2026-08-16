@@ -301,7 +301,14 @@ Promise.all([
   // almost nothing; the glow belongs on the lamp head, not on the wall behind
   // it, which is what the emissive `lamp` material is for.
   for (const L of townMan.lights || []) {
-    const lamp = new THREE.PointLight(0xffc879, 1.1, 4.2, 2);
+    // 0.45 over 3.2 m, and it took three passes to get here. At 4.0/7.5 each
+    // lamp painted a yellow disc across a sunlit facade; at 1.1/4.2 the disc
+    // was smaller and still plainly a disc, because the thing that makes it
+    // read as a bug is not its brightness but its EDGE -- a soft circular
+    // gradient on a flat wall in a game with no other soft gradients anywhere.
+    // At this strength it is a warm pool at the foot of the post and nothing
+    // on the wall behind it, which is all a lit lamp should do at midday.
+    const lamp = new THREE.PointLight(0xffc879, 0.45, 3.2, 2);
     lamp.position.set(L.x, L.y, L.z);
     world.add(lamp);
   }
@@ -1360,9 +1367,29 @@ function step(dt) {
     const adv = combat ? combat.swingAdvance() : 0;
     if (adv > 0) {
       let ax = Math.sin(facing), az2 = Math.cos(facing);
-      const lt = combat.lockTarget;
-      if (lt && !lt.dead) {
-        const dx = lt.pos.x - pos.x, dz = lt.pos.z - pos.z;
+      // WHATEVER YOU ARE SWINGING AT, LOCKED OR NOT.
+      //
+      // The first version only stopped for `lockTarget`, so unlocked the step
+      // ran blind: three links at 1.15/1.30/2.10 m/s walked the player about a
+      // metre and a quarter PAST a stationary enemy, and every swing after the
+      // second whiffed from behind it. The smoke suite caught this as "the
+      // nettle does not die" -- it had 28 of 40 HP left after ten swings --
+      // which is exactly the shape of bug that looks like a damage problem and
+      // is actually a movement one.
+      let tgt = combat.lockTarget && !combat.lockTarget.dead ? combat.lockTarget : null;
+      if (!tgt) {
+        let bd = 3.6;
+        for (const e of combat.enemies) {
+          if (e.dead || !e.spec.hostile) continue;
+          const dx = e.pos.x - pos.x, dz = e.pos.z - pos.z;
+          const d = Math.hypot(dx, dz);
+          if (d < 0.001 || d > bd) continue;
+          if ((dx * ax + dz * az2) / d < 0.5) continue;   // outside +-60 degrees
+          bd = d; tgt = e;
+        }
+      }
+      if (tgt) {
+        const dx = tgt.pos.x - pos.x, dz = tgt.pos.z - pos.z;
         const d = Math.hypot(dx, dz);
         // stop steering once you are already inside your own reach, or the
         // homing shoves you through the thing you are hitting

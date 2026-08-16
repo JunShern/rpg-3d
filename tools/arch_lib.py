@@ -314,8 +314,21 @@ def lantern(t, x, y, z0=0.0, h=3.1, wall=False):
             {"p": Vector((x, y, z0 + h - 0.30)), "r": (0.048, 0.048), "n": 2.6},
         ], at="both", steps=2, height=0.04), seg=10, mat=M["timber"], squircle=2.6))
     zz = z0 + h
-    out.append(box("lamp_cage", (x, y, zz - 0.12), (0.135, 0.135, 0.155),
-                   M["lamp"], bevel=0.035, seg=1))
+    # THE HEAD IS A CAGE, NOT A CARTON. It was a single bevelled box of the
+    # unlit `lamp` material: at any distance a plain cream cube on a stick, and
+    # up close a blown-out white slab with an outline round it. Four brass
+    # uprights and a sill turn the same box into four glazed panes, which is
+    # what makes it read as a lantern rather than as a missing texture -- and
+    # they cost eight small boxes in a mesh that is joined by material anyway.
+    out.append(box("lamp_glass", (x, y, zz - 0.12), (0.125, 0.125, 0.150),
+                   M["lamp"], bevel=0.02, seg=1))
+    out.append(box("lamp_sill", (x, y, zz - 0.28), (0.155, 0.155, 0.032),
+                   M["brass"], bevel=0.02, seg=1))
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            out.append(box("lamp_mullion",
+                           (x + sx * 0.128, y + sy * 0.128, zz - 0.12),
+                           (0.022, 0.022, 0.152), M["brass"], bevel=0.006, seg=1))
     out.append(box("lamp_cap", (x, y, zz + 0.07), (0.175, 0.175, 0.045),
                    M["brass"], bevel=0.025, seg=1))
     out.append(K.blob("lamp_finial", (x, y, zz + 0.15), (0.055, 0.055, 0.075),

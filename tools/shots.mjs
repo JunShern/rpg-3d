@@ -51,28 +51,32 @@ const SHOTS = [
   // live one: the meadow encounters only arm when the player walks into them,
   // so a shot that teleports straight to its mark and then looks for a Curler
   // finds nothing. Spawned enemies are cleared again after the shot.
+  // The cast sits OFF the camera's axis. Framed dead ahead, an enemy 3 m in
+  // front of the player is directly behind the player from the camera -- the
+  // Bellow shot spent a round showing nothing but an orange glow over the
+  // hero's shoulder, which was the enemy, entirely occluded by her.
   {
     name: '11-lock-on', warp: [2.0, 0, -58.0], az: 0, polar: 1.26, dist: 7.5,
-    cast: [['nettle', 0, -3.4]],
+    cast: [['nettle', 2.0, -2.8]],
     setup: () => { combat.toggleLock(); },
     steps: 30,
   },
   {
     name: '12-charge-line', warp: [2.0, 0, -58.0], az: 0, polar: 1.30, dist: 8.5,
-    cast: [['curler', 0.5, -6]],
+    cast: [['curler', 3.4, -5.2]],
     setup: () => { combat.forceState(window.__cast[0], 'telegraph'); },
     steps: 8,
   },
   {
     name: '13-slam-arc', warp: [2.0, 0, -58.0], az: 0, polar: 1.28, dist: 8.0,
-    cast: [['bellow', 0, -3.4]],
+    cast: [['bellow', 2.4, -2.8]],
     setup: () => { combat.forceState(window.__cast[0], 'telegraph'); },
     steps: 10,
   },
   {
     name: '14-blade-trail', warp: [2.0, 0, -58.0], az: 0, polar: 1.22, dist: 6.8,
-    cast: [['nettle', 0, -2.0]],
-    setup: (p) => { __face(p[0], p[2] - 2.0); },
+    cast: [['nettle', 1.5, -1.6]],
+    setup: (p) => { __face(p[0] + 1.5, p[2] - 1.6); },
     attack: true, steps: 11,
   },
   {

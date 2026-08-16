@@ -564,12 +564,29 @@ async function run() {
     // `didHit` used to be set on a connect and cleared only in the branch that
     // COMPLETES the attack -- and being hit forces 'hurt', which never reaches
     // it. One interruption disarmed an enemy permanently.
+    //
+    // IT HAS TO ACTUALLY BE INTERRUPTED. This check used to press attack once
+    // and assume that ended the enemy's swing. A single 12-damage link no
+    // longer breaks a Nettle's 22 poise -- by design, that is the whole point
+    // of poise -- so the enemy sailed through, `didHit` was true because the
+    // attack CONNECTED, and the check reported a leak that was not there. It
+    // now lands links until the state leaves 'attack', and fails loudly if it
+    // never does, because "poise is now unbreakable" is also a bug worth
+    // hearing about.
     combat.respawn();
     const e = window.__t.summon('nettle', 0.5, 6.2, 2.2);
     let g = 0;
     while (e.state !== 'attack' && g++ < 900) { __sim({ steps: 1 }); __face(e.pos.x, e.pos.z); }
     if (e.state !== 'attack') return { ok: false, detail: 'it never attacked' };
-    combat.attack();                                  // interrupt it mid-swing
+    let hits = 0;
+    for (let i = 0; i < 60 && e.state === 'attack'; i++) {
+      combat.player.hp = combat.player.maxHP;       // isolate: do not die to it
+      if (combat.attack() !== false) hits++;
+      __sim({ steps: 1 }); __face(e.pos.x, e.pos.z);
+    }
+    if (e.state === 'attack') {
+      return { ok: false, detail: `${hits} presses and it never broke` };
+    }
     for (let i = 0; i < 20; i++) __sim({ steps: 1 });
     const stuck = e.didHit;
     combat.respawn();
@@ -578,7 +595,8 @@ async function run() {
     for (let i = 0; i < 900; i++) __sim({ steps: 1 });
     const lost = Math.round(hp0 - combat.player.hp);
     return { ok: !stuck && lost > 10,
-             detail: `didHit stuck=${stuck}, then took ${lost} HP over 15 s` };
+             detail: `broken after ${hits} accepted presses, didHit stuck=${stuck}, `
+                   + `then took ${lost} HP over 15 s` };
   });
 
   await check('a committed attack is not cancellable by mashing', () => {
@@ -594,16 +612,35 @@ async function run() {
              detail: `after 24 frames of mashing it is in '${b.state}'` };
   });
 
-  await check('a swarmer IS cancellable, which is what makes a swarm fair', () => {
+  await check("a swarmer's wind-up breaks to a chain, not to one poke", () => {
+    // WHAT THIS USED TO ASSERT WAS THE OLD BUG. One press, then "it must be in
+    // 'hurt'" -- which was true only while a Nettle's poise (11) sat below the
+    // weakest link's damage (12), i.e. while poise could never absorb a single
+    // chip and the last encounter could be won by holding one button for zero
+    // damage taken. Poise is 22 now, so the property is two-sided and both
+    // sides are checked here: one link does NOT break the wind-up, and a chain
+    // does. A swarm stays fair because you can interrupt it; it stays a fight
+    // because interrupting costs you the commitment of a chain.
     combat.respawn();
     const e = window.__t.summon('nettle', 0.5, 6.2, 1.6);
     let g = 0;
     while (e.state !== 'telegraph' && g++ < 900) { __sim({ steps: 1 }); __face(e.pos.x, e.pos.z); }
     if (e.state !== 'telegraph') return { ok: false, detail: 'never wound up' };
     combat.attack();
-    for (let i = 0; i < 24; i++) { __sim({ steps: 1 }); __face(e.pos.x, e.pos.z); }
-    return { ok: e.state === 'hurt' || e.state === 'approach',
-             detail: `low-poise enemy went to '${e.state}'` };
+    for (let i = 0; i < 10; i++) { __sim({ steps: 1 }); __face(e.pos.x, e.pos.z); }
+    const afterOne = e.state;
+    let presses = 1;
+    for (let i = 0; i < 90 && e.state === 'telegraph'; i++) {
+      combat.player.hp = combat.player.maxHP;
+      if (combat.attack() !== false) presses++;
+      __sim({ steps: 1 }); __face(e.pos.x, e.pos.z);
+    }
+    const broke = e.state !== 'telegraph';
+    return { ok: afterOne === 'telegraph' && broke && presses > 1,
+             // presses, not links: most of these are refused or buffered, so
+             // the number is "how long the mashing took", not a damage count
+             detail: `one link left it in '${afterOne}', `
+                   + `${presses} presses broke it to '${e.state}'` };
   });
 
   await check('hit-stop freezes the PLAYER, not just combat', () => {
