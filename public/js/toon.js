@@ -42,6 +42,35 @@ export const RAMP_3 = gradientMap([70, 70, 170, 170, 170, 255]);
 // worth making in a square that is mostly in shade.
 export const RAMP_SOFT = gradientMap([112, 112, 176, 176, 216, 216, 255]);
 
+/**
+ * WIND.
+ *
+ * One clock, shared by every material that sways, so nothing drifts out of
+ * phase with anything else. `main.js` advances it; the vertex shaders read it.
+ *
+ * The displacement is applied to the WHOLE object, not scaled by height above
+ * its own base, and that is deliberate rather than lazy: these meshes are built
+ * with world coordinates baked into their vertices and then joined by material,
+ * so there is no per-vertex "how far up this plant am I" to scale by. A canopy
+ * is a separate blob sitting on a trunk that does not move, so drifting the
+ * whole blob reads as the branches flexing; a grass tuft is 30 cm tall and
+ * moves 3 cm, which reads as motion and not as sliding.
+ */
+export const WIND = { value: 0 };
+
+/** The vertex-shader body both the lit material and its outline shell use. */
+const SWAY_GLSL = /* glsl */`
+  {
+    // two frequencies at right angles, so it gusts rather than metronomes
+    float ph = transformed.x * 0.35 + transformed.z * 0.27;
+    float a = sin(uWind * 1.10 + ph) * 0.68
+            + sin(uWind * 2.30 + ph * 1.7 + 1.3) * 0.32;
+    float b = sin(uWind * 0.87 + ph * 1.3 + 2.1);
+    transformed.x += a * uSway;
+    transformed.z += b * uSway * 0.45;
+  }
+`;
+
 const RIM_UNIFORMS = [];
 const RIM_SCALE = { value: 1 };
 /** Scale every rim light at once, for A/B-ing a frame. `__rim(0)` = off. */
@@ -58,11 +87,19 @@ export function toonMaterial(color, opts = {}) {
     rimStrength = 0.55,
     key = 'default',
     map = null,
+    sway = 0,
   } = opts;
 
   const mat = new THREE.MeshToonMaterial({ color, gradientMap: gradient, map });
 
   mat.onBeforeCompile = (shader) => {
+    if (sway > 0) {
+      shader.uniforms.uWind = WIND;
+      shader.uniforms.uSway = { value: sway };
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', '#include <common>\nuniform float uWind;\nuniform float uSway;')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>' + SWAY_GLSL);
+    }
     shader.uniforms.uRimColor = { value: new THREE.Color(rimColor) };
     shader.uniforms.uRimPower = { value: rimPower };
     shader.uniforms.uRimStrength = { value: rimStrength };
@@ -92,7 +129,7 @@ export function toonMaterial(color, opts = {}) {
       `);
   };
   // distinct programs per rim config, or three would reuse the first compile
-  mat.customProgramCacheKey = () => 'toonrim:' + key;
+  mat.customProgramCacheKey = () => 'toonrim:' + key + ':' + sway;
   return mat;
 }
 
@@ -107,22 +144,30 @@ export function flatMaterial(color) {
  * explicitly so the shell deforms with the character instead of staying in
  * bind pose -- without skinnormal_vertex the outline peels off during a run.
  */
-export function outlineMaterial(color = 0x241d2b, width = 0.0038) {
+export function outlineMaterial(color = 0x241d2b, width = 0.0038, sway = 0) {
   return new THREE.ShaderMaterial({
     uniforms: {
       uColor: { value: new THREE.Color(color) },
       uWidth: { value: width },
+      // THE SHELL HAS TO SWAY WITH ITS SOURCE. An inverted hull that stays put
+      // while the thing inside it moves is a black smear that leaks out of one
+      // side of every tree.
+      uWind: WIND,
+      uSway: { value: sway },
     },
     vertexShader: /* glsl */`
       #include <common>
       #include <skinning_pars_vertex>
       uniform float uWidth;
+      uniform float uWind;
+      uniform float uSway;
       void main() {
         #include <beginnormal_vertex>
         #include <skinbase_vertex>
         #include <skinnormal_vertex>
         #include <begin_vertex>
         #include <skinning_vertex>
+        ${SWAY_GLSL}
         vec4 mvPosition = modelViewMatrix * vec4(transformed, 1.0);
         vec3 n = normalize(normalMatrix * objectNormal);
         float depth = -mvPosition.z;

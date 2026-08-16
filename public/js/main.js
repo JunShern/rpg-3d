@@ -13,9 +13,10 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import {
   toonMaterial, flatMaterial, outlineMaterial, outlineGeometry, skyDome,
-  RAMP_3, RAMP_SOFT, setRimScale,
+  RAMP_3, RAMP_SOFT, setRimScale, WIND,
 } from './toon.js';
 import { createCombat, SPECIES, TUNE } from './combat.js';
+import { makeBreakables } from './breakables.js';
 import { makeTrail } from './trail.js';
 import { makeTerrain } from './terrain.js';
 
@@ -81,8 +82,8 @@ scene.add(new THREE.AmbientLight(0x9d9aa4, 0.26));
 const OUTLINES = [];
 const SHELLS = new WeakMap();
 
-function addOutline(mesh, width = 0.0032) {
-  const mat = outlineMaterial(0x2a2233, width);
+function addOutline(mesh, width = 0.0032, sway = 0) {
+  const mat = outlineMaterial(0x2a2233, width, sway);
   let shell = SHELLS.get(mesh.geometry);
   if (!shell) SHELLS.set(mesh.geometry, shell = outlineGeometry(mesh.geometry));
 
@@ -200,18 +201,23 @@ const TOWN_LOOK = {
   water:   { rimStrength: 0.05, rimColor: 0xd8f4ff },
   foam:    { rimStrength: 0.35, rimColor: 0xffffff },
   brass:   { rimStrength: 1.00, rimColor: 0xfff0c0 },
-  leaf:    { rimStrength: 0.45 },
   // meadow
   grass:    { gradient: RAMP_SOFT, rimStrength: 0.06 },
-  grass_hi: { gradient: RAMP_SOFT, rimStrength: 0.34 },
+  grass_hi: { gradient: RAMP_SOFT, rimStrength: 0.34, sway: 0.035 },
   dirt:     { gradient: RAMP_SOFT, rimStrength: 0.06 },
   bark:     { rimStrength: 0.40 },
-  leaf_lo:  { rimStrength: 0.34 },
+  // WIND. Amplitudes in metres of horizontal drift at the gust's peak. A canopy
+  // is a blob sitting on a trunk that does not move, so 11 cm reads as branches
+  // flexing; a grass blade is 30 cm tall, so 3 cm reads as motion rather than
+  // as the ground sliding. Cloth gets the most, because cloth should.
+  leaf:     { rimStrength: 0.45, sway: 0.11 },
+  leaf_lo:  { rimStrength: 0.34, sway: 0.035 },
   rock:     { gradient: RAMP_SOFT, rimStrength: 0.30 },
-  bloom_a:  { rimStrength: 0.70, rimColor: 0xfff4c8 },
-  bloom_b:  { rimStrength: 0.70, rimColor: 0xffd8ec },
+  bloom_a:  { rimStrength: 0.70, rimColor: 0xfff4c8, sway: 0.03 },
+  bloom_b:  { rimStrength: 0.70, rimColor: 0xffd8ec, sway: 0.03 },
 };
 
+let breakables = null;     // the props that come apart -- see breakables.js
 const SOLIDS = [];         // oriented boxes, from every region's manifest
 const PLATFORMS = [];      // flat tops ABOVE the analytic ground
 // Spheres the camera must not enter and nothing else knows about -- tree
@@ -275,8 +281,10 @@ function applyTownLook(root) {
     m.receiveShadow = !TINY_ENV.has(name);
   }
   for (const m of meshes) {
-    if (NO_OUTLINE_ENV.has(m.userData.matName || '')) continue;
-    addOutline(m, 0.0022);
+    const name = m.userData.matName || '';
+    if (NO_OUTLINE_ENV.has(name)) continue;
+    // the shell has to move with what it wraps, or it leaks out of one side
+    addOutline(m, 0.0022, (TOWN_LOOK[name] || {}).sway || 0);
   }
   return meshes;
 }
@@ -315,6 +323,7 @@ Promise.all([
   absorbRegion(town.scene, townMan);
   absorbRegion(meadow.scene, meadowMan);
 
+
   // the meadow answers ground queries analytically; prove the port agrees
   terrain = makeTerrain(meadowMan.terrain);
   terrainProbes = meadowMan.terrainProbes;
@@ -347,6 +356,12 @@ Promise.all([
   townReady = true;
   console.log(`[world] ${FLOORS.length} floor meshes, ${SOLIDS.length} solids`);
   startCombat();
+  // AFTER startCombat, which builds it, and after absorbRegion, so the
+  // collision boxes exist to be removed from when a prop is smashed. Barrels
+  // and crates arrive as their own `BREAK_*` objects rather than folded into
+  // the town mesh -- see arch_lib.Town.breakable.
+  const nProps = breakables.collect(town.scene) + breakables.collect(meadow.scene);
+  console.log(`[props] ${nProps} breakable`);
   done();
 }).catch((err) => {
   document.getElementById('loading').textContent = 'failed to load the world';
@@ -1049,6 +1064,7 @@ function startCombat() {
   scene.add(threatLine);
   scene.add(threatArc);
   scene.add(threatArcEdge);
+  breakables = makeBreakables(scene, SOLIDS);
   combat = createCombat({
     scene,
     camera,
@@ -1900,11 +1916,41 @@ function updateTrail(dt) {
   trail.update(dt);
 }
 
+// THE SWING SMASHES PROPS, using the same reach the enemy hitbox uses.
+//
+// Once per active window, not once per frame: `smashedThisSwing` is the same
+// idea as combat's `hitThisSwing`, and without it a barrel is hit four times in
+// four frames and throws thirty-six chunks.
+let smashedThisSwing = false;
+const _sd = new THREE.Vector3();
+function updateSmash(dt) {
+  if (!breakables) return;
+  breakables.update(dt);
+  if (!combat) return;
+  const active = combat.isAttacking() && combat.attackPhase() === 'active';
+  if (!active) { smashedThisSwing = false; return; }
+  if (smashedThisSwing) return;
+  const spec = combat.swingSpec();
+  _sd.set(Math.sin(facing), 0, Math.cos(facing));
+  const n = breakables.hit(pos.x, pos.z, _sd, (spec.reach ?? 1.6) * 0.85);
+  if (n > 0) {
+    smashedThisSwing = true;
+    // it has to FEEL like it connected, or a barrel bursting reads as scenery
+    // choosing to fall over next to you
+    combat.shake.mag = Math.max(combat.shake.mag, 0.13);
+    combat.shake.t = 0.24;
+  }
+}
+
 function frame(dt) {
   // HIT-STOP IS GLOBAL OR IT IS A DESYNC. combat.js used to scale only its own
   // clock, so a 55 ms freeze advanced the swing's state machine by 3.3 ms and
   // its animation by the full 55 -- the clip raced ~17x ahead of the hitbox
   // windows it is supposed to line up with, on every single connected hit.
+  // The wind runs on UNSCALED time. Hit-stop is a freeze on the fight, not on
+  // the weather, and a world that stops breathing every time you connect reads
+  // as the game hitching.
+  WIND.value += dt;
   const scale = combat ? combat.timeScale() : 1;
   const sdt = dt * scale;
   const isMoving = step(sdt);
@@ -1912,6 +1958,7 @@ function frame(dt) {
   if (cur) { cur.mixer.update(sdt); applyFootIK(cur, sdt); }
   updateTrail(sdt);
   updateThreatLines(sdt);
+  updateSmash(sdt);
   renderer.render(scene, camera);
   hud.textContent =
     `${fps} fps  ·  ${cur ? cur.name : '—'}  ·  ${combat && combat.isStaggered() ? 'hurt' : slip.t > 0 ? 'slip' : attacking ? 'attack' : !grounded ? 'air'
@@ -2022,6 +2069,8 @@ Object.defineProperty(globalThis, 'terrain', { get: () => terrain, configurable:
 Object.defineProperty(globalThis, 'combat', { get: () => combat, configurable: true });
 globalThis.__ik = IK_ENABLED;   // __ik.value = false to A/B it
 globalThis.__rim = setRimScale; // __rim(0) renders the frame with no rim light
+globalThis.__wind = WIND;  // set .value directly to A/B the sway
+Object.defineProperty(globalThis, '__breakables', { get: () => breakables, configurable: true });
 // The ground tells, so a test can ask which way they point. Both of them
 // pointed the wrong way for an unknown number of iterations because every
 // capture let the AI choose the facing, and an enemy walking at the camera

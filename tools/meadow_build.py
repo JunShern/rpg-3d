@@ -706,7 +706,7 @@ def main():
             print(f"[render] {f}")
 
     bpy.ops.object.select_all(action='DESELECT')
-    for o in (town, floor):
+    for o in (town, floor, *t.props):
         if o:
             o.select_set(True)
     bpy.context.view_layer.objects.active = town or floor

@@ -95,6 +95,13 @@ class Town:
         self.solids = []
         self.platforms = []
         self.camblocks = []
+        # Objects deliberately NOT joined, because the runtime has to be able to
+        # address them one at a time. `loose` is the flat set to exclude from
+        # the big join; `loose_groups` is one list per PROP, because a barrel is
+        # a body plus two bands and the runtime wants to remove the barrel.
+        self.loose = []
+        self.loose_groups = []
+        self.props = []
 
     def add(self, *objs):
         for o in objs:
@@ -125,6 +132,22 @@ class Town:
         has to be declared, or it is scenery you walk straight through.
         """
         self.platforms.append((cx, cy, hx, hy, top))
+
+    def breakable(self, *objs):
+        """A prop the player can smash, kept OUT of the join.
+
+        Everything else is joined into two meshes so the draw count stays sane,
+        and that is exactly why a barrel could not be broken: there is no way to
+        hide one barrel inside a mesh containing all of them. These stay as
+        their own objects -- a few extra draw calls each, spent on the only
+        things in the town that respond to being hit.
+        """
+        group = [o for o in objs if o is not None]
+        if not group:
+            return None
+        self.loose.extend(group)
+        self.loose_groups.append(group)
+        return group[0]
 
     def camblock(self, cx, cy, cz, r):
         """A sphere the CAMERA must not enter, and nothing else cares about.
@@ -507,7 +530,7 @@ def barrel(t, x, y, r=0.34, h=0.82):
         {"p": Vector((x, y, h * 0.5 - 0.05)), "r": (r * 1.04, r * 1.04), "n": 2.6},
         {"p": Vector((x, y, h * 0.5 + 0.05)), "r": (r * 1.04, r * 1.04), "n": 2.6},
     ], seg=12, mat=M["brass"], squircle=2.6)
-    t.add(o, band)
+    t.breakable(o, band)
     t.solid(x, y, r, r, top=h)
     return [o, band]
 
@@ -517,7 +540,7 @@ def crate(t, x, y, s=0.42, yaw=0.0):
     o = box("crate", (x, y, s), (s, s, s), M["timber"], bevel=0.05, seg=2)
     if yaw:
         K.transform(o, rotate=(0, 0, yaw), around=(x, y, 0))
-    t.add(o)
+    t.breakable(o)
     t.solid(x, y, s * 1.25, s * 1.25, yaw, top=s * 2)
     return [o]
 
@@ -784,15 +807,25 @@ def finish(t, name_town="TOWN", name_floor="FLOOR"):
     # assembly that used them, so the parts list carries duplicates.  Dedupe by
     # identity before joining.
     walkable = {id(o) for o in t.floors}
+    loose = {id(o) for o in t.loose}
     floors, others, seen = [], [], set()
     for o in t.parts:
-        if id(o) in seen:
+        if id(o) in seen or id(o) in loose:
             continue
         seen.add(id(o))
         (floors if id(o) in walkable else others).append(o)
 
     floor_obj = K.join(floors, name_floor)
     town_obj = K.join(others, name_town)
+    # Breakables are joined PER PROP -- a barrel is one object made of a body
+    # and two bands, and the runtime wants to remove the barrel, not the bands.
+    # They are left on the Town as `props` rather than returned, because both
+    # region builders already unpack exactly two values here, and because the
+    # thing the caller has to remember is to SELECT them for export: the export
+    # is scoped to a selection, so an unselected prop is silently absent from
+    # the GLB and the runtime reports "0 breakable" with nothing else wrong.
+    t.props = [K.join(group, f"BREAK_{group[0].name}_{i}")
+               for i, group in enumerate(t.loose_groups)]
     return town_obj, floor_obj
 
 
