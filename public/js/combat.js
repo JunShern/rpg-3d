@@ -983,7 +983,22 @@ export function createCombat(ctx) {
         // from behind, and it landed before the animation moved. That deleted
         // both designs the roster is built on: there was no line to step off
         // the Curler's charge, and no wind-up to walk out of on the Bellow.
-        if (!e.didHit && e.t >= e.spec.attackTime * (e.spec.impact ?? 0.35)) {
+        // A CHARGE IS A COLLISION, NOT A SWING.
+        //
+        // The Curler's whole design is that it commits to a line you can step
+        // off, and it did not work: the hit fired 0.10 s into the charge inside
+        // a 63-degree cone, which at 2.3 m is over a metre wide either side --
+        // a sidestep of 0.3 m in that time never got out of it. Measured:
+        // strafing was hit at 2.26 m, standing still at 1.74 m, which is the
+        // enemy's own puzzle failing.
+        //
+        // So a charger tests CONTACT, continuously, at body width. Step a metre
+        // aside and it goes past you, which is the thing the animation, the
+        // committed `lockDir` and the 1.7x whiff penalty have all been
+        // promising since it was built.
+        const contact = !!e.spec.charge;
+        const openAt = contact ? 0 : e.spec.attackTime * (e.spec.impact ?? 0.35);
+        if (!e.didHit && e.t >= openAt) {
           _v.subVectors(p, e.pos).setY(0);
           const d2 = _v.length();
           const facing = e.lockDir
@@ -992,8 +1007,9 @@ export function createCombat(ctx) {
           const dot = d2 > 1e-4
             ? (_v.x / d2) * Math.sin(facing) + (_v.z / d2) * Math.cos(facing)
             : 1;
-          if (d2 < e.spec.strikeRange + 0.35
-              && dot > Math.cos((e.spec.hitArc ?? 1.7) / 2)) {
+          const reach = contact ? e.spec.radius + 0.62 : e.spec.strikeRange + 0.35;
+          const arc = contact ? 1.5 : (e.spec.hitArc ?? 1.7);
+          if (d2 < reach && dot > Math.cos(arc / 2)) {
             e.didHit = true;
             hurtPlayer(e.spec.damage, e.pos);
           }

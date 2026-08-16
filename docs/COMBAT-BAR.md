@@ -91,9 +91,19 @@ instrument the measurement before you change the thing.
 ### The enemy half  ← added after the first external audit found it missing
 - [x] an enemy attack is a shape in space at a moment in time — a cone around
       the attacker's committed facing, opening at a per-species impact frame
-      (Curler 10% and 1.1 rad, Nettle 22% and 1.5, Bellow 62% and 2.5). It was
-      a facing-less sphere fired 0.05 s into a state it entered *because* you
-      were in range, so it could not miss and it hit you from behind
+      (Nettle 30% and 1.45 rad, Bellow 62% and 2.5). It was a facing-less
+      sphere fired 0.05 s into a state it entered *because* you were in range,
+      so it could not miss and it hit you from behind
+- [x] **the positional answer each enemy was designed around actually works** —
+      measured, isolated, one enemy at a time:
+      · Bellow, stand still → hit at 1.20 m. Retreat through the wind-up →
+        5.35 m by the commit, **misses**.
+      · Curler, stand still → hit at 0.92 m. Strafe either way → **misses**,
+        and it ends up 5.0 m past you.
+      A charge is a CONTACT test at body width, continuously, rather than a
+      cone on a timer: the old version fired 0.10 s into the charge inside a
+      63° cone, which at 2.3 m is over a metre wide either side, so a sidestep
+      never got out of it and the enemy's whole puzzle silently failed
 - [x] an interrupted attacker still works afterwards — `didHit` was cleared only
       in the branch that completes an attack, and being hit forces `hurt`, so
       one interruption disarmed an enemy permanently. Probe: interrupt, then
