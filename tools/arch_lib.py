@@ -250,6 +250,97 @@ def window(t, x, y0, z, w=0.62, h=0.92, shutters=True, sill=True,
     return t.add(*out) and out
 
 
+def stall(t, cx, cy, yaw=0.0, kind=0, w=2.4, d=1.5):
+    """A market stall: four poles, a striped canopy, a trestle and goods on it.
+
+    THE SQUARE NEEDED A REASON TO EXIST. It has a fountain, nine facades and,
+    since the hostiles were moved out of the town, nothing happening in it at
+    all -- and a plaza is defined by what it is FOR. Stalls put activity at the
+    centre instead of round the edges, they break the empty middle distance that
+    made the paving read as a car park, and they give the player something to
+    walk between rather than across.
+
+    The canopy is `awning` material so it catches the wind with everything else.
+    """
+    M, out = t.M, []
+    post_h = 2.05
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            out.append(box("stall_post", (cx + sx * w / 2, cy + sy * d / 2, post_h / 2),
+                           (0.045, 0.045, post_h / 2), M["timber"], bevel=0.015, seg=1))
+    # a canopy with a ridge, not a flat sheet -- a flat sheet reads as a table
+    # seen from above and the whole point is the silhouette from the side
+    out.append(prism("stall_canopy", (cx, cy, post_h + 0.02), w + 0.42, d + 0.34, 0.34,
+                     M["awning"], over_y=0.06, over_x=0.06))
+    # scallops along the front edge, the same trick the shop awnings use
+    n = max(3, int(w / 0.34))
+    for i in range(n):
+        sx = cx - (w + 0.3) / 2 + (w + 0.3) * (i + 0.5) / n
+        out.append(K.blob("stall_scallop", (sx, cy - (d + 0.34) / 2, post_h + 0.02),
+                          (0.17, 0.05, 0.13), None, M["awning"], seg=9, rings=6,
+                          squircle=2.4))
+    # trestle: a top and two cross-legs
+    top_h = 0.86
+    out.append(box("stall_board", (cx, cy, top_h), (w / 2 - 0.06, d / 2 - 0.16, 0.035),
+                   M["timber"], bevel=0.015, seg=1))
+    for sx in (-1, 1):
+        out.append(box("stall_leg", (cx + sx * (w / 2 - 0.3), cy, top_h / 2),
+                       (0.05, d / 2 - 0.2, top_h / 2), M["timber"], bevel=0.02, seg=1))
+    # THE GOODS ARE THE SIGN. There is no text in this game, so what a stall
+    # sells has to be readable as shape and colour from across the square.
+    goods = [
+        # (material, radius, rows) -- fruit, bread, cloth bolts, pots
+        ("awning", 0.115, 3), ("timber", 0.135, 2),
+        ("door", 0.125, 2), ("stone", 0.130, 3),
+    ][kind % 4]
+    mat, rr, rows = goods
+    for i in range(rows * 3):
+        gx = cx - w / 2 + 0.34 + (w - 0.68) * ((i % 3) + 0.5) / 3
+        gy = cy - d / 2 + 0.42 + (d - 0.84) * ((i // 3) + 0.5) / max(1, rows)
+        out.append(K.blob("stall_goods", (gx, gy, top_h + rr * 0.8),
+                          (rr, rr, rr * 0.85), None, M[mat], seg=10, rings=7,
+                          squircle=2.4))
+    for o in out:
+        if yaw:
+            K.transform(o, rotate=(0, 0, yaw), around=(cx, cy, 0))
+    t.add(*out)
+    # walk AROUND it, not through it -- the trestle is the obstacle, not the canopy
+    t.solid(cx, cy, w / 2 - 0.1, d / 2 - 0.1, yaw, top=top_h + 0.1)
+    return out
+
+
+def washing(t, x0, y0, x1, y1, z, n=5, sag=0.34):
+    """A line strung between two upper windows, with washing on it.
+
+    Alleys and courtyards are vertical surfaces and empty air. A line across
+    that air is the cheapest way to give the space a ceiling, and because the
+    cloth is `awning` material it moves with the wind that everything else
+    moves with -- which is most of why it is here rather than another planter.
+    """
+    M, out = t.M, []
+    seg = 14
+    rope = []
+    for i in range(seg + 1):
+        u = i / seg
+        rope.append({"p": Vector((x0 + (x1 - x0) * u, y0 + (y1 - y0) * u,
+                                  z - sag * math.sin(math.pi * u))),
+                     "r": (0.014, 0.014), "n": 2.4})
+    out.append(K.tube("wash_line", rope, seg=5, mat=M["timber"], squircle=2.4))
+    tones = ["plaster_c", "door", "plaster_b", "awning", "plaster_a"]
+    for k in range(n):
+        u = (k + 0.7) / (n + 0.4)
+        px = x0 + (x1 - x0) * u
+        py = y0 + (y1 - y0) * u
+        pz = z - sag * math.sin(math.pi * u)
+        hh = 0.32 + 0.16 * ((k * 5) % 3)
+        ww = 0.20 + 0.05 * ((k * 3) % 3)
+        out.append(box("wash_cloth", (px, py, pz - hh / 2 - 0.02),
+                       (ww, 0.012, hh / 2), M[tones[k % len(tones)]],
+                       bevel=0.01, seg=1))
+    t.add(*out)
+    return out
+
+
 def balcony(t, x, y0, z, w=1.05, reach=0.42):
     """A ledge and a railing off an upper window.
 
@@ -760,19 +851,41 @@ def building(t, cx, cy, w, d, storeys=2, yaw=0.0, plaster="plaster_a",
             out += shopfront(t, bx, y0, 0.16 + 1.55,
                              w=min(2.0, w / bays * 0.86), kind=seed)
             continue
-        elif False:
-            out += window(t, bx, y0, 0.16 + 1.65, w=min(1.15, w / bays * 0.7),
-                          h=1.35, shutters=False)
         else:
             out += window(t, bx, y0, 0.16 + 1.75)
 
-    # upper storeys, front and back
+    # UPPER STOREYS. Every one of these used to be `window(t, bx, y0, z)` --
+    # the same pane at the same spacing on every floor of all nine buildings,
+    # which is the single thing that makes a town read as one recipe run nine
+    # times no matter how much the ground floors differ. Three rules, all keyed
+    # off the building's seed and the bay index so they are stable per building
+    # and different between buildings:
+    #
+    #   * ONE BAY PER BUILDING gets a balcony, on the first floor only. It is
+    #     the only thing above the string course that PROJECTS, and a facade
+    #     needs something breaking its plane or the storey bands are doing all
+    #     the work alone.
+    #   * a couple of bays get a flower box -- four pixels of warm colour, and
+    #     the only warm accent above the ground floor.
+    #   * the TOP storey of a tall building gets short attic panes with no
+    #     shutters, because the floor under a roof is a loft and lofts have
+    #     smaller windows. This is what actually breaks the vertical repeat.
     for f in range(1, storeys):
         z = 0.16 + GROUND_H + FLOOR_H * (f - 1) + FLOOR_H * 0.52
+        attic = (f == storeys - 1) and storeys >= 3
+        wh = 0.66 if attic else 0.92
+        balc_bay = (seed + 1) % bays
         for b in range(bays):
             bx = -w / 2 + w * (b + 0.5) / bays
-            out += window(t, bx, y0, z)
-            out += window(t, bx, d / 2, z)          # rear elevation
+            out += window(t, bx, y0, z, h=wh, shutters=not attic)
+            if not attic and b == balc_bay and f == 1:
+                out += balcony(t, bx, y0, z - wh / 2 - 0.10,
+                               w=min(1.15, w / bays * 0.82))
+            elif not attic and (b + seed) % 3 == 1:
+                out += flowerbox(t, bx, y0, z - wh / 2 - 0.08,
+                                 w=min(0.72, w / bays * 0.5))
+            # the rear elevation is an alley: plainer, and no balcony over it
+            out += window(t, bx, d / 2, z, h=wh, shutters=False)
         # side elevations get one window per storey so alleys are not blank
         for s in (-1, 1):
             wob = window(t, 0, -d * 0, z, w=0.5, h=0.8, shutters=False)

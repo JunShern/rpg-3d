@@ -215,6 +215,19 @@ def build_props(t):
                     (12.4, -8.6, 0.55), (-12.6, 9.4, 0.6), (2.0, 10.2, 0.5)):
         A.planter(t, x, y, r=r)
 
+    # A MARKET, off the fountain's axis so it does not block the gate view.
+    # Three stalls in a loose row on the west side: enough to read as a market
+    # and few enough that the square is still a square.
+    for cx, cy, yaw, kind in ((-7.4, 1.2, 8, 0), (-7.9, 4.6, -6, 1),
+                              (-6.9, -2.4, 14, 3)):
+        A.stall(t, cx, cy, yaw=yaw, kind=kind)
+
+    # Lines strung across the two alleys, which were vertical surfaces and empty
+    # air. The cloth is `awning`, so it moves with the wind.
+    A.washing(t, -13.0, 5.0, -13.0, 11.0, 5.4, n=4)
+    A.washing(t, 12.6, -3.0, 12.6, 3.2, 5.7, n=5)
+    A.washing(t, 3.2, 12.4, 9.0, 12.4, 5.1, n=4)
+
     for x, y in ((-6.6, -8.8), (-7.3, -8.2), (6.2, -8.9)):
         A.barrel(t, x, y)
     for x, y, s, yaw in ((7.2, -8.4, 0.40, 18), (7.9, -8.9, 0.34, -25),
