@@ -920,6 +920,7 @@ const ENCOUNTERS = [
 function startCombat() {
   trail = makeTrail(scene);
   scene.add(lockRing);
+  scene.add(threatLine);
   combat = createCombat({
     scene,
     camera,
@@ -1128,6 +1129,57 @@ const lockRing = (() => {
   mesh.frustumCulled = false;
   return mesh;
 })();
+
+/**
+ * The line a charger is about to run down.
+ *
+ * The Curler's puzzle is "step off the line", and once that actually worked the
+ * next problem was that the line is invisible -- reading it meant watching
+ * which way a 45-pixel blob was pointing. This is a flat wedge on the ground
+ * from the enemy along its facing, shown only during the wind-up, in the
+ * species' own accent colour. It is the one piece of UI in the build that is
+ * IN the world rather than over it, which is also why it can be trusted: it is
+ * occluded by what occludes it.
+ */
+const threatLine = (() => {
+  const g = new THREE.PlaneGeometry(1, 1, 1, 1);
+  g.translate(0, 0.5, 0);          // pivot at the near edge
+  g.rotateX(-Math.PI / 2);
+  const m = new THREE.MeshBasicMaterial({
+    color: 0x63dcff, transparent: true, opacity: 0.42,
+    depthWrite: false, side: THREE.DoubleSide,
+  });
+  const mesh = new THREE.Mesh(g, m);
+  mesh.renderOrder = 1;
+  mesh.visible = false;
+  mesh.frustumCulled = false;
+  return mesh;
+})();
+
+function updateThreatLines(dt) {
+  if (!combat) return;
+  let shown = null;
+  for (const e of combat.enemies) {
+    if (e.dead || !e.spec.charge || e.state !== 'telegraph') continue;
+    if (!e.group.visible) continue;
+    shown = e;
+    break;                          // one charger at a time is the common case
+  }
+  if (!shown) { threatLine.visible = false; return; }
+  const reach = shown.spec.charge * shown.spec.attackTime * 0.62;
+  threatLine.visible = true;
+  // 0.14 for the same reason the lock ring needed it: the visible ground is
+  // a triangulated heightfield and the enemy's y comes from the analytic
+  // surface, so a low lift gets buried on any slope
+  threatLine.position.set(shown.pos.x, shown.pos.y + 0.14, shown.pos.z);
+  threatLine.rotation.y = shown.facing;
+  threatLine.scale.set(shown.spec.radius * 2.1, 1, reach);
+  // pulse with the wind-up, so it reads as a countdown and not as a decal
+  const k = Math.min(1, shown.t / Math.max(0.05, shown.spec.telegraph));
+  // it has to be seen from across a field on a beige path, so it starts
+  // visible and grows -- 0.16 was invisible at the moment it mattered most
+  threatLine.material.opacity = 0.30 + 0.34 * k;
+}
 
 function applyShake() {
   if (!combat) return;
@@ -1419,6 +1471,7 @@ function frame(dt) {
   updateCombat(dt, dt);
   if (cur) { cur.mixer.update(sdt); applyFootIK(cur, sdt); }
   updateTrail(sdt);
+  updateThreatLines(sdt);
   renderer.render(scene, camera);
   hud.textContent =
     `${fps} fps  ·  ${cur ? cur.name : '—'}  ·  ${combat && combat.isStaggered() ? 'hurt' : slip.t > 0 ? 'slip' : attacking ? 'attack' : !grounded ? 'air'

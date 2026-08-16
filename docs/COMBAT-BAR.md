@@ -144,6 +144,10 @@ instrument the measurement before you change the thing.
 - [x] death: collapse clip with a bone-scale flatten, then a fade
 
 ### Enemy behaviour
+- [x] a charger's line is drawn on the ground during its wind-up — its whole
+      puzzle is "step off the line", and once that actually worked the next
+      problem was that the line was invisible. In the world rather than over it,
+      so it is occluded by whatever occludes it
 - [x] the wind-up is legible at fighting distance, not just at four metres —
       the tell pulses in the species' accent (bone / cyan / ember) as well as
       changing shape, because at ~45 px a silhouette change is a smudge
