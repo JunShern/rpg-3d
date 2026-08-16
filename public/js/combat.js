@@ -86,6 +86,8 @@ export const TUNE = {
   // swing is supposed to be a risk, not a trap, and a game where the only way
   // out of a recovery is to eat the hit teaches you to stop attacking.
   dodge: {
+    // seconds after a slip in which a swing counts as a punish
+    punish: 0.75,
     clip: 'dodge', time: 0.42, dist: 3.6,
     iFrom: 0.05, iTo: 0.28,      // invulnerable across the middle of it
     cooldown: 0.62,
@@ -261,6 +263,8 @@ export function createCombat(ctx) {
     invuln: 0,
     step: -1,               // index into TUNE.combo, -1 = not attacking
     airChain: 0,            // pogos since last touching the ground
+    punish: 0,              // seconds left to cash a slip in for a punish
+    punishing: false,       // this swing is the punish
     lastStep: -1,           // the link that just ended, for comboWindow
     dodging: 0,             // seconds left in a slip
     stagger: 0,             // seconds of "you are not in control" after a hit
@@ -452,6 +456,20 @@ export function createCombat(ctx) {
     player.dodging = TUNE.dodge.time;
     player.dodgeT = 0;
     player.dodgeCd = TUNE.dodge.cooldown;
+    // THE SLIP OPENS A PUNISH WINDOW.
+    //
+    // Measured: dodging every telegraph within 5.5 m took zero damage in some
+    // runs and STILL lost, because the fight never ended -- the only way to
+    // raise damage was to stop defending, so the two stable strategies were
+    // "mash and win on 4 HP" and "dodge and never finish". Reading a tell was
+    // never the FAST route through, which is the rhythm the whole design
+    // argues for.
+    //
+    // A swing started inside this window comes out faster and hits harder. It
+    // is the payoff that makes the loop read-slip-punish instead of
+    // hold-the-button, and it is why the slip's own cooldown is 0.62 s: the
+    // window has to be earned per tell, not held open.
+    player.punish = TUNE.dodge.punish;
     return TUNE.dodge;
   }
 
@@ -507,6 +525,9 @@ export function createCombat(ctx) {
     player.buffered = false;
     player.sinceCombo = 0;
     player.hitThisSwing = new Set();
+    // spend the punish window on THIS swing, if one is open
+    player.punishing = player.punish > 0;
+    player.punish = 0;
   }
 
   // The air swing is step AIR rather than an extra entry in `combo`, so it can
@@ -518,8 +539,27 @@ export function createCombat(ctx) {
     return i === AIR ? TUNE.air : TUNE.combo[Math.min(i, TUNE.combo.length - 1)];
   }
 
+  /**
+   * The spec for the swing in progress, with the punish bonus folded in.
+   *
+   * A punishing swing comes out in 55% of its wind-up and hits for 1.7x. Both
+   * halves matter: the damage is the reward, and the shorter wind-up is what
+   * lets it land inside the recovery of the attack you just slipped -- a
+   * punish you cannot fit into the opening is not a punish.
+   */
+  const PUNISH_DMG = 1.7;
+  const PUNISH_WINDUP = 0.55;
+  function withPunish(spec) {
+    if (!player.punishing) return spec;
+    return { ...spec,
+             windup: spec.windup * PUNISH_WINDUP,
+             damage: Math.round(spec.damage * PUNISH_DMG),
+             stop: spec.stop * 1.35,
+             shake: spec.shake * 1.3 };
+  }
+
   function swingSpec() {
-    return specFor(player.step);
+    return withPunish(specFor(player.step));
   }
 
   function attackClipFor(clips, i) {
@@ -737,6 +777,8 @@ export function createCombat(ctx) {
     player.airChain = 0;
     player.pogo = 0;
     player.sinceCombo = 99;
+    player.punish = 0;
+    player.punishing = false;
     player.lastStep = -1;
     player.knock.set(0, 0, 0);
     if (player.hitThisSwing) player.hitThisSwing.clear();
@@ -771,6 +813,7 @@ export function createCombat(ctx) {
     if (player.stagger > 0) player.stagger -= raw;
     if (player.dodging > 0) { player.dodging -= raw; player.dodgeT += raw; }
     player.sinceCombo += raw;
+    if (player.punish > 0) player.punish -= raw;
     if (lockTarget && (lockTarget.dead
         || lockTarget.pos.distanceTo(ctx.playerPos()) > TUNE.lockDrop)) {
       lockTarget = null;
@@ -784,7 +827,7 @@ export function createCombat(ctx) {
 
   function updatePlayerSwing(dt) {
     if (player.step < 0) return;
-    const s = swingSpec();
+    const s = swingSpec();          // punish-adjusted: shorter wind-up, more damage
     player.t += dt;
     if (player.phase === 'windup' && player.t >= s.windup) {
       player.phase = 'active';
@@ -794,7 +837,8 @@ export function createCombat(ctx) {
       if (player.t >= s.active) {
         player.phase = 'recover';
         player.t -= s.active;
-        if (chainNow()) return;
+        // NO CHAIN HERE. Chaining at the instant the active window closed is
+        // what made mashing dominant -- see `chainNow`.
       }
     } else if (player.phase === 'recover') {
       // A PRESS DURING RECOVERY CHAINS TOO.
@@ -817,10 +861,37 @@ export function createCombat(ctx) {
     }
   }
 
-  /** Start the next link if one is buffered and there is one to start. */
+  /**
+   * Start the next link if one is buffered, there is one to start, and enough
+   * of the recovery has been paid.
+   *
+   * THE CHAIN HAS A CADENCE NOW, AND MASHING NO LONGER BUYS DPS.
+   *
+   * This used to fire the moment the active window closed, which meant a
+   * buffered press DELETED the whole recovery. Measured on the final
+   * encounter, lock-on engaged, only the press rate varying:
+   *
+   *   mash 10/s        cleared in 10.6 s, 64 HP lost
+   *   one press/link   cleared in 15.4 s, 96 HP lost
+   *
+   * The arithmetic behind it: a mashed chain ran 0.21 + 0.155 + 0.70 = 1.065 s
+   * for 53 damage (49.8 dps); one press per link ate the full recovery every
+   * time, 1.465 s (36.2 dps). So the input that engages least paid 37% more,
+   * and the deliberate rhythm the whole design argues for got you killed.
+   * `resist` does not touch this -- it taxes interrupting enemy wind-ups,
+   * which is a different axis entirely.
+   *
+   * `CHAIN_AT` is the fraction of recovery that must elapse before the next
+   * link may start. The buffer still accepts a press at any point, so mashing
+   * remains FORGIVING -- it just is not faster. That is the right split:
+   * generous input, fixed cadence.
+   */
+  const CHAIN_AT = 0.5;
   function chainNow() {
     if (!player.buffered || player.step === AIR) return false;
     if (player.step >= TUNE.combo.length - 1) return false;
+    if (player.phase !== 'recover') return false;
+    if (player.t < swingSpec().recover * CHAIN_AT) return false;
     startSwing(player.step + 1);
     return true;
   }
@@ -1330,6 +1401,8 @@ export function createCombat(ctx) {
     // disarmed every interrupted enemy permanently.
     forceState: (e, name) => setState(e, name),
     isDodging: () => player.dodging > 0,
+    punishWindow: () => player.punish,
+    isPunishing: () => !!player.punishing,
     isStaggered: () => player.stagger > 0,
     // HIT-STOP HAS TO BE GLOBAL. It scaled combat's own dt and nothing else, so
     // during a 55 ms stop the swing's state machine advanced 3.3 ms while its

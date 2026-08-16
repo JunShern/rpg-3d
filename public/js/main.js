@@ -1948,7 +1948,10 @@ function updateSmash(dt) {
   if (smashedThisSwing) return;
   const spec = combat.swingSpec();
   _sd.set(Math.sin(facing), 0, Math.cos(facing));
-  const n = breakables.hit(pos.x, pos.z, _sd, (spec.reach ?? 1.6) * 0.85);
+  // reach and arc BOTH from the swing that is happening, so what you can smash
+  // is the same shape as what you can hit
+  const n = breakables.hit(pos.x, pos.z, _sd, (spec.reach ?? 1.6) * 0.95,
+                           (spec.arc ?? 1.6) + 0.5);
   if (n > 0) {
     smashedThisSwing = true;
     // it has to FEEL like it connected, or a barrel bursting reads as scenery

@@ -118,12 +118,24 @@ export function makeBreakables(scene, solids) {
    * Returns the number of props broken, so the caller can decide whether the
    * swing "connected" for the purposes of hit-stop and shake.
    */
-  function hit(x, z, dir, reach) {
+  function hit(x, z, dir, reach, arc = 1.6) {
     let n = 0;
     for (const p of props) {
       if (p.broken) continue;
-      const d = Math.hypot(p.x - x, p.z - z);
+      const dx = p.x - x, dz = p.z - z;
+      const d = Math.hypot(dx, dz);
       if (d > reach + p.r) continue;
+      // FACING, not a circle round the player. `dir` was passed in from the
+      // first version and used ONLY to throw the debris: an audit measured
+      // barrels breaking at 0.9-1.9 m while facing 180 degrees AWAY from them,
+      // identically to facing them. A sword that breaks things behind you is
+      // not a sword. Same cone the enemy hitbox uses, widened a little because
+      // a prop is a static target and being strict about it reads as the swing
+      // missing for no reason.
+      if (d > 1e-4) {
+        const cos = (dx / d) * dir.x + (dz / d) * dir.z;
+        if (cos < Math.cos(arc / 2)) continue;
+      }
       p.broken = true;
       p.mesh.visible = false;
       freeSolid(p);

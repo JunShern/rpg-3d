@@ -1006,6 +1006,62 @@ async function run() {
   });
 
   await fresh();
+  // MASHING MUST NOT BE THE BEST STRATEGY.
+  //
+  // There was no check on this at all, and it was false: measured on the final
+  // encounter with lock-on engaged and only the press policy varying, mashing
+  // cleared in 10.6 s for 64 HP while one press per link took 15.4 s and cost
+  // 96. `chainNow` fired the instant the active window closed, so a buffered
+  // press deleted the whole recovery -- 49.8 dps against 36.2. The input that
+  // engages least paid 37% more.
+  //
+  // The property is comparative on purpose. Absolute clear times drift with
+  // every balance change; "reading the fight beats holding the button" is the
+  // design, and it is the thing that quietly stopped being true.
+  await check('reading the fight beats holding the button', async () => {
+    const run = async (policy) => {
+      __freezeEncounters(true);
+      __respawnEncounters();
+      const grp = [];
+      for (const e of combat.enemies) {
+        if (!e.spec.hostile) continue;
+        if (Math.hypot(e.home.x - 10, e.home.z + 88) < 9) grp.push(e);
+        else { e.dead = true; e.deadT = 99; }
+      }
+      __sim({ steps: 2 });
+      combat.respawn();
+      __sim({ warp: [10, 12, -82], steps: 25 });
+      if (!combat.lockTarget) combat.toggleLock();
+      const dt = 1 / 60;
+      let t = 0, next = 0;
+      while (t < 40 && grp.some((e) => !e.dead) && !combat.player.dead) {
+        let held = false;
+        if (policy === 'punish') {
+          if (combat.punishWindow() > 0) combat.attack();
+          else for (const e of grp) {
+            if (e.dead || e.state !== 'telegraph') continue;
+            if (Math.hypot(e.pos.x - pos.x, e.pos.z - pos.z) > 4.2) continue;
+            if (e.t < e.spec.telegraph * 0.45) continue;
+            held = true; combat.dodge(); break;
+          }
+        }
+        if (!held && t >= next) { combat.attack(); next += 0.1; }
+        if (!combat.lockTarget) combat.toggleLock();
+        __sim({ steps: 1, dt });
+        t += dt;
+      }
+      return { t, alive: grp.filter((e) => !e.dead).length, dead: combat.player.dead };
+    };
+    const mash = await run('mash');
+    const skill = await run('punish');
+    const ok = !skill.dead && !skill.alive && (mash.dead || mash.alive || skill.t < mash.t);
+    return { ok,
+             detail: `mash ${mash.t.toFixed(1)}s${mash.dead ? ' DIED' : ''}`
+                   + `${mash.alive ? ` ${mash.alive} alive` : ''}`
+                   + ` vs slip-and-punish ${skill.t.toFixed(1)}s`
+                   + `${skill.dead ? ' DIED' : ''}${skill.alive ? ` ${skill.alive} alive` : ''}` };
+  });
+
   group('The camera');
 
   // NOTHING TOUCHED THE CAMERA. It is the most intricate code in the project --
