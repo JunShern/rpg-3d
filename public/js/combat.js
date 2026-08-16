@@ -156,6 +156,15 @@ const _v2 = new THREE.Vector3();
 const _fv = new THREE.Vector3();
 const _hit = { x: 0, z: 0 };
 
+// The colour each species owns, matched to its palette accent, used for the
+// telegraph pulse. Kept out here so it is one allocation, not one per frame.
+const TELL = {
+  nettle: new THREE.Color(0xffe9a8),
+  curler: new THREE.Color(0x63dcff),
+  bellow: new THREE.Color(0xff7a26),
+  _: new THREE.Color(0xffffff),
+};
+
 function pickClip(clips, want, fallback) {
   return clips[want] ? want : (clips[fallback] ? fallback : null);
 }
@@ -801,8 +810,24 @@ export function createCombat(ctx) {
     }
     e.mixer.update(dt);
     if (e.flash > 0) e.flash -= dt;
+
+    // THE WIND-UP GLOWS.
+    //
+    // Every tell in this game is a shape change, which is the right idea and
+    // reads beautifully at four metres -- and at fighting distance an enemy is
+    // about forty-five pixels tall, where a silhouette change is a smudge
+    // becoming a slightly different smudge. So the tell also pulses, in the
+    // species' own accent: bone for the swarmer, cyan for the charger, ember
+    // for the brute. Colour survives at any size the shape does not.
+    const winding = e.state === 'telegraph';
+    const pulse = winding
+      ? 0.30 + 0.34 * Math.sin(e.t / Math.max(0.08, e.spec.telegraph) * 11.0)
+      : 0;
     for (const m of e.mats) {
-      if (m.emissive) m.emissive.setScalar(e.flash > 0 ? 0.55 : 0);
+      if (!m.emissive) continue;
+      if (e.flash > 0) m.emissive.setScalar(0.55);
+      else if (pulse > 0) m.emissive.copy(TELL[e.name] || TELL._).multiplyScalar(pulse);
+      else m.emissive.setScalar(0);
     }
 
     if (e.dead) {

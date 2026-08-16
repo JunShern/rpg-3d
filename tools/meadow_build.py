@@ -358,7 +358,10 @@ def stream(M, t):
         # five-metre vertical sheet of water standing in a field. This is the
         # same rx/ry trap the fountain wall and the gate arch both hit.
         sec.append({"p": Vector((x, y, bed + 0.42)),
-                    "r": (STREAM_HALF * 0.86, 0.04), "n": 3.6})
+                    # 0.52, not 0.86: the cut only reaches full depth within 45% of
+                    # STREAM_HALF, so a wider ribbon rode up the banks and left a
+                    # straight edge of water lying across sloping ground
+                    "r": (STREAM_HALF * 0.52, 0.04), "n": 3.6})
     t.add(K.tube("water", sec, seg=4, mat=M["water"], squircle=3.6, up=(0, 0, 1)))
 
     # WET STONES ALONG THE BANKS. A cut in a heightfield has no edge treatment,

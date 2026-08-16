@@ -115,6 +115,10 @@ instrument the measurement before you change the thing.
 - [x] death: collapse clip with a bone-scale flatten, then a fade
 
 ### Enemy behaviour
+- [x] the wind-up is legible at fighting distance, not just at four metres —
+      the tell pulses in the species' accent (bone / cyan / ember) as well as
+      changing shape, because at ~45 px a silhouette change is a smudge
+      becoming a slightly different smudge
 - [x] full cycle: idle → approach → telegraph → attack → recover — probe saw
       enemies in `telegraph` and `attack` states
 - [x] the telegraph is a 520 ms held shape change (spines snap upright)
@@ -231,9 +235,9 @@ whole cluster is fixed above. What it found that is still open:
    another project, retargeted and re-rigged here — the README says so, but the
    "everything is scripted geometry" framing does not hold for the character you
    look at the whole time.
-6. **Enemy tells are silhouette-only** on a target ~45 px tall at fighting
-   distance. Palette now carries role (bone / cyan / ember), which helps, but
-   there is no ground indicator or flash on the wind-up itself.
+6. **Tells still have no ground footprint.** They pulse and they change shape,
+   but nothing shows you *where* an attack will land, so reading a Curler's
+   committed line is a matter of watching which way it is pointing.
 
 *Answered from the audit:* the whole enemy-attack cluster above; **no textures
 anywhere** (the plaza, terrace, meadow grass and worn path are all generated
