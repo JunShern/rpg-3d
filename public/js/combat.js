@@ -24,6 +24,19 @@ export const TUNE = {
     { clip: 'attack3', windup: 0.17, active: 0.14, recover: 0.40,
       damage: 28, knock: 7.0, lift: 3.2, stop: 0.115, shake: 0.26, reach: 2.05, arc: 1.9 },
   ],
+  // THE FALLING CUT. Not part of the chain, and deliberately not a fourth hit:
+  // it exists because the finisher LAUNCHES, and a launch with nothing to do
+  // about it is a wasted mechanic. Landing it bounces you back up, so an
+  // airborne enemy can be juggled -- and missing it drops you into a landing
+  // you have to eat. High damage, low knock: knocking it away would end the
+  // juggle you just started.
+  air: {
+    clip: 'airattack', windup: 0.19, active: 0.20, recover: 0.26,
+    damage: 18, knock: 2.2, lift: 2.4, stop: 0.085, shake: 0.17,
+    reach: 1.90, arc: 2.1,
+    hang: 0.19,            // seconds of held breath at the top
+    pogo: 7.4,             // upward kick on a hit -- the whole point
+  },
   comboWindow: 0.42,       // how long after a swing a follow-up still chains
   playerHP: 100,
   playerIFrames: 0.85,
@@ -256,10 +269,10 @@ export function createCombat(ctx) {
 
   // ------------------------------------------------------------ the combo
 
-  function attack() {
+  function attack(airborne = false) {
     if (player.dead) return false;
     if (player.step < 0) {
-      startSwing(0);
+      startSwing(airborne ? AIR : 0);
       return true;
     }
     // buffered: a press at ANY point in the current swing lands the next one,
@@ -278,13 +291,21 @@ export function createCombat(ctx) {
     player.hitThisSwing = new Set();
   }
 
+  // The air swing is step AIR rather than an extra entry in `combo`, so it can
+  // never be chained into or out of by the buffering logic -- it is a different
+  // move, not a fourth hit.
+  const AIR = 99;
+
+  function specFor(i) {
+    return i === AIR ? TUNE.air : TUNE.combo[Math.min(i, TUNE.combo.length - 1)];
+  }
+
   function swingSpec() {
-    return TUNE.combo[Math.min(player.step, TUNE.combo.length - 1)];
+    return specFor(player.step);
   }
 
   function attackClipFor(clips, i) {
-    const s = TUNE.combo[i];
-    return pickClip(clips, s.clip, 'attack');
+    return pickClip(clips, specFor(i).clip, 'attack');
   }
 
   // ------------------------------------------------------------- lock-on
@@ -431,7 +452,8 @@ export function createCombat(ctx) {
         player.phase = 'recover';
         player.t -= s.active;
         // chain on the buffered press the instant the active window closes
-        if (player.buffered && player.step < TUNE.combo.length - 1) {
+        if (player.buffered && player.step !== AIR
+            && player.step < TUNE.combo.length - 1) {
           startSwing(player.step + 1);
         }
       }
@@ -458,6 +480,9 @@ export function createCombat(ctx) {
       }
       player.hitThisSwing.add(e);
       hurtEnemy(e, s.damage, p, s.knock, s.lift, s.stop, s.shake);
+      // combat.js does not own the player's vertical velocity, so it raises a
+      // flag and the movement code decides what to do with it
+      if (s.pogo) player.pogo = s.pogo;
     }
   }
 
@@ -805,6 +830,8 @@ export function createCombat(ctx) {
     get shake() { return shake; },
     fx,
     isAttacking: () => player.step >= 0,
+    isAirSwing: () => player.step === AIR,
+    takePogo: () => { const v = player.pogo; player.pogo = 0; return v; },
     attackPhase: () => player.phase,
     attackStep: () => player.step,
   };

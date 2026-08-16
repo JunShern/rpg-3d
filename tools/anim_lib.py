@@ -466,3 +466,85 @@ def anim_attack3(rig, weapon=True):
         K.key(rig, f, p, loc={"hips": loc})
     K.interp(act)
     return act
+
+
+def anim_airattack(rig, weapon=True):
+    """The FALLING CUT -- the only attack that is not part of the ground chain.
+
+    It exists to close a loop the game already half had: the finisher launches,
+    so there needed to be something to do with an airborne enemy.  The shape is
+    a stall and a drop.  The character curls up at the top -- knees in, blade
+    cocked overhead, briefly smaller than usual so the hang reads as a held
+    breath rather than a hitch -- and then unfolds straight down through the
+    target, blade leading, and stays extended.
+
+    IT DOES NOT RECOVER IN THE AIR.  The tail of this clip holds the extended
+    pose, because the runtime is still falling when the clip runs out; the
+    landing is what ends it.  A clip that settles back to neutral mid-fall makes
+    the character look like they finished and then fell over.
+
+    Connecting to the runtime: a hit pogos the player back up, so this clip has
+    to look equally right played once or four times in a row.  That is why the
+    stall is short and the recovery is a hold -- there is nothing in it that
+    needs to finish before it can start again.
+    """
+    act = K.action(rig, "airattack")
+    n = _neutral(weapon)
+
+    # the tuck: everything gathers in, and the blade goes up and BACK
+    tuck = dict(AIRBORNE)
+    tuck.update({
+        "hips": (16.0, 0.0, 0.0), "spine": (12.0, 0.0, 0.0),
+        "chest": (10.0, -8.0, 0.0), "neck": (-6.0, 6.0, 0.0),
+        "head": (-10.0, 8.0, 0.0),
+        "shoulder.R": (-16.0, 0.0, 10.0),
+        "upperarm.R": (-146.0, 0.0, 12.0), "forearm.R": (52.0, 0.0, 0.0),
+        "hand.R": (-56.0, 0.0, 0.0),
+        "upperarm.L": (-118.0, 0.0, 26.0), "forearm.L": (58.0, 0.0, 0.0),
+        "hand.L": (-26.0, 0.0, 0.0),
+        "thigh.L": (74.0, 0.0, 5.0), "shin.L": (-96.0, 0.0, 0.0),
+        "foot.L": (26.0, 0.0, 0.0),
+        "thigh.R": (66.0, 0.0, -5.0), "shin.R": (-90.0, 0.0, 0.0),
+        "foot.R": (24.0, 0.0, 0.0),
+    })
+
+    # THE DRIVE: one straight line from the blade tip to the trailing foot.
+    #
+    # The torso pitch is doing most of the work and the first pass left it out.
+    # With an upright chest the same arm angle puts the blade forward and UP --
+    # a thrust, not a plunge -- because the sword extends from the hand along
+    # the arm. `attack3` gets its downward chop from a 28-degree forward chest
+    # as much as from the shoulder; this needs more, because it is falling.
+    drive = dict(n)
+    drive.update({
+        "hips": (26.0, 0.0, 0.0), "spine": (20.0, 0.0, 0.0),
+        "chest": (34.0, 2.0, 0.0), "neck": (-16.0, 0.0, 0.0),
+        "head": (-22.0, 0.0, 0.0),
+        "shoulder.R": (12.0, 0.0, -6.0),
+        "upperarm.R": (134.0, 0.0, -6.0), "forearm.R": (0.0, 0.0, 0.0),
+        "hand.R": (12.0, 0.0, 0.0),
+        "upperarm.L": (78.0, 0.0, 18.0), "forearm.L": (20.0, 0.0, 0.0),
+        "hand.L": (10.0, 0.0, 0.0),
+        # legs trail up and back, so the whole body is one falling diagonal
+        "thigh.L": (-46.0, 0.0, 4.0), "shin.L": (22.0, 0.0, 0.0),
+        "foot.L": (-24.0, 0.0, 0.0),
+        "thigh.R": (-58.0, 0.0, -4.0), "shin.R": (30.0, 0.0, 0.0),
+        "foot.R": (-26.0, 0.0, 0.0),
+    })
+
+    # THE BLADE HAS TO ARRIVE WHEN THE HITBOX DOES.
+    #
+    # combat.js opens the active window at 0.19 s, which is clip frame 4.6 at
+    # 24 fps, so the drive is keyed at frame 5. The first pass put it at frame 7
+    # -- 0.29 s -- and the swing went live while the sword was still cocked
+    # overhead, which is exactly the fault the ground combo had in iteration 2.
+    # active window 0.19 s -> 0.39 s == frames 4.6 to 9.4
+    for f, p, loc in [
+        (0,  AIRBORNE, (0.0, 0.0, 0.000)),
+        (2,  tuck,     (0.0, -0.020, -0.060)),   # gather, and hang
+        (5,  drive,    (0.0, 0.030, 0.075)),     # unfold straight down
+        (26, drive,    (0.0, 0.026, 0.070)),     # HOLD -- the landing ends this
+    ]:
+        K.key(rig, f, p, loc={"hips": loc})
+    K.interp(act)
+    return act

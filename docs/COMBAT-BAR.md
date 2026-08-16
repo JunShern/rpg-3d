@@ -47,7 +47,14 @@ marked DONE on the strength of a screenshot alone — it needs an assertion in
 - [x] the third hit is slower, hits for 28 and launches (knock 7.0, lift 3.2)
 - [x] input buffering — probe chained step 0 → 1 → 2 from presses mid-swing
 - [x] the chain resets cleanly after `comboWindow`
-- [ ] an air attack exists and differs from the ground chain
+- [x] an air attack exists and differs from the ground chain — the **falling
+      cut**: a stall at the top, then a dive forward and down with the blade
+      leading. It is not a fourth combo hit and cannot be chained into or out of
+      the ground chain. Landing it **pogos** you back up, so the finisher's
+      launch has something to do with it; missing drops you into the landing.
+      Probe: hang held vy at ~4.0 through the wind-up, the drive hit −11 m/s the
+      frame the blade went live, travelled 2.08 m forward, connected at 2.20 m
+      and bounced the player from 1.55 m to 2.54 m
 
 ### Impact  ← the single most load-bearing section
 - [x] hit-stop — global dt scaled to 6% for 55 ms (115 ms on the finisher)
@@ -142,8 +149,7 @@ Newest audit at the top. Each entry: what is wrong, not what to do about it.
    is above target but it is now the frame budget's biggest single line, and the
    cost is skinning and drawing, not AI (measured: 12.4 ms for 42 ambients, of
    which freezing the mixers alone recovered 2.0 ms and hiding them alone 5.6).
-2. No air attack.
-3. The Nettle's `move` clip is authored at one speed and does not scale with
+2. The Nettle's `move` clip is authored at one speed and does not scale with
    travel, so the legs skate.
 4. Hit 3's two-handed intent does not read: the left hand does not actually
    reach the grip, because nothing IKs the off hand to the weapon.

@@ -407,8 +407,9 @@ function jump() {
 }
 
 function attack() {
-  if (!cur || !grounded || !combat) return;
-  combat.attack();
+  if (!cur || !combat) return;
+  // airborne presses run the falling cut instead of the ground chain
+  combat.attack(!grounded);
 }
 
 // --------------------------------------------------------------- collision
@@ -682,10 +683,15 @@ const STEP_MAX = 0.45;                    // stairs pass, a 1.1 m terrace does n
 // which reads as floaty. 20 keeps the arc snappy and game-like.
 const GRAVITY = 20.0;
 const JUMP_V = 7.5;                       // ~1.41 m apex, ~0.75 s of air
+const PLUNGE_V = 11.0;      // the falling cut beats gravity to the ground
+const PLUNGE_FWD = 7.0;     // ...and travels, because the pose is a dive
+const PLUNGE_TIME = 0.22;
 // Tuned to just CLEAR the 1.1 m terrace: a jump that cannot reach the one
 // ledge in the level is a button that does nothing.
 let vy = 0;
 let grounded = true;
+let lastAirPhase = 'none';
+let plungeT = 0;
 let landing = false;
 
 const groundRay = new THREE.Raycaster();
@@ -964,6 +970,15 @@ function step(dt) {
     facing += d * Math.min(1, dt * (lt ? 10 : 14));
   }
 
+  // ...and the falling cut carries FORWARD as well as down. The pose is a dive
+  // -- body horizontal, legs trailing, blade leading -- and a dive that moves
+  // straight down reads as a belly-flop. Motion has to agree with the drawing.
+  if (plungeT > 0) {
+    plungeT -= dt;
+    const k = PLUNGE_FWD * dt;
+    tryMove(Math.sin(facing) * k, Math.cos(facing) * k);
+  }
+
   // face the target even while standing still, and while swinging
   {
     const lt = combat && combat.lockTarget;
@@ -976,7 +991,34 @@ function step(dt) {
 
   // vertical: integrate, then land when we cross the floor going down
   if (!grounded) {
-    vy -= GRAVITY * dt;
+    // THE HANG. During the falling cut's wind-up the character is gathering,
+    // and gravity is scaled almost to nothing so the pose has a moment to
+    // read. Without it the tuck goes by while you are already falling and the
+    // whole move looks like a twitch.
+    const airSwing = combat && combat.isAirSwing();
+    const phase = airSwing ? combat.attackPhase() : 'none';
+    const hanging = phase === 'windup';
+    vy -= GRAVITY * (hanging ? 0.10 : airSwing ? 1.45 : 1.0) * dt;
+
+    // THE DRIVE. The moment the blade goes live, the character stops obeying
+    // whatever the jump was doing and goes DOWN, hard. Without this you could
+    // press attack on the way up and watch a downward plunge animation play
+    // while rising, which is the kind of thing that reads as broken instantly.
+    if (phase === 'active' && lastAirPhase !== 'active') {
+      vy = -PLUNGE_V;
+      plungeT = PLUNGE_TIME;
+    }
+    lastAirPhase = phase;
+
+    // ...and the drive is FASTER than a fall, because it is a drive
+    const kick = combat ? combat.takePogo() : 0;
+    if (kick) {
+      // POGO: hitting something on the way down throws you back up, which is
+      // what turns the finisher's launch into a juggle instead of a one-off.
+      vy = kick;
+      playOnce('jump', 0.05);
+    }
+
     pos.y += vy * dt;
     const g = groundAt(pos.x, pos.z, pos.y + 1.2);
     if (g !== null && vy <= 0 && pos.y <= g) {
@@ -986,6 +1028,11 @@ function step(dt) {
       landing = true;
       playOnce('land', 0.05);
     }
+  } else {
+    // landing mid-swing would otherwise leave the edge detector latched and
+    // the NEXT falling cut would never drive
+    lastAirPhase = 'none';
+    plungeT = 0;
   }
 
   if (cur) { cur.group.position.copy(pos); cur.group.rotation.y = facing; }
