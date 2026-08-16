@@ -175,6 +175,11 @@ def build_buildings(t):
     # the ground -- at four it was hidden by the buildings in front of it.
     A.belltower(t, -1.0, -22.5, base=2.5, storeys=5)
 
+    # THE UPPER LEVEL. On the east range, facing the plaza, so from the fountain
+    # you can see both the stair and the deck it leads to -- a balcony you
+    # cannot obviously get to is set dressing rather than verticality.
+    A.gallery(t, 12.6, 8.5, w=7.0, d=2.2, deck=3.55, yaw=-90, stair_side=-1)
+
 
 def build_props(t):
     lights = []

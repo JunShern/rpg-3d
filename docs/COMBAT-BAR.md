@@ -228,9 +228,10 @@ the creature pipeline was built to deliver was cancellable by mashing, enemy
 attacks could not miss, and one interruption disarmed an enemy for good. That
 whole cluster is fixed above. What it found that is still open:
 
-1. **Verticality is one climb.** The outcrop on the landmark hill stacks five
-   shelves and is the only place in the build where levels sit above each other;
-   the town still has no upper storey, balcony or roof you can reach.
+1. **Verticality is two places, and neither is used by the combat.** There is a
+   climb on the landmark hill and a first-floor gallery over the plaza, but no
+   encounter uses height — nothing fights you from up there and nothing makes
+   you go up.
 2. **A handful of surfaces are still flat colour** — doors, shutters, awnings,
    glass, foliage and the creatures themselves. Ground, walls, roofs, dressed
    stone and timber are textured; small saturated accents are not, which is

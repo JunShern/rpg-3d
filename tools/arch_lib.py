@@ -617,3 +617,82 @@ def belltower(t, cx, cy, base=2.35, storeys=4, yaw=0.0):
     t.add(*out)
     t.solid(cx, cy, base + 0.34, base + 0.34, yaw, top=shaft_h)
     return out
+
+
+def gallery(t, cx, cy, w=7.0, d=2.2, deck=3.55, yaw=0.0, stair_side=1):
+    """An exterior stair to a first-floor gallery: the town's upper level.
+
+    The plaza had one raised terrace and nothing else, so an audit's line about
+    the entire vertical vocabulary being a 1.1 m step was fair. This is somewhere
+    ABOVE the square that you can stand on and look down from, reached by a
+    stair you can see from the ground -- which is the part that matters. A
+    balcony you cannot obviously get to is set dressing.
+
+    Everything is authored facing -Y and yawed into place, like `building`.
+    """
+    M, out = t.M, []
+    half = w / 2
+
+    # deck, with a fascia so it has a thickness from below
+    out.append(box("gal_deck", (0, 0, deck), (half, d / 2, 0.09),
+                   M["timber"], bevel=0.03, seg=1))
+    out.append(box("gal_fascia", (0, -d / 2, deck - 0.13), (half, 0.07, 0.13),
+                   M["timber"], bevel=0.03, seg=1))
+
+    # posts down to the ground, so it is held up by something
+    for s in (-1, 1):
+        out.append(box("gal_post", (s * (half - 0.20), -d / 2 + 0.16, deck / 2),
+                       (0.11, 0.11, deck / 2), M["timber"], bevel=0.03, seg=1))
+    # brackets, the detail that makes it read as carpentry
+    for s in (-1, 1):
+        out.append(box("gal_brace", (s * (half - 0.20), -d / 2 + 0.55, deck - 0.55),
+                       (0.07, 0.42, 0.07), M["timber"], bevel=0.02, seg=1))
+
+    # railing along the open edge and the two returns
+    rail_h = 0.95
+    for x in [-half + 0.22 + i * ((w - 0.44) / 7) for i in range(8)]:
+        out.append(box("gal_baluster", (x, -d / 2 + 0.10, deck + rail_h / 2),
+                       (0.045, 0.045, rail_h / 2), M["timber"], bevel=0.02, seg=1))
+    out.append(box("gal_rail", (0, -d / 2 + 0.10, deck + rail_h),
+                   (half, 0.075, 0.05), M["timber"], bevel=0.025, seg=1))
+
+    # the stair, running along the facade rather than out into the square --
+    # a flight sticking into a plaza is an obstacle in the middle of the fight
+    steps = 9
+    rise = deck / steps
+    run = 0.34
+    sx = stair_side
+    for i in range(steps):
+        z = rise * (i + 0.5)
+        x = sx * (half + 0.30 + run * (steps - i - 0.5))
+        out.append(box(f"gal_step{i}", (x, 0.0, z / 2),
+                       (run / 2, d / 2 * 0.80, z / 2), M["stone"],
+                       bevel=0.02, seg=1))
+    # stair rail
+    for i in range(0, steps, 2):
+        z = rise * (i + 0.5)
+        x = sx * (half + 0.30 + run * (steps - i - 0.5))
+        out.append(box(f"gal_srail{i}", (x, -d / 2 * 0.80, z + 0.48),
+                       (0.04, 0.04, 0.48), M["timber"], bevel=0.02, seg=1))
+
+    for o in out:
+        if yaw:
+            K.transform(o, rotate=(0, 0, yaw), around=(0, 0, 0))
+        K.transform(o, translate=(cx, cy, 0))
+
+    # the deck and the treads are WALKABLE; the posts and rails are not
+    for o in out:
+        if o.name.startswith(("gal_deck", "gal_step")):
+            t.walk(o)
+        else:
+            t.add(o)
+
+    # a solid under the railing so you cannot walk off the open edge, and one
+    # per post so the camera does not slide through them
+    a = math.radians(yaw)
+    def place(lx, ly):
+        return (cx + lx * math.cos(a) - ly * math.sin(a),
+                cy + lx * math.sin(a) + ly * math.cos(a))
+    rx, ry = place(0.0, -d / 2 + 0.10)
+    t.solid(rx, ry, half, 0.10, yaw, top=deck + rail_h)
+    return out
