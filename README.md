@@ -60,7 +60,37 @@ $B -b -P tools/char_build.py -- --name vesper   # or lake / maren
 B=/Applications/Blender.app/Contents/MacOS/Blender
 $B -b -P tools/hero_build.py -- --out public/assets/hero.glb --render docs/qa/hero
 $B -b -P tools/town_build.py -- --out public/assets/town.glb --render docs/qa/town
+$B -b -P tools/meadow_build.py -- --out public/assets/meadow.glb
 ```
+
+**The meadow's height function is mirrored in `public/js/terrain.js`.** Change
+one and you must change the other; `meadow_build.py` emits sample points with
+the heights it actually used and the runtime re-evaluates them at load, so the
+console tells you the moment the two drift.
+
+## Look at it
+
+```sh
+npm run serve                 # http://localhost:3100, correct MIME, no cache
+node tools/shots.mjs          # the capture sheet -> docs/shots/
+node tools/shots.mjs stream   # just the shots whose name contains "stream"
+npm test                      # tools/smoke.mjs, ~20 min, drives the real game
+```
+
+`tools/shots.mjs` is the shot list, in the repo, so two rounds of art direction
+compare against the same framings instead of against whatever a throwaway script
+happened to point at. It drives the game through `__sim`, which steps the loop
+by hand — an unaided capture in a throttled headless tab lands mid-lerp on frame
+three.
+
+Three A/B knobs exist in the page for exactly one reason, which is that three
+separate "lighting bugs" in this project turned out not to be lighting:
+
+| | |
+|---|---|
+| `__rim(0)` | render the frame with no rim light at all |
+| `__shadows(false)` | ...and no shadows. It forces the material recompile that flipping `renderer.shadowMap.enabled` alone does not — without which the A/B renders an identical frame and "proves" shadows were innocent |
+| `__freezeEncounters(true)` | stop encounters arming and refilling |
 
 Headless Blender 5.1, no GUI and no MCP addon. `--render` writes preview sheets
 to `docs/qa/` — the hero in EEVEE (so the face texture shows), the town in
@@ -79,6 +109,10 @@ Workbench — which is the feedback loop: check those before opening the browser
 | `tools/props.py` | hand-held gear — a generated sword, weighted to `hand.R` |
 | `tools/arch_lib.py` | the architecture kit — windows, doors, awnings, arches, stairs, lanterns, fountain — plus the `Town` collector |
 | `tools/town_build.py` | the plaza layout, collision manifest, preview renders |
+| `tools/meadow_build.py` | the terrain function, the path, the stream, the landmark hill and its climb, the distant backdrop |
+| `tools/surface_tex.py` | the generated ground and wall textures — cobble, flagstone, grass, dirt, plaster, roof tile, ashlar, timber — all numpy, written with a hand-rolled PNG writer |
+| `tools/shots.mjs` | the capture sheet |
+| `tools/smoke.mjs` | 46 checks driving the real game in headless Chromium |
 | `public/js/toon.js` | the look: banded ramp, rim light, inverted-hull outline, sky gradient |
 | `public/js/main.js` | runtime: town loading, collision, ground height, animation state machine, orbit camera |
 
