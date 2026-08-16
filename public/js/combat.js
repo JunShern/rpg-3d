@@ -55,6 +55,34 @@ export const SPECIES = {
     flat: ['eye'],
     hostile: true,
   },
+
+  // ARMOURED CHARGER. Commits to a straight line and cannot correct, so the
+  // answer is to step aside; helpless for a beat on unfurl, which is what the
+  // combo is for. Rolls physically -- `roll` spins the mesh while charging,
+  // because a ball that also plays a walk cycle looks like two ideas.
+  curler: {
+    url: '/assets/curler.glb',
+    hp: 78, radius: 0.52, height: 0.55, speed: 2.0,
+    notice: 15.0, strikeRange: 3.4, telegraph: 0.62, attackTime: 1.05,
+    recoverTime: 1.35, damage: 14,
+    charge: 12.5, roll: 13.0,
+    look: { shell: { rimStrength: 0.55 }, plate: { rimStrength: 0.85 },
+            flesh: { rimStrength: 0.45 } },
+    flat: ['eye'], hostile: true,
+  },
+
+  // BRUTE. Punishes greed. The wind-up is long enough to walk out of and the
+  // damage is high enough that trading is never worth it -- it has the health
+  // to survive a full chain, so it is the enemy the finisher exists for.
+  bellow: {
+    url: '/assets/bellow.glb',
+    hp: 150, radius: 0.78, height: 1.35, speed: 1.35,
+    notice: 14.0, strikeRange: 2.5, telegraph: 1.05, attackTime: 0.42,
+    recoverTime: 1.5, damage: 22,
+    look: { hide: { rimStrength: 0.55 }, sack: { rimStrength: 0.70 },
+            horn: { rimStrength: 1.0, rimColor: 0xfff0c0 } },
+    flat: ['eye'], hostile: true,
+  },
 };
 
 // ----------------------------------------------------------------- helpers
@@ -173,6 +201,9 @@ export function createCombat(ctx) {
     e.dead = false;
     e.deadT = 0;
     e.hitLock = 0;
+    e.lockDir = null;
+    e.spin = 0;
+    e.home = e.pos.clone();
     play(e, 'idle', 0);
     enemies.push(e);
     return e;
@@ -393,7 +424,20 @@ export function createCombat(ctx) {
     }
   }
 
+  // Beyond this an enemy is at its post and nobody is looking at it. Skinning
+  // and drawing it costs the same as one in your face, and with five encounters
+  // armed that was 280 draw calls for a fight involving four things.
+  const FAR = 42;
+
   function updateEnemy(e, dt) {
+    const far = e.pos.distanceToSquared(ctx.playerPos()) > FAR * FAR;
+    e.group.visible = !far;
+    if (far && !e.dead) {
+      // park it: no skinning, no AI, no draw. It is home and idle by now.
+      if (e.state !== 'return') { e.vel.set(0, 0, 0); e.state = 'idle'; }
+      else { integrate(e, dt); e.group.position.copy(e.pos); }
+      return;
+    }
     e.mixer.update(dt);
     if (e.flash > 0) e.flash -= dt;
     for (const m of e.mats) {
@@ -416,11 +460,34 @@ export function createCombat(ctx) {
     e.t += dt;
     if (e.hitLock > 0) e.hitLock -= dt;
 
+    // LEASH. Without one, everything you ever woke follows you forever, and by
+    // the far end of the walk you are being trailed by every fight you declined.
+    // An encounter should be a place, so each one goes home when you leave it --
+    // but only from states where breaking off is not a cheat. Something mid-swing
+    // finishes its swing.
+    if (LEASHABLE.has(e.state)
+        && e.pos.distanceTo(e.home) > e.spec.notice * 1.5) {
+      e.state = 'return'; e.t = 0; e.token = false; e.lockDir = null;
+    }
+
     switch (e.state) {
       case 'idle':
         if (dist < e.spec.notice) { e.state = 'approach'; e.t = 0; play(e, 'move'); }
         else play(e, 'idle');
         break;
+
+      // walk back and forget about you -- and it heals on the way, so a
+      // hit-and-run down the path is not a way to whittle a group down for free
+      case 'return': {
+        play(e, 'move');
+        _v.subVectors(e.home, e.pos).setY(0);
+        const d = _v.length();
+        e.hp = Math.min(e.spec.hp, e.hp + e.spec.hp * 0.35 * dt);
+        if (d < 0.6) { e.state = 'idle'; e.t = 0; e.hp = e.spec.hp; break; }
+        faceToward(e, e.home, dt, 5);
+        e.vel.addScaledVector(_v.divideScalar(d), e.spec.speed * 7 * dt);
+        break;
+      }
 
       case 'approach': {
         play(e, 'move');
@@ -438,23 +505,35 @@ export function createCombat(ctx) {
       }
 
       case 'telegraph':
-        faceToward(e, p, dt, 4);
+        // it can still track you WHILE winding up, but slowly -- that is the
+        // difference between a tell you can dodge and a tell you can ignore
+        faceToward(e, p, dt, e.spec.charge ? 2.2 : 4);
         e.vel.multiplyScalar(0.80);
         if (e.t >= e.spec.telegraph) {
           e.state = 'attack'; e.t = 0;
           play(e, 'attack', 0.04);
           _v.subVectors(p, e.pos).setY(0).normalize();
-          e.vel.addScaledVector(_v, 7.5);      // the dart
+          // a charger COMMITS: the direction is locked in now, and no amount
+          // of moving afterwards will make it turn. Only chargers -- a lunger
+          // gets one impulse and that is the whole move.
+          e.lockDir = e.spec.charge ? _v.clone() : null;
+          e.vel.addScaledVector(_v, e.spec.charge || 7.5);
         }
         break;
 
       case 'attack':
+        if (e.lockDir) {
+          // hold the committed line and keep the charge fed
+          e.vel.addScaledVector(e.lockDir, e.spec.charge * 2.2 * dt);
+          e.facing = Math.atan2(e.lockDir.x, e.lockDir.z);
+          if (e.spec.roll) e.spin = (e.spin || 0) + e.spec.roll * dt;
+        }
         if (dist < e.spec.strikeRange + 0.55 && e.t > 0.05 && !e.didHit) {
           e.didHit = true;
           hurtPlayer(e.spec.damage, e.pos);
         }
         if (e.t >= e.spec.attackTime) {
-          e.state = 'recover'; e.t = 0; e.didHit = false;
+          e.state = 'recover'; e.t = 0; e.didHit = false; e.lockDir = null;
           play(e, 'recover', 0.06);
         }
         break;
@@ -474,6 +553,10 @@ export function createCombat(ctx) {
     integrate(e, dt);
     e.group.position.copy(e.pos);
     e.group.rotation.y = e.facing;
+    if (e.spec.roll) {
+      if (e.state !== 'attack') e.spin = (e.spin || 0) * Math.pow(0.02, dt);
+      e.group.children[0].rotation.x = e.spin || 0;
+    }
   }
 
   function attackTokens() {
@@ -489,7 +572,25 @@ export function createCombat(ctx) {
     e.facing += d * Math.min(1, dt * rate);
   }
 
+  // states it is fair to break off from -- not mid-attack, not mid-flinch
+  const LEASHABLE = new Set(['idle', 'approach', 'return']);
+
+  let nanReported = false;
+
   function integrate(e, dt) {
+    // TRIPWIRE. A single undefined in a per-species field turns into NaN
+    // velocity, and a NaN position renders as *nothing at all* -- the enemy is
+    // simply absent, which reads as "it never spawned" and sends you looking in
+    // the wrong place entirely. Say so instead.
+    if (!Number.isFinite(e.vel.x) || !Number.isFinite(e.vel.y)
+        || !Number.isFinite(e.vel.z)) {
+      if (!nanReported) {
+        nanReported = true;
+        console.error(`[combat] NaN velocity on ${e.name} in state ${e.state}`);
+      }
+      e.vel.set(0, 0, 0);
+      if (!Number.isFinite(e.pos.x)) e.pos.copy(ctx.playerPos());
+    }
     e.pos.addScaledVector(e.vel, dt);
     e.vel.x *= Math.pow(0.02, dt);
     e.vel.z *= Math.pow(0.02, dt);
@@ -511,6 +612,22 @@ export function createCombat(ctx) {
         _v.divideScalar(d).multiplyScalar((min - d) * 0.5);
         a.pos.sub(_v); b.pos.add(_v);
       }
+    }
+
+    // AND OUT OF THE PLAYER. Without this a swarm converges onto the exact
+    // point you are standing on and the fight turns into a pile -- you cannot
+    // see your own character, and "which one is about to hit me" is unanswerable.
+    // A charge is allowed to bully through, at 35%, or it would stall on contact.
+    const p = ctx.playerPos();
+    for (const e of enemies) {
+      if (e.dead) continue;
+      _v.subVectors(e.pos, p).setY(0);
+      let d = _v.length();
+      const min = e.spec.radius + 0.42;
+      if (d > min) continue;
+      if (d < 1e-4) { _v.set(Math.sin(e.facing), 0, Math.cos(e.facing)); d = 1; }
+      const push = (min - d) * (e.state === 'attack' && e.spec.charge ? 0.35 : 1);
+      e.pos.addScaledVector(_v.divideScalar(d), push);
     }
   }
 

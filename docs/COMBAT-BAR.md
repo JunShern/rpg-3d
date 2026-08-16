@@ -63,7 +63,8 @@ marked DONE on the strength of a screenshot alone — it needs an assertion in
       enemies in `telegraph` and `attack` states
 - [x] the telegraph is a 520 ms held shape change (spines snap upright)
 - [x] enemies do not all attack at once — max 2 attack tokens
-- [ ] three hostile types — **only the Nettle exists**
+- [x] three hostile types — Nettle (swarmer), Curler (charger), Bellow (brute).
+      Probe saw each run `approach → telegraph → attack → recover` and die
 - [ ] two ambient types
 
 ### Stakes
@@ -115,10 +116,13 @@ Updated each iteration. Empty until measured.
 
 | metric | value | when |
 |---|---|---|
-| plaza, 4 foes | 5.2 ms · 194 fps · 130 draws | iter 2 |
-| meadow, 4 foes | 4.0 ms · 249 fps · 112 draws | iter 2 |
-| hill, 4 foes | 6.2 ms · 161 fps · 106 draws | iter 2 |
-| triangles (worst) | 593k | iter 2 |
+| plaza, 3 foes | 4.3 ms · 233 fps · 119 draws | iter 3 |
+| path, 3 engaged | 4.9 ms · 204 fps · 163 draws | iter 3 |
+| meadow mid, 7 engaged | 5.0 ms · 200 fps · 167 draws | iter 3 |
+| ridge, 7 engaged | 6.9 ms · 145 fps · 197 draws | iter 3 |
+| far side, 7 engaged / 17 alive | 7.9 ms · 127 fps · 209 draws | iter 3 |
+| before the leash + far-cull | 9.4 ms · 106 fps · 281 draws · 17 engaged | iter 3 |
+| triangles (worst) | 697k | iter 3 |
 | meadow before the terrain fix | 24-38 ms · 34-42 fps | iter 2 |
 
 ---
@@ -127,21 +131,28 @@ Updated each iteration. Empty until measured.
 
 Newest audit at the top. Each entry: what is wrong, not what to do about it.
 
-**iteration 2 — self-observed, no external audit yet**
+**iteration 3 — self-observed, no external audit yet**
 
-1. Only one creature type. Curler, Bellow, Woolt and Flitter are unbuilt, so the
-   meadow is empty of life and every fight is the same fight.
-2. Enemies crowd onto the player's exact position; they separate from each other
-   but nothing pushes them off the player.
-3. No air attack.
-4. The Nettle's `move` clip is authored at one speed and does not scale with
+1. No ambient life. Woolt and Flitter are unbuilt, so nothing in the meadow is
+   doing anything except waiting to fight you. A field with only enemies in it
+   reads as a shooting gallery.
+2. No air attack.
+3. The Nettle's `move` clip is authored at one speed and does not scale with
    travel, so the legs skate.
-5. Nothing spawns in the meadow — enemies only exist in the plaza arena.
-6. Hit 3's two-handed intent does not read: the left hand does not actually
+4. Hit 3's two-handed intent does not read: the left hand does not actually
    reach the grip, because nothing IKs the off hand to the weapon.
-7. No smoke test yet; every check so far has been a hand-written probe.
-8. The meadow has one biome and one weather. Fine for scope, but it means the
+5. No smoke test yet; every check so far has been a hand-written probe.
+6. The meadow has one biome and one weather. Fine for scope, but it means the
    walk out is short on variety.
+7. The Curler's charge has no consequence for missing — it should be stunned by
+   hitting something, which is what its own design note promises.
+8. The Bellow's inflate reads at close range but its damage (22) makes trading
+   with it correct-ish rather than clearly wrong.
+
+*Fixed in iteration 3:* only one creature type; nothing spawned in the meadow;
+enemies crowding onto the player's exact position; enemies following the player
+across the entire map (no leash); NaN velocity from a per-species field being
+undefined on a species that lacks it.
 
 *Fixed in iteration 2:* combo clips; hit timing vs hitbox; terrain rendering
 black (open-surface normals guessed down); FLOORS silently containing every

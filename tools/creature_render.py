@@ -68,7 +68,7 @@ def sheet(prefix, name, rig, height=0.5, clips=()):
     # framed so the creature fills most of the frame: these sheets exist to
     # judge a silhouette, and a silhouette cannot be judged at postage size
     aim = Vector((0, 0, height * 0.45))
-    dist = max(0.30, height * 0.80)
+    dist = max(1.4, height * 2.6)   # generous: a clipped sheet tells you nothing
 
     for label, az, elev in (("front", 0.0, 0.30), ("three-quarter", 40.0, 0.34),
                             ("side", 90.0, 0.30), ("low", 25.0, 0.14)):

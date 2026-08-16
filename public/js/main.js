@@ -760,9 +760,29 @@ const hpWrap = document.getElementById('hpwrap');
 const reticle = document.getElementById('reticle');
 const deadOverlay = document.getElementById('dead');
 
-// Where the fight is. Deliberately a clearing off the plaza rather than the
-// plaza itself: enemies that spawn on top of the fountain read as a bug.
-const ARENA = { x: 0.5, z: 6.2, r: 4.2 };
+// ENCOUNTERS, not a spawner.
+//
+// A pen that refills forever is a test harness, not a place. These are sited
+// along the route out of town so the fights escalate as you walk it, and each
+// arms once when you get near it. The plaza one is the exception: it keeps
+// refilling, because it is where the combat gets tuned.
+const ENCOUNTERS = [
+  { x: 0.5,  z: 6.2,  r: 4.2, trigger: 18, refill: true,
+    mix: ['nettle', 'nettle', 'nettle'] },
+  // sited ON the route -- the path runs x = -1 -> 2.9 -> 8.5 -> 13 as it climbs,
+  // so these are what you walk into rather than what you'd have to go find
+  // spaced further apart than they trigger, so you fight one group at a time --
+  // overlapping them turned the hill into seventeen things at once, which is a
+  // pile rather than an encounter
+  { x: 3.0,  z: -32,  r: 5.5, trigger: 15,
+    mix: ['nettle', 'nettle', 'curler'] },
+  { x: 6.0,  z: -54,  r: 6.5, trigger: 16,
+    mix: ['curler', 'nettle', 'nettle', 'nettle'] },
+  { x: 13.0, z: -74,  r: 6.5, trigger: 16,
+    mix: ['curler', 'curler', 'nettle'] },
+  { x: 15.0, z: -95,  r: 8.5, trigger: 19,          // past the landmark hill
+    mix: ['bellow', 'nettle', 'nettle', 'nettle'] },
+];
 
 function startCombat() {
   combat = createCombat({
@@ -773,17 +793,33 @@ function startCombat() {
     playerPos: () => pos,
     playerFacing: () => facing,
   });
-  combat.load('nettle').then(() => {
-    seedWave();
-    console.log('[combat] ready');
-  }).catch((err) => console.error('[combat] load failed', err));
+  Promise.all(['nettle', 'curler', 'bellow'].map((n) => combat.load(n)))
+    .then(() => {
+      armEncounter(ENCOUNTERS[0]);
+      console.log('[combat] ready:', Object.keys(SPECIES).join(', '));
+    })
+    .catch((err) => console.error('[combat] load failed', err));
 }
 
-function seedWave(n = 3) {
-  for (let i = 0; i < n; i++) {
-    const a = (i / n) * Math.PI * 2 + Math.random();
-    const r = ARENA.r * (0.45 + Math.random() * 0.5);
-    combat.spawn('nettle', ARENA.x + Math.cos(a) * r, ARENA.z + Math.sin(a) * r);
+function armEncounter(enc) {
+  enc.armed = true;
+  enc.spawned = [];
+  enc.mix.forEach((species, i) => {
+    const a = (i / enc.mix.length) * Math.PI * 2 + enc.z;
+    const r = enc.r * (0.45 + 0.5 * ((i * 7 % 5) / 5));
+    const e = combat.spawn(species, enc.x + Math.cos(a) * r, enc.z + Math.sin(a) * r);
+    if (e) enc.spawned.push(e);
+  });
+}
+
+function updateEncounters() {
+  for (const enc of ENCOUNTERS) {
+    const d = Math.hypot(pos.x - enc.x, pos.z - enc.z);
+    if (!enc.armed && d < enc.trigger) armEncounter(enc);
+    else if (enc.armed && enc.refill && d < enc.trigger
+             && enc.spawned.every((e) => e.dead)) {
+      armEncounter(enc);
+    }
   }
 }
 
@@ -803,8 +839,7 @@ function updateCombat(dt, raw) {
     }
   }
 
-  // keep the fight populated so there is always something to test against
-  if (combat.enemies.filter((e) => !e.dead).length === 0) seedWave();
+  updateEncounters();
 
   // vitals
   const p = combat.player;
@@ -1064,6 +1099,11 @@ globalThis.__sim = ({ steps = 60, dt = 1 / 60, held = [], attack: doAttack = fal
     camDist: +camera.position.distanceTo(camTarget).toFixed(2),
     draws: renderer.info.render.calls,
     tris: renderer.info.render.triangles,
+    hp: combat ? Math.round(combat.player.hp) : null,
+    foes: combat ? combat.enemies.filter((e) => !e.dead).map((e) => ({
+      k: e.name, s: e.state, hp: Math.round(e.hp),
+      d: +Math.hypot(e.pos.x - pos.x, e.pos.z - pos.z).toFixed(1),
+    })) : [],
   };
 };
 
