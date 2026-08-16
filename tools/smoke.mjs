@@ -327,7 +327,20 @@ async function run() {
     let worst = 0, best = -99, stall = 0, stuckAt = null;
     let prev = __sim({ steps: 0 }).heroPos;
     for (let i = 0; i < 1800; i++) {
-      const now = __sim({ steps: 1, az: 0, held: ['KeyW'] }).heroPos;
+      // FOLLOW THE ROAD, which is what the road is for. Holding W in a dead
+      // straight line used to work and now walks into a field wall -- the
+      // walls have gaps where the path crosses them, and steering for the
+      // path's own centreline is both what a player does and what makes this
+      // a test of the route rather than of the terrain under one line.
+      // The path function is only meaningful PAST the gate: `pathAt` at a
+      // plaza z extrapolates to x = -6, which steered her straight into the
+      // arch's west pier six metres from the start. Inside the town the route
+      // is simply "aim at the gate", which is on x = -1.
+      const want = prev[2] > -20 ? -1.0 : terrain.pathAt(-prev[2]);
+      const keys = ['KeyW'];
+      if (want - prev[0] > 0.6) keys.push('KeyD');
+      else if (want - prev[0] < -0.6) keys.push('KeyA');
+      const now = __sim({ steps: 1, az: 0, held: keys }).heroPos;
       worst = Math.max(worst, Math.abs(now[1] - prev[1]));
       best = Math.max(best, now[1]);
       // SUSTAINED lack of progress, not one frame of it. Brushing a collider
@@ -343,7 +356,12 @@ async function run() {
     }
     const end = __sim({ steps: 0 }).heroPos;
     const walked = -4.0 - end[2];
+    // PUT THE WORLD BACK. This check kills every enemy so the walk is not a
+    // fight, and the first version stopped there -- an encounter whose members
+    // are dead is not wiped, it is armed and empty, so nothing ever respawned
+    // and the next check reported "no live nettle" about a working game.
     __freezeEncounters(false);
+    __respawnEncounters();
     return { ok: walked > 60 && worst < 0.5 && best > 1.5 && stuckAt === null,
              detail: `walked ${walked.toFixed(1)} m south, climbed to ${best.toFixed(2)} m, `
                    + `worst single frame ${worst.toFixed(3)} m`
@@ -556,8 +574,13 @@ async function run() {
     }, sp);
   }
 
+  // CLEAR OF THE FIELD WALLS. The meadow now has dry-stone boundaries at
+  // z = -40 and z = -68, and the Bellow's spot was z = -40 exactly -- so it
+  // spent the whole check pushing into a wall and never left `approach`. There
+  // is no pathfinding here by design; an enemy walks at you. Encounters are
+  // sited between the walls for the same reason.
   for (const [sp, x, z, cap] of [['nettle', 0.5, 6.2, 10], ['curler', 6, -54, 24],
-                                 ['bellow', 6, -40, 40]]) {
+                                 ['bellow', 4, -48, 40]]) {
     await check(`${sp} dies to the ground chain`, (a) => {
       const t = window.__t.faceOff(a.sp, a.x, a.z, 1.6);
       const hp0 = t.e.spec.hp;
@@ -733,7 +756,7 @@ async function run() {
     combat.respawn();
     // flat open meadow: the previous spot moved onto the relocated hill's
     // flank, where a slow brute and the player drift apart on the slope
-    const b = window.__t.summon('bellow', 6, -40, 2.2);
+    const b = window.__t.summon('bellow', 4, -48, 2.2);   // clear of the wall at z=-40
     let g = 0;
     while (b.state !== 'attack' && g++ < 1500) { __sim({ steps: 1 }); __face(b.pos.x, b.pos.z); }
     if (b.state !== 'attack') return { ok: false, detail: 'it never committed' };
@@ -759,7 +782,11 @@ async function run() {
       if (b.state === 'hurt') broke = true;
     }
     const dealt = Math.round(hp0 - b.hp);
-    return { ok: !broke && dealt >= 20,
+    // 10, not 20. The damage floor exists only to prove hits ACTUALLY LANDED --
+    // the property under test is "it does not break" -- and one full link is
+    // 12. Asking for 20 was asking for two links inside one committed window,
+    // which the retimed hitboxes (active is 65 ms now) do not fit.
+    return { ok: !broke && dealt >= 10,
              detail: `${dealt} damage over ${frames} committed frames, `
                    + `never broken (now '${b.state}')` };
   });

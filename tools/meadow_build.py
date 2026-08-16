@@ -542,7 +542,7 @@ def landmark(M, t):
     t.platform(hx, hy, 1.05, 0.78, z + 0.46)
 
 
-def drywall(M, t, x0, y0, x1, y1, gap_at=None, gap_w=3.4, h=0.92):
+def drywall(M, t, x0, y0, x1, y1, gap_at=None, gap_w=4.2, h=0.92, on_road=False):
     """A field boundary, with an optional gap for the road to pass through.
 
     THE MEADOW HAD NO FIELDS, only ground. Ninety metres of undivided green
@@ -558,6 +558,13 @@ def drywall(M, t, x0, y0, x1, y1, gap_at=None, gap_w=3.4, h=0.92):
     """
     rnd = _lcg(int(abs(x0 * 71 + y0 * 131)) + 5)
     span = math.hypot(x1 - x0, y1 - y0)
+    # DERIVE THE GAP FROM THE ROAD, do not type it in twice. The first version
+    # had both numbers written by hand, and the second wall's gap was at x=16
+    # while `_path_x` puts the road at x=12 -- so the road ran straight into a
+    # wall, which the walk check found by walking into it at 63 m. The lintel
+    # up on the hill was the same mistake with different geometry.
+    if on_road:
+        gap_at = _path_x(y0) - x0
     n = max(2, int(span / 0.62))
     for i in range(n):
         u = (i + 0.5) / n
@@ -912,8 +919,8 @@ def main():
     # FIELDS, so the meadow is country rather than ground. Two boundaries the
     # road passes through -- each one is a small event on the walk, and they
     # give the eye a line to follow all the way to the flanking hills.
-    drywall(M, t, -22.0, 40.0, 30.0, 40.0, gap_at=27.7)      # path crosses at x~5.7
-    drywall(M, t, -6.0, 68.0, 34.0, 68.0, gap_at=22.0)       # path crosses at x~16
+    drywall(M, t, -22.0, 40.0, 30.0, 40.0, on_road=True)
+    drywall(M, t, -6.0, 68.0, 34.0, 68.0, on_road=True)
     # a pen on the east side, which is where a herd of Woolts already grazes
     drywall(M, t, 14.0, 52.0, 30.0, 52.0)
     drywall(M, t, 30.0, 52.0, 30.0, 64.0)

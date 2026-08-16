@@ -52,7 +52,7 @@ check that cannot fail is worse than no check. It asserts draw-call and
 triangle budgets instead, which are meaningful headless and are the thing that
 actually regressed. Frame time stays a hand-measurement, recorded below.
 
-**Currently 46/46.** Roughly two thirds of the time spent writing it went on its
+**Currently 47/47.** Roughly two thirds of the time spent writing it went on its
 own bad assumptions rather than on the game: lock-on picking a different enemy
 than the one a test pinned, a check inheriting a half-finished combo from the
 check before it, enemies parked outside the world falling forever, and a pinned
@@ -283,6 +283,56 @@ Two rules, both learned the hard way by an auditor catching them:
 
 Newest audit at the top. Each entry: what is wrong, not what to do about it.
 
+**iteration 6 — the world, on the player's instruction**
+
+Not audit-driven. Three notes from playing it: too many enemies, none of
+them indoors, and let me run faster. All three were right and none of them
+appeared anywhere in a fifteen-finding audit.
+
+* run speed 3.0 -> 4.6 m/s, with the `run` clip rate-matched to the ratio --
+  the foot IK plants the sole where the clip says, so a faster body without a
+  faster stride reads as ice.
+* the town is empty of hostiles. There was a three-Nettle group in the plaza
+  that REFILLED when wiped, so the square you spawn in was a permanent monster
+  pen -- and it is the only place you can look at the architecture without
+  being swarmed. Meadow groups cut from 3-4 to 2-3.
+* the HUD's "48 foes" was counting sheep and birds. Twenty-two of them were
+  flitters.
+
+Then a pass on the world itself, with two systems that are felt continuously
+rather than at a landmark: WIND through foliage and cloth (one shared clock,
+outline shells included, running on unscaled time so hit-stop does not freeze
+the weather), and BREAKABLE barrels and crates that burst into staves thrown
+along the swing.
+
+New in the town: balconies, flower boxes and attic windows so the upper floors
+are not one pane repeated; a three-stall market, because a square is defined by
+what it is for; washing lines across the alleys. New outside: a stone circle
+with a lintel instead of three stones on a plinth, dry-stone field walls with
+gaps where the road crosses, and a roofless shepherd's hut twenty metres off
+the route.
+
+**Six placement bugs found by measuring, every one invisible in the source:**
+
+1. every standing stone stood at the hill's CENTRE height, while the ground
+   under the ring runs 7.99 m to 11.83 m -- three floated, one was buried, and
+   the lintel hung in the sky because its pair were on the low side.
+2. the lintel's endpoints were recomputed from the same expression the loop
+   used instead of captured from it, so it spanned the wrong pair.
+3. an uncapped swept tube is an open sleeve: a black hole in the sky.
+4. `scatter` grew a copse straight through the circle.
+5. the second field wall's gap was typed in by hand at x=16 while the road
+   crosses at x=12, so the road ran into a wall. Gaps are derived from
+   `_path_x` now -- the same "computed twice" mistake as the lintel.
+6. the last encounter sat 3.6 m from the ring, and the uprights are solid, so
+   the Bellow spent every fight shouldered against a standing stone in
+   `approach`, unable to reach anyone.
+
+The walk check earns its keep at last: it WALKS, steering for the road's own
+centreline, and covers 96 m from the fountain through the gate, both wall gaps
+and the ford, climbing to 15.6 m with no single frame stepping more than 7 cm.
+It found bugs 5 and 6 by walking into them.
+
 **iteration 5 — after a rendering pass driven by A/B captures**
 
 Nothing in this round was found by reading code. Every one of it came from
@@ -353,7 +403,7 @@ Both audits returned **FALSE** on "polish exceeds KH1". The first said the
 enemy half of the fight did not run; the second, given the fixes, went further
 and measured that the demo's own headline mechanic — the three-hit combo — was
 unreachable at any human rhythm. Both were right and both are fixed. `npm test`
-is 46/46, and several of those checks were rewritten because the second audit
+is 47/47, and several of those checks were rewritten because the second audit
 showed they restated the code instead of testing the game.
 
 Still open, in rough order of how much they cost:

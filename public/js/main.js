@@ -1054,7 +1054,16 @@ const ENCOUNTERS = [
     mix: ['curler', 'nettle'] },
   { x: 13.0, z: -74,  r: 6.5, trigger: 16,
     mix: ['curler', 'nettle'] },
-  { x: 24.0, z: -84,  r: 8.5, trigger: 20,          // at the foot of the hill
+  // CLEAR OF THE MONUMENT. This was at (24, -84) with an 8.5 m spread, which
+  // put its members straight through the stone circle at (27, -82) -- and the
+  // uprights are solid, so the Bellow spent every fight shouldered against a
+  // standing stone, stuck in `approach`, unable to reach anyone. There is no
+  // pathfinding here by design; an enemy walks at you, so an encounter has to
+  // be sited where walking at you works.
+  //
+  // On the flank below the summit, so the climb to the circle is the reward
+  // for winning rather than the arena for it.
+  { x: 10.0, z: -88,  r: 5.0, trigger: 18,
     mix: ['bellow', 'nettle', 'nettle'] },
 ];
 
