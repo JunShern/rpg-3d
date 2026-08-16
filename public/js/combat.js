@@ -102,8 +102,12 @@ export const SPECIES = {
   bellow: {
     url: '/assets/bellow.glb', far: 46,
     hp: 150, radius: 0.78, height: 1.35, speed: 1.35,
+    // A THIRD OF YOUR HEALTH. At 22 it was arithmetic -- trade two hits for a
+    // chain and come out ahead -- which made the long, obvious wind-up
+    // something to ignore rather than something to answer. At 32 there is no
+    // version of standing in it that is worth doing, which is the whole design.
     notice: 14.0, strikeRange: 2.5, telegraph: 1.05, attackTime: 0.42,
-    recoverTime: 1.5, damage: 22,
+    recoverTime: 1.5, damage: 32,
     look: { hide: { rimStrength: 0.55 }, sack: { rimStrength: 0.70 },
             horn: { rimStrength: 1.0, rimColor: 0xfff0c0 } },
     flat: ['eye'], hostile: true,

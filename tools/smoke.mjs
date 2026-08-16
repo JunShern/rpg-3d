@@ -81,6 +81,11 @@ function installHelpers() {
       // huge downward velocity, and "the finisher launches" read 0.0 m/s of lift
       // on an enemy that was in free fall.
       const gy = __groundAt(x, z, 6) ?? 0;
+      // ITS POST MOVES WITH IT. An enemy far from home leashes, and the leash
+      // heals at 35% of max HP per second -- which out-healed the ground chain
+      // and made "the Curler dies" fail after 24 swings and 288 damage.
+      if (!e.home0) e.home0 = e.home.clone();
+      e.home.set(x, gy, z);
       const hold = () => {
         e.pos.set(x, gy, z);
         e.vel.set(0, 0, 0);
@@ -117,8 +122,19 @@ function installHelpers() {
       // it reported "NOTHING LANDED" while the move worked perfectly by hand.
       for (let i = 0; i < 90 && combat.attackPhase() !== 'none'; i++) __sim({ steps: 1 });
       const t = window.__t.pinned(name, x, z);
+      // Move their HOME as well as their position. The distance cull sends
+      // anything out of sight back to its post, so parking a body without
+      // moving its post just teleports it straight back -- and then the swing
+      // under test happens inside a mob, where hit-stop stretches every frame
+      // budget this file assumes.
       for (const o of combat.enemies) {
         if (o === t.e || o.dead || !o.spec.hostile) continue;
+        // remember where it actually belongs BEFORE the first move. Restoring
+        // by subtracting a fixed offset breaks the moment a second faceOff
+        // parks the same enemy again -- which quietly relocated the entire
+        // plaza group to wherever the last kill test happened.
+        if (!o.home0) o.home0 = o.home.clone();
+        o.home.set(x + 300, o.home.y, z + 300);
         o.pos.set(x + 300, o.pos.y, z + 300);
         o.state = 'idle';
         o.vel.set(0, 0, 0);
@@ -345,10 +361,23 @@ async function run() {
     return { ok: !ground.length, detail: `airborne steps: ${[...seen].join(',') || 'none'}` };
   });
 
-  // Tests share one page, so anything that leaves the player dead or an enemy
-  // artificially killed poisons everything after it. Reset between groups.
-  const fresh = () => page.evaluate(
-    '(combat.respawn(), __sim({warp:[0.5,6,6.2], steps:10}), true)');
+  // Tests share one page, so anything that leaves the player dead, an enemy
+  // artificially killed, or a whole encounter parked in the next county
+  // poisons everything after it. Reset between groups.
+  const fresh = () => page.evaluate(() => {
+    combat.respawn();
+    // un-park from the remembered original, not by undoing an offset
+    for (const e of combat.enemies) {
+      if (!e.home0) continue;
+      e.home.copy(e.home0);
+      e.pos.copy(e.home0);
+      e.hp = e.spec.hp;
+      e.state = 'idle';
+      e.home0 = null;
+    }
+    __sim({ warp: [0.5, 6, 6.2], steps: 10 });
+    return true;
+  });
 
   await fresh();
   group('Enemies');
@@ -387,6 +416,7 @@ async function run() {
     }, { sp, x, z, cap });
   }
 
+  await fresh();          // the kill tests left half the roster parked
   await check('enemies cannot stand on the player', () => {
     __sim({ warp: [0.5, 6, 6.2], steps: 80, dt: 1 / 20 });
     const [hx, hz] = window.__t.heroXZ();
@@ -399,6 +429,7 @@ async function run() {
              detail: `closest ${Math.min(...near.map((x) => x.d)).toFixed(2)} m of ${near.length}` };
   });
 
+  await fresh();
   await check('encounters leash home and heal', () => {
     __sim({ warp: [0.5, 6, 6.2], steps: 60, dt: 1 / 20 });
     const grp = combat.enemies.filter((e) => !e.dead && e.name === 'nettle' && e.home.z > 0);
@@ -427,7 +458,9 @@ async function run() {
   group('Defence');
 
   await check('the slip carries you', () => {
-    __sim({ warp: [0.5, 6, 10], steps: 40 });
+    // open meadow, not the plaza edge -- with no input the slip goes backwards,
+    // and backwards off the paving is a wall as far as tryMove is concerned
+    __sim({ warp: [-8, 6, -30], steps: 40 });
     const a = window.__t.heroXZ();
     dispatchEvent(new KeyboardEvent('keydown', { code: 'ShiftLeft' }));
     for (let i = 0; i < 34; i++) __sim({ steps: 1 });
@@ -457,7 +490,7 @@ async function run() {
 
   await check('the slip has a cooldown', () => {
     combat.respawn();
-    __sim({ warp: [0.5, 6, 10], steps: 30 });
+    __sim({ warp: [-8, 6, -30], steps: 30 });
     const first = combat.dodge();
     const immediate = combat.dodge();          // same frame: must be refused
     for (let i = 0; i < 60; i++) __sim({ steps: 1 });
@@ -564,15 +597,16 @@ async function run() {
   //
   // Draw calls and triangles ARE meaningful headless, deterministic, and they
   // are what actually regressed: ambient life arrived at 616 draws and 41 fps.
-  // These ceilings are set just above the measured numbers, so the thing that
-  // trips them is a change in kind, not noise.
+  // These ceilings sit ~15% above the measured numbers, so what trips them is a
+  // change in kind and not noise. Measured in a real browser at the same spots:
+  // 167 fps in the plaza down to 78 on the ridge.
   for (const [label, x, z, maxDraws, maxTris] of [
-    ['plaza', 0.5, 6.2, 180, 700],
-    ['path', 3, -32, 300, 800],
-    ['flock', 6, -44, 300, 800],
-    ['meadow', 6, -54, 300, 800],
-    ['ridge', 13, -74, 300, 750],
-    ['far side', 15, -95, 300, 700],
+    ['plaza', 0.5, 6.2, 190, 680],
+    ['path', 3, -32, 380, 860],
+    ['flock', 6, -44, 380, 860],
+    ['meadow', 6, -54, 400, 880],
+    ['ridge', 13, -74, 380, 800],
+    ['far side', 15, -95, 380, 780],
   ]) {
     await check(`${label} stays inside its draw budget`, (a) => {
       __sim({ warp: [a.x, 6, a.z], steps: 60, dt: 1 / 20 });

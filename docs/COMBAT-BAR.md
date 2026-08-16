@@ -153,12 +153,12 @@ Updated each iteration. Empty until measured.
 
 | metric | value | when |
 |---|---|---|
-| plaza | 4.2 ms · 238 fps · 119 draws | iter 3 |
-| path | 15.2 ms · 66 fps · 259 draws | iter 3 |
-| flock | 7.2 ms · 139 fps · 200 draws | iter 3 |
-| meadow mid | 12.4 ms · 81 fps · 200 draws | iter 3 |
-| ridge | 12.7 ms · 79 fps · 231 draws | iter 3 |
-| far side | 13.7 ms · 73 fps · 276 draws | iter 3 |
+| plaza | 6.0 ms · 167 fps · 131 draws | iter 3 final |
+| path | 11.1 ms · 90 fps · 287 draws | iter 3 final |
+| flock | 10.2 ms · 98 fps · 266 draws | iter 3 final |
+| meadow | 11.9 ms · 84 fps · 341 draws | iter 3 final |
+| ridge | 12.8 ms · 78 fps · 300 draws | iter 3 final |
+| far side | 11.5 ms · 87 fps · 276 draws | iter 3 final |
 | before the leash + far-cull (hostiles only) | 9.4 ms · 106 fps · 281 draws | iter 3 |
 | when ambient life landed, before LOD | 24.4 ms · 41 fps · 616 draws | iter 3 |
 | triangles (worst) | 733k | iter 3 |
@@ -176,22 +176,32 @@ Newest audit at the top. Each entry: what is wrong, not what to do about it.
    is above target but it is now the frame budget's biggest single line, and the
    cost is skinning and drawing, not AI (measured: 12.4 ms for 42 ambients, of
    which freezing the mixers alone recovered 2.0 ms and hiding them alone 5.6).
-2. The Nettle's `move` clip is authored at one speed and does not scale with
-   travel, so the legs skate.
-4. Hit 3's two-handed intent does not read: the left hand does not actually
+2. Hit 3's two-handed intent does not read: the left hand does not actually
    reach the grip, because nothing IKs the off hand to the weapon.
-5. No smoke test yet; every check so far has been a hand-written probe.
-6. The meadow has one biome and one weather. Fine for scope, but it means the
+3. The meadow has one biome and one weather. Fine for scope, but it means the
    walk out is short on variety.
-7. The Curler's charge has no consequence for missing — it should be stunned by
-   hitting something, which is what its own design note promises.
-8. The Bellow's inflate reads at close range but its damage (22) makes trading
-   with it correct-ish rather than clearly wrong.
+4. The slip has no directional consequence — slipping *toward* an attack is as
+   safe as slipping away from it, because the i-frames do not care where you
+   went. A parry, or a bonus for a late one, would make the direction matter.
+5. The Curler still has no wall-stun. It collides with the world now, so the
+   pieces exist, but a charge into a tree just stops rather than staggering it.
+6. Juggling is limited more by the falling cut's 0.26 s recovery than by the
+   diminishing pogo — in practice the recovery lands you before the fourth
+   bounce would have. The diminishing return is insurance, not the design.
+7. The smoke test takes several minutes because headless renders every stepped
+   frame. Behavioural waits already run at a coarse dt; it is still slow enough
+   that nobody will run it casually.
+8. Nothing in the demo explains itself. There is a controls strip and no
+   tutorial, so the falling cut and the slip are discoverable only by reading it.
 
 *Fixed in iteration 3:* only one creature type; nothing spawned in the meadow;
 enemies crowding onto the player's exact position; enemies following the player
-across the entire map (no leash); NaN velocity from a per-species field being
-undefined on a species that lacks it.
+across the entire map (no leash); NaN velocity from a per-species field read on
+a species that lacks it; distant creatures frozen mid-flight and mid-walk-home
+by the cull; no air attack; no defensive option at all; legs skating because
+`move` clips ran at one authored speed; enemies walking through trees and
+buildings; a whiffed charge costing the same as a landed one; the Bellow's
+damage making a trade arithmetically fine.
 
 *Fixed in iteration 2:* combo clips; hit timing vs hitbox; terrain rendering
 black (open-surface normals guessed down); FLOORS silently containing every

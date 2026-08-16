@@ -652,7 +652,10 @@ function solveLegIK(leg, target) {
 }
 
 function applyFootIK(ch, dt) {
-  if (!IK_ENABLED.value || !ch.legs || !grounded || !FLOORS.length) return;
+  // ...and not during a slip. The clip deliberately takes both feet off the
+  // floor and drives; planting them back onto it flattens the whole pose into
+  // a shuffle.
+  if (!IK_ENABLED.value || !ch.legs || !grounded || slip.t > 0 || !FLOORS.length) return;
   ch.group.updateMatrixWorld(true);
   for (const leg of ch.legs) {
     leg.foot.getWorldPosition(_c);
@@ -975,7 +978,10 @@ function step(dt) {
   if (keys.has('KeyA') || keys.has('ArrowLeft')) dir.x -= 1;
   if (keys.has('KeyD') || keys.has('ArrowRight')) dir.x += 1;
 
-  const wants = dir.lengthSq() > 0 && !attacking && townReady;
+  // A slip is a commitment: no steering it, and no adding walk speed to it.
+  // Without this, holding a direction through one turned 3.6 m into 6 and let
+  // you change your mind halfway, which is exactly what a dodge should not be.
+  const wants = dir.lengthSq() > 0 && !attacking && slip.t <= 0 && townReady;
   let isMoving = false;
 
   if (wants) {
