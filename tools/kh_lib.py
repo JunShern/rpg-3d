@@ -403,6 +403,39 @@ def set_uvs(obj, uv_per_vertex, name="UVMap"):
     return uvl
 
 
+def box_uvs(obj, tile=2.0, name="UVMap"):
+    """Per-face planar projection along each face's dominant normal axis.
+
+    Architecture here is bevelled boxes at arbitrary yaws, which have no natural
+    unwrap -- but every face is very nearly axis-aligned, so projecting each one
+    down its dominant axis is exact for the flat parts and only slightly sheared
+    on the bevels, which are a few millimetres wide and carry an outline anyway.
+
+    Loop-level rather than vertex-level, because a shared corner vertex belongs
+    to faces on different axes and needs a different UV in each.
+    """
+    me = obj.data
+    uvl = me.uv_layers.get(name) or me.uv_layers.new(name=name)
+    for poly in me.polygons:
+        n = poly.normal
+        ax, ay, az = abs(n.x), abs(n.y), abs(n.z)
+        for li in poly.loop_indices:
+            co = me.vertices[me.loops[li].vertex_index].co
+            if az >= ax and az >= ay:
+                u, v = co.x, co.y          # floors and roofs, from above
+            elif ax >= ay:
+                u, v = co.y, co.z          # walls facing +/-X
+            else:
+                u, v = co.x, co.z          # walls facing +/-Y
+            uvl.data[li].uv = (u / tile, v / tile)
+    me.uv_layers.active = uvl
+    uvl.active_render = True
+    me.update()
+    obj.update_tag()
+    bpy.context.view_layer.update()
+    return uvl
+
+
 def image_material(name, image, roughness=0.7, preview=(0.8, 0.8, 0.8),
                    uv_layer="UVMap"):
     """A material whose base colour comes from an image."""

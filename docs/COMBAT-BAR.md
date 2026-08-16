@@ -211,10 +211,9 @@ whole cluster is fixed above. What it found that is still open:
 1. **No verticality.** Nothing to climb, no upper storey, no balcony, no
    below-grade. The jump clears a 1.1 m terrace and that is the entire vertical
    vocabulary.
-2. **Only the ground is textured.** Facades, roofs and props are still flat
-   colour plus a toon ramp. The ground was the surface that mattered most --
-   it fills the frame — but a plaster wall with no plaster in it is the same
-   fault one storey up.
+2. **Props are still flat colour** — lamps, planters, crates, barrels, the
+   fountain, the arch. Ground, walls and roofs are textured; the furniture in
+   front of them is not.
 3. **Damage numbers have no occlusion** and are drawn over whatever is behind
    them.
 4. **The move list is small** even for one weapon: chain, air attack, dodge. No
@@ -230,7 +229,8 @@ whole cluster is fixed above. What it found that is still open:
 *Answered from the audit:* the whole enemy-attack cluster above; **no textures
 anywhere** (the plaza, terrace, meadow grass and worn path are all generated
 now — a Voronoi whose cell boundaries are the mortar lines for the paving,
-banded noise for the ground; four separate silent failures stood between the
+banded noise for the ground, drifting mottle for plaster and staggered courses
+of pantiles for the roofs; four separate silent failures stood between the
 generator and a visible pixel, ending with `export_texcoords=False` sitting in
 the town's own export call); **shadow acne on the gate pillars** (texel-snapped
 shadow camera plus back-face casting and a normalBias tuned against the worst

@@ -26,7 +26,8 @@ from mathutils import Vector
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import kh_lib as K
 import arch_lib as A
-import ground_tex
+import numpy as np
+import surface_tex
 
 
 # Plaza interior is roughly X -13..13, Y -10..11.  Buildings ring it just
@@ -58,9 +59,38 @@ def ground_material(name, img_fn, tile_preview):
     """Generate the texture, write it next to the assets, load it as a material."""
     os.makedirs(TEX_DIR, exist_ok=True)
     path = os.path.abspath(os.path.join(TEX_DIR, f"{name}.png"))
-    ground_tex.write_png(path, img_fn())
+    surface_tex.write_png(path, img_fn())
     image = bpy.data.images.load(path, check_existing=True)
     return K.image_material(name, image, roughness=0.85, preview=tile_preview)
+
+
+def texture_walls(M):
+    """Swap the flat plaster and roof materials for textured ones.
+
+    One greyscale generator per surface kind, TINTED per material, rather than
+    one image with a colour factor -- glTF can multiply a base colour by a base
+    colour texture, but Blender's exporter only writes that pairing reliably
+    when the node graph is the exact shape it expects, and four small tinted
+    images are cheaper to be sure of than one clever graph.
+
+    256 px, not 512: a facade is seen at a distance across a plaza, and the
+    detail on it is deliberately almost nothing.
+    """
+    os.makedirs(TEX_DIR, exist_ok=True)
+    out = {}
+    for key, fn in ([(k, surface_tex.plaster) for k in
+                     ("plaster_a", "plaster_b", "plaster_c", "plaster_d")]
+                    + [(k, surface_tex.rooftile) for k in
+                       ("roof_a", "roof_b", "roof_c")]):
+        tint = M[key].diffuse_color[:3]
+        img = fn(res=256, tone=tint) if fn is surface_tex.plaster else \
+            surface_tex.rooftile(res=256) * np.array(tint, np.float32)
+        path = os.path.abspath(os.path.join(TEX_DIR, f"{key}.png"))
+        surface_tex.write_png(path, np.clip(img, 0, 1))
+        out[key] = K.image_material(
+            f"{key}_tex", bpy.data.images.load(path, check_existing=True),
+            roughness=0.85, preview=tint)
+    return out
 
 
 def build_ground(t):
@@ -72,7 +102,7 @@ def build_ground(t):
     # with that name, and the palette already owns a flat one called "cobble" --
     # so naming this "cobble" silently handed back the untextured original and
     # the generated paving never reached the export.
-    cob = ground_material("cobble_tex", ground_tex.cobble, (0.52, 0.50, 0.53))
+    cob = ground_material("cobble_tex", surface_tex.cobble, (0.52, 0.50, 0.53))
     t.walk(A.box("floor_plaza", (0, -1.0, -0.25), (22.0, 20.0, 0.25),
                  cob, bevel=0.12, seg=1))
 
@@ -89,7 +119,7 @@ def build_ground(t):
     # raised terrace on the east side, reachable only by the stairs
     # coarser slabs on the terrace, so two paved areas beside each other do not
     # read as one surface
-    flag = ground_material("flagstone_tex", ground_tex.flagstone, (0.62, 0.60, 0.58))
+    flag = ground_material("flagstone_tex", surface_tex.flagstone, (0.62, 0.60, 0.58))
     t.walk(A.box("floor_terrace", (10.0, 4.0, 0.55), (3.5, 5.0, 0.55),
                  flag, bevel=0.07, seg=2))
     A.stairs(t, 5.05, 4.0, w=4.2, rise=0.275, run=0.42, steps=4, yaw=-90)
@@ -109,6 +139,8 @@ def build_ground(t):
 
 
 def build_buildings(t):
+    # textured plaster and roofs, keyed by the same names the plan uses
+    t.M.update(texture_walls(t.M))
     #   cx     cy     w    d   storeys yaw   plaster      roof      shop
     plan = [
         (-11.5, -14.0, 9.0, 8.0, 3, 180, "plaster_a", "roof_a", True,  0),
@@ -223,7 +255,9 @@ def main():
     lights = build_props(t)
 
     town, floor = A.finish(t)
-    paved(floor, tile=3.2)     # one UV set for the whole walkable mesh
+    paved(floor, tile=3.2)
+    # walls and roofs: per-face projection, at a coarser tile than the ground
+    K.box_uvs(town, tile=2.4)     # one UV set for the whole walkable mesh
 
     tris = 0
     for o in (town, floor):

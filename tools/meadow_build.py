@@ -37,7 +37,7 @@ from mathutils import Vector
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import kh_lib as K
 import arch_lib as A
-import ground_tex
+import surface_tex
 
 # The meadow lies SOUTH of the plaza in Blender terms (+Y), beyond the gateway
 # arch at y = 11.  The plaza's own paving stops around y = 20.
@@ -325,9 +325,9 @@ def main():
     M = A.palette()
     # generated ground, written next to the assets and packed into the GLB
     os.makedirs("public/assets/tex", exist_ok=True)
-    for nm, fn in (("grass", ground_tex.grass), ("dirt", ground_tex.dirt)):
+    for nm, fn in (("grass", surface_tex.grass), ("dirt", surface_tex.dirt)):
         path = os.path.abspath(f"public/assets/tex/{nm}.png")
-        ground_tex.write_png(path, fn())
+        surface_tex.write_png(path, fn())
         M[f"{nm}_tex"] = K.image_material(
             f"{nm}_tex", bpy.data.images.load(path, check_existing=True),
             roughness=0.92,

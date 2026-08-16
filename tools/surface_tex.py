@@ -1,4 +1,4 @@
-"""ground_tex -- generated paving, because the ground fills most of every frame.
+"""surface_tex -- generated surface detail, drawn rather than photographed.
 
 WHY.  A reviewer put it plainly: there is not one texture in this project, and
 the material named `cobble` has no cobble in it.  The plaza floor is the single
@@ -17,7 +17,7 @@ explicit shapes with hard edges, high enough in value that the shadow band still
 has somewhere to go.
 
 Run standalone to preview:
-  python3 tools/ground_tex.py /tmp/cobble.png
+  python3 tools/surface_tex.py /tmp/cobble.png
 """
 import math
 
@@ -180,3 +180,63 @@ def dirt(res=RES, seed=17, a=(0.70, 0.61, 0.49), b=(0.76, 0.68, 0.56)):
     grit = _fbm(res, seed + 3, octaves=2, base=27)
     img *= np.where(grit > 0.80, 0.88, 1.0)[..., None]
     return np.clip(img, 0, 1)
+
+
+def plaster(res=RES, seed=23, tone=(1.0, 1.0, 1.0), strength=0.05):
+    """Rendered wall.
+
+    DELIBERATELY ALMOST NOTHING.  A facade is the backdrop a fight happens in
+    front of, and a wall with as much going on as the ground would compete with
+    every silhouette in the frame.  This is low-contrast mottling plus a faint
+    horizontal trowel drift, multiplied over whatever colour the material
+    already carries -- so one greyscale texture serves all four plaster tints
+    instead of four separate images.
+    """
+    n = _fbm(res, seed, octaves=4, base=4)
+    drift = _fbm(res, seed + 9, octaves=2, base=3)
+    k = 1.0 + (n - 0.5) * strength + (drift - 0.5) * strength * 0.6
+    # a few sparse darker patches: damp, age, a repair
+    patch = _fbm(res, seed + 31, octaves=3, base=6)
+    # sparse and gentle: at full strength these read as camouflage, not as a
+    # wall that has been rained on
+    k *= np.where(patch > 0.90, 0.965, 1.0)
+    img = np.repeat(k[..., None], 3, axis=2) * np.array(tone, np.float32)
+    return np.clip(img, 0, 1)
+
+
+def rooftile(res=RES, rows=11, seed=29, light=1.14, dark=0.68):
+    """Pantiles: staggered courses of round-ended tiles.
+
+    Drawn, not noised -- a roof is made of a thing you can name, and from the
+    ridge at the far end of the meadow the roofs are most of the town's
+    silhouette. Greyscale and multiplied, like the plaster, so the three roof
+    colours stay three colours.
+    """
+    cols = rows
+    u = (np.arange(res) + 0.5) / res
+    uu, vv = np.meshgrid(u, u, indexing='xy')
+
+    row = vv * rows
+    ri = np.floor(row)
+    rf = row - ri
+    # every other course offsets by half a tile
+    off = np.where(ri % 2 > 0, 0.5, 0.0)
+    col = uu * cols + off
+    cf = col - np.floor(col)
+
+    k = np.ones((res, res), np.float32)
+    # the rounded barrel of each tile, brightest along its crown
+    bulge = np.cos((cf - 0.5) * np.pi) ** 0.7
+    k = 1.0 + (light - 1.0) * bulge - (1.0 - dark) * (1.0 - bulge) * 0.55
+    # the shadowed lap where the next course overlaps this one
+    k = np.where(rf < 0.20, dark * (0.92 + 0.30 * rf / 0.20), k)
+    # the vertical joint between tiles: a hard dark line, the thing that makes
+    # a roof read as MANY tiles rather than as a striped surface
+    k = np.where((cf < 0.06) | (cf > 0.94), dark * 0.92, k)
+
+    rng = _rng(seed)
+    tone = rng.normal(0.0, 0.045, (rows, cols)).astype(np.float32)
+    ci = np.clip(np.floor(col).astype(int) % cols, 0, cols - 1)
+    k = k + tone[np.clip(ri.astype(int) % rows, 0, rows - 1), ci]
+
+    return np.clip(np.repeat(k[..., None], 3, axis=2), 0, 1)

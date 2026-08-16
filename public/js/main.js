@@ -167,9 +167,14 @@ function applyTownLook(root) {
       map.colorSpace = THREE.SRGBColorSpace;
       map.anisotropy = 4;
     }
+    // WHITE UNDER A MAP. MeshToonMaterial multiplies colour by map, and these
+    // textures are generated already tinted -- so keeping the material colour
+    // applied the tint twice and every textured surface came out a shade of
+    // itself squared.
+    const base = map ? new THREE.Color(0xffffff) : color;
     m.material = TOWN_FLAT.has(name)
-      ? flatMaterial(color)
-      : toonMaterial(color, {
+      ? flatMaterial(base)
+      : toonMaterial(base, {
           gradient: RAMP_SOFT, rimStrength: 0.28, map,
           key: 'town:' + name, ...(TOWN_LOOK[name] || {}),
         });
