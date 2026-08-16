@@ -59,6 +59,7 @@ PATH_X = -1.0                      # the path runs out of the gate on this line
 # rise -- and the summit stands clear of it, so there is something to go TO
 # rather than something you cross without noticing.
 HILL = (27.0, 82.0, 7.2, 16.0)     # x, y, height, radius -- the destination
+RUIN = (-14.0, 55.0)               # the roofless hut, twenty metres off the road
 
 
 def _natural(x, y):
@@ -294,6 +295,23 @@ def build_terrain(M, step=TERRAIN_STEP):
 
 # --------------------------------------------------------------------- props
 
+def _clear_of_landmarks(x, y, pad=0.0):
+    """True where scenery is allowed to grow.
+
+    KEEP THE MONUMENT CLEAR. `scatter` knew about the path and the world edge
+    and nothing else, so a copse grew straight through the stone circle: the
+    capture that was supposed to show a ring of standing stones showed a tree,
+    with the lintel hanging in the air behind it because both uprights holding
+    it up were hidden. A landmark you cannot see is not one.
+    """
+    hx, hy, _, _ = HILL
+    if math.hypot(x - hx, y - hy) < 11.0 + pad:
+        return False
+    if math.hypot(x - RUIN[0], y - RUIN[1]) < 6.5 + pad:
+        return False
+    return True
+
+
 def scatter(M, t):
     """Density that VARIES. Trees cluster in copses and thin out between them;
     an even scatter reads as a spreadsheet however good the tree is."""
@@ -309,6 +327,8 @@ def scatter(M, t):
             x, y = cx + math.cos(a) * r, cy + math.sin(a) * r
             if on_path(x, y, 3.0) or not _inside(x, y):
                 continue
+            if not _clear_of_landmarks(x, y, 1.5):
+                continue
             tree(M, t, x, y, 0.75 + rnd() * 0.7)
 
     # lone trees, for silhouettes against the sky
@@ -317,6 +337,8 @@ def scatter(M, t):
         y = GATE_Y + 12 + rnd() * (MEADOW["y1"] - GATE_Y - 26)
         if on_path(x, y, 5.0) or not _inside(x, y):
             continue
+        if not _clear_of_landmarks(x, y, 1.5):
+            continue
         tree(M, t, x, y, 0.9 + rnd() * 0.8)
 
     # rocks, thicker as the ground rises
@@ -324,6 +346,8 @@ def scatter(M, t):
         x = MEADOW["x0"] + 4 + rnd() * (MEADOW["x1"] - MEADOW["x0"] - 8)
         y = GATE_Y + 4 + rnd() * (MEADOW["y1"] - GATE_Y - 8)
         if on_path(x, y, 2.2) or not _inside(x, y):
+            continue
+        if not _clear_of_landmarks(x, y):
             continue
         z = height(x, y)
         s = 0.22 + rnd() * (0.55 if z > 4 else 0.28)
@@ -418,24 +442,225 @@ def tuft(M, t, x, y, rnd):
 
 
 def landmark(M, t):
-    """The thing you can see from the gate and stand next to when you arrive."""
+    """THE THING YOU WALK TOWARDS.
+
+    It was three stones on a plinth, and an audit's word for it was that the
+    frame named after it contained neither a landmark nor a standing stone --
+    from 28 m aimed straight at it, it was not in the picture. Three stones on a
+    seven-metre hill is not a monument, it is some rocks.
+
+    A RING reads. It reads from the gate as a notched silhouette on the skyline,
+    it reads from the path as something arranged rather than scattered, and it
+    reads from inside as a place, because a ring is the one arrangement that
+    makes the space in the middle mean something. Eight uprights at varying
+    height with a lintel across the tallest pair, one fallen and one leaning,
+    and a low altar stone at the centre so there is a reason to walk in.
+    """
     hx, hy, hh, _ = HILL
     z = height(hx, hy)
-    t.add(K.tube("stone_base", [
-        {"p": Vector((hx, hy, z - 0.3)), "r": (1.35, 1.20), "n": 3.0},
-        {"p": Vector((hx, hy, z + 0.28)), "r": (1.20, 1.05), "n": 3.0},
-    ], seg=14, mat=M["rock"], squircle=3.0, up=(0, 0, 1)))
-    for i, (dx, dy, ht, r) in enumerate(((0, 0, 4.6, 0.52), (1.5, 0.7, 2.9, 0.34),
-                                         (-1.4, -0.8, 2.2, 0.30))):
-        t.add(K.tube(f"stone{i}", K.dome([
-            {"p": Vector((hx + dx, hy + dy, z)), "r": (r, r * 0.72), "n": 3.2},
-            {"p": Vector((hx + dx * 1.1, hy + dy * 1.1, z + ht * 0.7)),
-             "r": (r * 0.86, r * 0.62), "n": 3.2},
-            {"p": Vector((hx + dx * 1.2, hy + dy * 1.2, z + ht)),
-             "r": (r * 0.62, r * 0.44), "n": 3.2},
-        ], at="end", steps=2, height=r * 0.5), seg=9, mat=M["stone"],
-            squircle=3.2, up=(0, 0, 1)))
-        t.solid(hx + dx, hy + dy, r, r * 0.8, top=z + ht)
+    rnd = _lcg(7714)
+    R = 4.6
+
+    # EACH STONE STANDS ON ITS OWN GROUND, not on the hill's centre height.
+    #
+    # The first version planted all eight at `height(hx, hy)`. Measured, the
+    # ground under a 4.6 m ring on this hill runs from 7.99 m to 11.83 m -- so
+    # three of them floated over two metres in the air and one was buried a
+    # metre deep. The tall pair happened to be on the low side, which is why
+    # the lintel they are supposed to carry was hanging in the sky on its own.
+    def upright(name, px, py, ht, r, lean=0.0, la=0.0, top_abs=None):
+        base = height(px, py)
+        tz = top_abs if top_abs is not None else base + ht
+        obj = K.tube(name, K.dome([
+            {"p": Vector((px, py, base - 0.25)), "r": (r, r * 0.66), "n": 3.2},
+            {"p": Vector((px + math.cos(la) * lean * 0.5,
+                          py + math.sin(la) * lean * 0.5, base + (tz - base) * 0.62)),
+             "r": (r * 0.90, r * 0.60), "n": 3.2},
+            {"p": Vector((px + math.cos(la) * lean, py + math.sin(la) * lean, tz)),
+             "r": (r * 0.70, r * 0.46), "n": 3.2},
+        ], at="end", steps=2, height=r * 0.45), seg=9, mat=M["stone"],
+            squircle=3.2, up=(0, 0, 1))
+        t.add(obj)
+        t.solid(px, py, r * 1.1, r * 0.9, top=tz)
+        return obj
+
+    # eight round the ring. The two flanking the approach are the tall pair and
+    # carry a lintel, so the circle has a FRONT -- a ring of equal stones has no
+    # way to tell you where to walk in.
+    # A LINTEL MEANS THE PAIR ARE CUT TO LEVEL. Both uprights under it are
+    # given an absolute top rather than a height, so they reach the same line
+    # however far apart their footings are -- which is what a builder would do
+    # and what makes the horizontal read as deliberate.
+    LINTEL_Z = z + 4.5
+    pair = {}
+    for i in range(8):
+        a = 2 * math.pi * i / 8 + 0.22
+        px, py = hx + math.cos(a) * R, hy + math.sin(a) * R
+        top_abs = None
+        if i in (2, 3):
+            ht, r, top_abs = 4.5, 0.50, LINTEL_Z
+        elif i == 6:
+            ht, r = 1.1, 0.46          # the fallen one is a stump plus a slab
+        else:
+            ht, r = 2.4 + rnd() * 1.3, 0.34 + rnd() * 0.12
+        lean = 0.0 if i in (2, 3) else (rnd() - 0.5) * 0.34
+        upright(f"stone{i}", px, py, ht, r, lean, a, top_abs)
+        # CAPTURED FROM THE LOOP, not recomputed afterwards. Recomputing the
+        # same expression in two places is how the lintel ended up spanning a
+        # pair of stones that were not the pair holding it up.
+        if i in (2, 3):
+            pair[i] = (px, py)
+        if i == 6:
+            # the toppled upright, lying where it fell, pointing out of the ring
+            fx, fy = hx + math.cos(a) * (R + 1.6), hy + math.sin(a) * (R + 1.6)
+            slab = K.tube("stone_fallen", K.dome([
+                {"p": Vector((px, py, height(px, py) + 0.42)), "r": (0.46, 0.30), "n": 3.2},
+                {"p": Vector((fx, fy, height(fx, fy) + 0.30)), "r": (0.34, 0.24), "n": 3.2},
+            ], at="both", steps=2, height=0.14), seg=9, mat=M["stone"],
+                squircle=3.2, up=(0, 0, 1))
+            t.add(slab)
+            t.solid((px + fx) / 2, (py + fy) / 2, 1.0, 1.0,
+                    top=height((px + fx) / 2, (py + fy) / 2) + 0.7)
+
+    # THE LINTEL. One horizontal in a field of verticals, and the whole reason
+    # the ring reads as built rather than as geology.
+    p2, p3 = pair[2], pair[3]
+    # CAPPED AT BOTH ENDS. A swept tube is an open sleeve, and an open sleeve
+    # four metres up is a black hole in the sky -- which is exactly what the
+    # first version rendered as.
+    t.add(K.tube("stone_lintel", K.dome([
+        {"p": Vector((p2[0], p2[1], LINTEL_Z + 0.12)), "r": (0.52, 0.34), "n": 3.4},
+        {"p": Vector((p3[0], p3[1], LINTEL_Z + 0.12)), "r": (0.52, 0.34), "n": 3.4},
+    ], at="both", steps=2, height=0.16), seg=9, mat=M["stone"],
+        squircle=3.4, up=(0, 0, 1)))
+
+    # the altar: low, broad, and the only flat thing up here
+    t.walk(K.tube("stone_altar", [
+        {"p": Vector((hx, hy, z + 0.02)), "r": (1.30, 0.95), "n": 3.4},
+        {"p": Vector((hx, hy, z + 0.46)), "r": (1.18, 0.86), "n": 3.4},
+    ], seg=14, mat=M["rock"], squircle=3.4, up=(0, 0, 1)))
+    t.platform(hx, hy, 1.05, 0.78, z + 0.46)
+
+
+def drywall(M, t, x0, y0, x1, y1, gap_at=None, gap_w=3.4, h=0.92):
+    """A field boundary, with an optional gap for the road to pass through.
+
+    THE MEADOW HAD NO FIELDS, only ground. Ninety metres of undivided green
+    reads as terrain rather than as country, and an audit counted 70-90% of
+    several frames as mottled green with nothing in it. A wall does three
+    things a tree cannot: it says somebody owns this, it gives the eye a line
+    to follow to the horizon, and it turns "open field" into "this field and
+    that one".
+
+    Built as overlapping slabs at jittered heights, because a dry-stone wall is
+    a heap of stones that agree to be a wall, and a smooth extrusion reads as
+    concrete.
+    """
+    rnd = _lcg(int(abs(x0 * 71 + y0 * 131)) + 5)
+    span = math.hypot(x1 - x0, y1 - y0)
+    n = max(2, int(span / 0.62))
+    for i in range(n):
+        u = (i + 0.5) / n
+        px, py = x0 + (x1 - x0) * u, y0 + (y1 - y0) * u
+        if gap_at is not None and abs(u * span - gap_at) < gap_w / 2:
+            continue
+        hh = h * (0.82 + 0.30 * rnd())
+        z = height(px, py)
+        t.add(A.box(f"wall{i}",
+                    (px, py, z + hh / 2 - 0.06),
+                    (0.34 + 0.06 * rnd(), 0.20 + 0.05 * rnd(), hh / 2),
+                    M["rock"], bevel=0.05, seg=1))
+        t.solid(px, py, 0.36, 0.24, top=z + hh)
+    # a couple of cap stones sitting proud, so the top line is not level
+    for k in range(max(1, n // 7)):
+        u = (k + 0.5) / max(1, n // 7)
+        px, py = x0 + (x1 - x0) * u, y0 + (y1 - y0) * u
+        if gap_at is not None and abs(u * span - gap_at) < gap_w / 2:
+            continue
+        t.add(K.blob(f"wallcap{k}", (px, py, height(px, py) + h * 1.02),
+                     (0.26, 0.20, 0.13), None, M["rock"], seg=9, rings=6,
+                     squircle=2.6))
+
+
+def ruin(M, t, cx, cy, yaw=0.0):
+    """A shepherd's hut with its roof gone: somewhere to GO.
+
+    The meadow's incident was all ON the path -- the ford, the encounters, the
+    hill at the end -- so the entire middle of the map was scenery you crossed.
+    A ruin thirty metres off the route is the cheapest possible reason to leave
+    it: you can see it from the road, it resolves into something when you get
+    there, and it has a doorway, a hearth and a fallen lintel to look at when
+    you do.
+
+    Deliberately roofless. A roof would make it an interior, and there are no
+    interiors in this build -- an enterable box with nothing in it is worse than
+    a ruin with sky in it.
+    """
+    parts = []
+    z = height(cx, cy)
+    w, d = 4.2, 3.2
+    rnd = _lcg(int(abs(cx * 37 + cy * 53)) + 11)
+
+    # four runs of wall at varying survival: the north wall is nearly whole,
+    # the west has collapsed to knee height, and the south has the doorway
+    # `rock`, NOT `stone`. The town textures its `stone` into ashlar; the meadow
+    # never runs that pass, so out here `stone` is the raw palette entry at
+    # 0.78/0.75/0.70 -- and eleven untextured slabs of it read as a row of
+    # white cardboard boxes standing in a field. `rock` is the mid grey the dry
+    # stone walls use, and those read as masonry.
+    #
+    # The blocks are also jittered in width, depth and yaw. Same width and same
+    # depth with only the height varying is a bar chart, which is exactly what
+    # the first version looked like.
+    def run(name, ax, ay, bx, by, hi, lo, skip=None):
+        span = math.hypot(bx - ax, by - ay)
+        n = max(2, int(span / 0.46))
+        for i in range(n):
+            u = (i + 0.5) / n
+            if skip and skip[0] <= u <= skip[1]:
+                continue
+            px, py = ax + (bx - ax) * u, ay + (by - ay) * u
+            hh = (lo + (hi - lo) * (0.5 + 0.5 * math.sin(u * 5.1 + rnd()))) * (0.9 + 0.2 * rnd())
+            bw = 0.22 + 0.12 * rnd()
+            bd = 0.18 + 0.09 * rnd()
+            blk = A.box(f"{name}{i}", (px, py, z + hh / 2), (bw, bd, hh / 2),
+                        M["rock"], bevel=0.045, seg=1)
+            K.transform(blk, rotate=(0, 0, (rnd() - 0.5) * 14), around=(px, py, 0))
+            parts.append(blk)
+            t.solid(px, py, bw + 0.06, bd + 0.06, top=z + hh)
+
+    run("ruin_n", cx - w / 2, cy + d / 2, cx + w / 2, cy + d / 2, 2.3, 1.5)
+    run("ruin_e", cx + w / 2, cy - d / 2, cx + w / 2, cy + d / 2, 2.0, 0.7)
+    run("ruin_w", cx - w / 2, cy - d / 2, cx - w / 2, cy + d / 2, 1.1, 0.45)
+    run("ruin_s", cx - w / 2, cy - d / 2, cx + w / 2, cy - d / 2, 1.8, 1.2,
+        skip=(0.36, 0.64))            # the doorway
+
+    # the door lintel, fallen across the threshold rather than sitting on it
+    parts.append(K.tube("ruin_lintel", [
+        {"p": Vector((cx - 0.55, cy - d / 2 - 0.55, z + 0.16)), "r": (0.17, 0.13), "n": 3.2},
+        {"p": Vector((cx + 0.62, cy - d / 2 - 0.30, z + 0.13)), "r": (0.15, 0.12), "n": 3.2},
+    ], seg=8, mat=M["rock"], squircle=3.2, up=(0, 0, 1)))
+
+    # a hearth in the corner, which is what says somebody lived here
+    parts.append(K.tube("ruin_hearth", [
+        {"p": Vector((cx - w / 2 + 0.7, cy + d / 2 - 0.55, z)), "r": (0.52, 0.52), "n": 3.0},
+        {"p": Vector((cx - w / 2 + 0.7, cy + d / 2 - 0.55, z + 0.22)), "r": (0.46, 0.46), "n": 3.0},
+    ], seg=12, mat=M["rock"], squircle=3.0, up=(0, 0, 1)))
+    parts.append(K.blob("ruin_ash", (cx - w / 2 + 0.7, cy + d / 2 - 0.55, z + 0.20),
+                        (0.34, 0.34, 0.05), None, M["dirt"], seg=10, rings=6))
+
+    # rubble where the roof went
+    for k in range(9):
+        rx = cx + (rnd() - 0.5) * (w + 1.4)
+        ry = cy + (rnd() - 0.5) * (d + 1.4)
+        sc = 0.16 + rnd() * 0.20
+        parts.append(K.blob(f"ruin_rubble{k}", (rx, ry, height(rx, ry) + sc * 0.4),
+                            (sc, sc * 0.85, sc * 0.55), None, M["rock"],
+                            seg=8, rings=6, squircle=2.6))
+    for o in parts:
+        if yaw:
+            K.transform(o, rotate=(0, 0, yaw), around=(cx, cy, 0))
+    t.add(*parts)
 
 
 def stream(M, t):
@@ -683,6 +908,20 @@ def main():
     t.walk(build_terrain(M))
     landmark(M, t)
     outcrop(M, t)
+
+    # FIELDS, so the meadow is country rather than ground. Two boundaries the
+    # road passes through -- each one is a small event on the walk, and they
+    # give the eye a line to follow all the way to the flanking hills.
+    drywall(M, t, -22.0, 40.0, 30.0, 40.0, gap_at=27.7)      # path crosses at x~5.7
+    drywall(M, t, -6.0, 68.0, 34.0, 68.0, gap_at=22.0)       # path crosses at x~16
+    # a pen on the east side, which is where a herd of Woolts already grazes
+    drywall(M, t, 14.0, 52.0, 30.0, 52.0)
+    drywall(M, t, 30.0, 52.0, 30.0, 64.0)
+
+    # SOMEWHERE TO GO that is not on the road. Visible from the path, twenty
+    # metres west of it, at the point where the walk would otherwise be its
+    # emptiest.
+    ruin(M, t, RUIN[0], RUIN[1], yaw=18)
     stream(M, t)
     waymarks(M, t)
     backdrop(M, t)

@@ -58,8 +58,15 @@ const SLOW = '1/20';
 // to be attacked. The town is deliberately empty now -- it is the one place you
 // can look at the architecture without being swarmed -- so anything that needs
 // live hostiles goes to the first meadow encounter instead.
+//
+// THESE LIVE IN THE PAGE, not in node. The first version was a plain node-side
+// constant referenced inside `page.evaluate(() => ...)`, which runs in the
+// browser and had never heard of it -- four checks died with
+// `ReferenceError: FIGHT is not defined`. Installing them as page globals is
+// the fix that does not need every call site to thread an argument through.
 const FIGHT = [3, 6, -32];      // ENCOUNTERS[0] in main.js: two Nettles
 const FIGHT_AWAY = [3, 6, 4];   // 36 m north of it: outside the leash, inside the cull
+const installMarks = ([f, a]) => { window.FIGHT = f; window.FIGHT_AWAY = a; };
 
 // --------------------------------------------------------------- page helpers
 //
@@ -248,6 +255,7 @@ async function run() {
   await page.waitForFunction(
     'window.combat && combat.enemies.length > 0 && __sim({steps:1}).who', null, { timeout: 60000 });
   await page.evaluate(installHelpers);
+  await page.evaluate(installMarks, [FIGHT, FIGHT_AWAY]);
   // ARM THE ENCOUNTERS. Nothing is armed at load any more -- the town is empty
   // and the meadow groups wake when you walk near them -- so a suite that grabs
   // "the first live nettle" finds none until something has triggered.
@@ -735,16 +743,25 @@ async function run() {
     // staggered player's `attack()` is refused. It was checking that a brute
     // is unbreakable by a player who never swung. Damage dealt is the proof
     // that the poise was actually tested.
+    // ONLY WHILE IT IS STILL COMMITTED. A 40-frame loop outlasts the Bellow's
+    // own attack, so it was landing hits during 'recover' -- where poise does
+    // not apply and is not supposed to -- and reporting that a brute with 999
+    // poise had been mashed out of its swing. The property is about the
+    // committed window, so the loop ends when the window does.
     const hp0 = b.hp;
-    for (let i = 0; i < 40; i++) {
+    let broke = false, frames = 0;
+    while (b.state === 'attack' && frames < 60) {
       combat.player.hp = combat.player.maxHP;    // isolate: do not be staggered out
       combat.player.stagger = 0;
       combat.attack();
       __sim({ steps: 1 }); __face(b.pos.x, b.pos.z);
+      frames++;
+      if (b.state === 'hurt') broke = true;
     }
     const dealt = Math.round(hp0 - b.hp);
-    return { ok: b.state !== 'hurt' && dealt >= 24,
-             detail: `${dealt} damage landed and it is in '${b.state}'` };
+    return { ok: !broke && dealt >= 20,
+             detail: `${dealt} damage over ${frames} committed frames, `
+                   + `never broken (now '${b.state}')` };
   });
 
   await check("a swarmer's wind-up breaks to a chain, not to one poke", () => {
