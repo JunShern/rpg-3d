@@ -104,6 +104,10 @@ const list = want.length
 
 const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
+// A SHOT THAT WALKS runs several hundred stepped frames before the capture,
+// and at 1600x900 that is slow enough to blow the 30 s default -- which
+// surfaces as "page.screenshot: Timeout" and looks like the page has died.
+page.setDefaultTimeout(180000);
 const errors = [];
 page.on('pageerror', (e) => errors.push(String(e.message).slice(0, 200)));
 
