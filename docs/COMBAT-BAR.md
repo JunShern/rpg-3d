@@ -286,9 +286,9 @@ showed they restated the code instead of testing the game.
 
 Still open, in rough order of how much they cost:
 
-1. **The town still has no glazed shopfronts.** Trade signs and gable variety
-   broke up the sameness, but every ground floor is the same door and the same
-   window; nothing is a shop you could look into.
+1. **The town's upper floors are still one window repeated.** Ground floors now
+   differ — shopfronts, doors, signs — but every storey above them is the same
+   shuttered pane at the same spacing on all nine buildings.
 2. **One time of day, one weather, one key light.** The single biggest thing
    the reference does that this does not: night is half of Traverse Town's
    atmosphere and it costs nothing but a palette and a light rig.

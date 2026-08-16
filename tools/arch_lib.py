@@ -201,6 +201,64 @@ def window(t, x, y0, z, w=0.62, h=0.92, shutters=True, sill=True,
     return t.add(*out) and out
 
 
+def shopfront(t, x, y0, z, w=1.9, h=1.45, kind=0):
+    """A glazed shopfront: wide, mullioned, with a counter and goods behind it.
+
+    Every ground floor in this town was the same door and the same small
+    shuttered window, so nothing was a shop you could look INTO -- an awning and
+    a hanging sign told you a trade happened there and the wall said otherwise.
+
+    Built outside-in like `window`, but the glass runs nearly the full bay and
+    the goods sit behind it on a counter. The goods are three primitives per
+    shop: at the distance a facade is ever seen they only have to read as
+    "something is displayed here", and the sign carries the rest.
+    """
+    M, out = t.M, []
+    yg = y0 + 0.16
+    yf = y0 + 0.02
+
+    # stall board under the glass -- a shopfront sits on something
+    out.append(box("shop_stall", (x, y0 - 0.06, z - h / 2 - 0.22),
+                   (w / 2 + 0.10, 0.17, 0.22), M["timber"], bevel=0.03, seg=1))
+    out.append(box("shop_glass", (x, yg, z), (w / 2, 0.02, h / 2), M["glass"],
+                   bevel=0.01, seg=1))
+    out.append(box("shop_reveal", (x, y0 + 0.10, z),
+                   (w / 2 + 0.06, 0.10, h / 2 + 0.06), M["stone"],
+                   bevel=0.02, seg=1))
+
+    # a counter behind the glass, and goods on it
+    out.append(box("shop_counter", (x, yg + 0.22, z - h / 2 + 0.22),
+                   (w / 2 - 0.05, 0.20, 0.06), M["timber"], bevel=0.02, seg=1))
+    gz = z - h / 2 + 0.34
+    for i, gx in enumerate((-w * 0.28, 0.0, w * 0.28)):
+        pick = (kind + i) % 3
+        if pick == 0:
+            out.append(K.blob(f"shop_good{i}", (x + gx, yg + 0.22, gz + 0.05),
+                              (0.10, 0.09, 0.10), None, M["awning"],
+                              seg=10, rings=7, squircle=2.2))
+        elif pick == 1:
+            out.append(box(f"shop_good{i}", (x + gx, yg + 0.22, gz + 0.08),
+                           (0.08, 0.07, 0.11), M["brass"], bevel=0.02, seg=1))
+        else:
+            out.append(box(f"shop_good{i}", (x + gx, yg + 0.22, gz + 0.04),
+                           (0.11, 0.08, 0.06), M["door"], bevel=0.02, seg=1))
+
+    # frame: two vertical mullions and a transom, so it reads as shop joinery
+    bar = 0.05
+    for mx in (-w / 6, w / 6):
+        out.append(box("shop_mull", (x + mx, yf, z), (bar, 0.04, h / 2),
+                       M["timber"], bevel=0.012, seg=1))
+    out.append(box("shop_transom", (x, yf, z + h / 2 - 0.30),
+                   (w / 2, 0.04, bar), M["timber"], bevel=0.012, seg=1))
+    for sx, sz, sw, sh in ((0, h / 2, w / 2 + 0.06, bar),
+                           (0, -h / 2, w / 2 + 0.06, bar),
+                           (w / 2, 0, bar, h / 2 + 0.06),
+                           (-w / 2, 0, bar, h / 2 + 0.06)):
+        out.append(box("shop_frame", (x + sx, yf, z + sz), (sw, 0.05, sh),
+                       M["timber"], bevel=0.012, seg=1))
+    return t.add(*out) and out
+
+
 def doorway(t, x, y0, z0, w=0.70, h=1.95, mat="door"):
     """A door on the facade plane y = y0, sitting on the floor at z0."""
     M, out = t.M, []
@@ -576,6 +634,10 @@ def building(t, cx, cy, w, d, storeys=2, yaw=0.0, plaster="plaster_a",
                 out += shopsign(t, bx + min(1.5, w / bays * 0.8), y0,
                                 0.16 + 3.05, kind=seed)
         elif shop:
+            out += shopfront(t, bx, y0, 0.16 + 1.55,
+                             w=min(2.0, w / bays * 0.86), kind=seed)
+            continue
+        elif False:
             out += window(t, bx, y0, 0.16 + 1.65, w=min(1.15, w / bays * 0.7),
                           h=1.35, shutters=False)
         else:
