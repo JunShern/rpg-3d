@@ -146,23 +146,27 @@ def build_ground(t):
 
 def build_buildings(t):
     #   cx     cy     w    d   storeys yaw   plaster      roof      shop
+    #                                                          gable to street ↴
     plan = [
-        (-11.5, -14.0, 9.0, 8.0, 3, 180, "plaster_a", "roof_a", True,  0),
-        ( -1.0, -15.0, 8.5, 7.0, 2, 180, "plaster_b", "roof_b", False, 1),
-        (  9.0, -14.0, 8.5, 8.0, 3, 180, "plaster_c", "roof_c", True,  2),
+        (-11.5, -14.0, 9.0, 8.0, 3, 180, "plaster_a", "roof_a", True,  0, False),
+        ( -1.0, -15.0, 8.5, 7.0, 2, 180, "plaster_b", "roof_b", False, 1, True),
+        (  9.0, -14.0, 8.5, 8.0, 3, 180, "plaster_c", "roof_c", True,  2, False),
 
-        (-17.0,  -2.0, 9.0, 8.0, 2,  90, "plaster_b", "roof_b", True,  3),
-        (-17.0,   8.5, 9.0, 8.0, 3,  90, "plaster_d", "roof_a", False, 4),
+        (-17.0,  -2.0, 9.0, 8.0, 2,  90, "plaster_b", "roof_b", True,  3, True),
+        (-17.0,   8.5, 9.0, 8.0, 3,  90, "plaster_d", "roof_a", False, 4, False),
 
-        ( 17.0,  -2.0, 9.0, 8.0, 3, -90, "plaster_a", "roof_b", False, 5),
-        ( 17.0,   8.5, 9.0, 8.0, 2, -90, "plaster_c", "roof_c", True,  6),
+        ( 17.0,  -2.0, 9.0, 8.0, 3, -90, "plaster_a", "roof_b", False, 5, True),
+        ( 17.0,   8.5, 9.0, 8.0, 2, -90, "plaster_c", "roof_c", True,  6, False),
 
-        ( -9.0,  15.0, 10.0, 8.0, 2,   0, "plaster_d", "roof_a", False, 7),
-        (  7.0,  15.0, 10.0, 8.0, 2,   0, "plaster_a", "roof_c", True,  8),
+        ( -9.0,  15.0, 10.0, 8.0, 2,   0, "plaster_d", "roof_a", False, 7, False),
+        (  7.0,  15.0, 10.0, 8.0, 2,   0, "plaster_a", "roof_c", True,  8, True),
     ]
-    for cx, cy, w, d, st, yaw, pl, rf, shop, seed in plan:
+    # roof height varies with the seed too: nine identical pitches is most of
+    # what made nine buildings read as one building
+    for cx, cy, w, d, st, yaw, pl, rf, shop, seed, gf in plan:
         A.building(t, cx, cy, w, d, storeys=st, yaw=yaw, plaster=pl, roof=rf,
-                   shop=shop, seed=seed)
+                   shop=shop, seed=seed, gable_front=gf,
+                   roof_h=1.25 + 0.16 * (seed % 4))
 
     # the south gateway, in the gap between the two south buildings
     A.arch(t, -1.0, 11.0, span=4.4, height=5.6, depth=1.7, thick=0.46)

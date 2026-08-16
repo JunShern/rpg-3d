@@ -472,8 +472,56 @@ def banner(t, x, y0, z, w=0.55, h=1.5, mat="awning"):
 
 # ---------------------------------------------------------------- building
 
+def shopsign(t, x, y0, z, kind=0):
+    """A trade sign hung off the facade on a bracket.
+
+    Nothing in this town said what any building was -- nine buildings, one
+    recipe, and the only shop cue was an awning that five of them shared. A sign
+    is the cheapest possible answer and it is also the one that reads from
+    across a square: a shape on a board, in a colour, at first-floor height.
+
+    The emblems are primitives rather than lettering on purpose. Painted words
+    at this scale are three unreadable pixels; a boot, a loaf, a tankard and a
+    key are legible as silhouettes at any distance you can see the building.
+    """
+    M, out = t.M, []
+    arm = 0.62
+    out.append(box("sign_bracket", (x, y0 - arm / 2, z + 0.34),
+                   (0.035, arm / 2, 0.035), M["timber"], bevel=0.015, seg=1))
+    out.append(box("sign_stay", (x, y0 - arm * 0.62, z + 0.16),
+                   (0.03, 0.20, 0.14), M["timber"], bevel=0.015, seg=1))
+    out.append(box("sign_board", (x, y0 - arm, z - 0.02),
+                   (0.34, 0.035, 0.30), M["timber"], bevel=0.03, seg=1))
+
+    emblem = ["awning", "brass", "door", "lamp"][kind % 4]
+    ey = y0 - arm - 0.045
+    if kind % 4 == 0:            # a loaf
+        out.append(K.blob("sign_em", (x, ey, z - 0.02), (0.17, 0.03, 0.10),
+                          None, M[emblem], seg=12, rings=8, squircle=2.2))
+    elif kind % 4 == 1:          # a tankard
+        out.append(box("sign_em", (x - 0.02, ey, z - 0.02), (0.11, 0.03, 0.13),
+                       M[emblem], bevel=0.02, seg=1))
+        out.append(box("sign_em2", (x + 0.13, ey, z - 0.02), (0.04, 0.028, 0.07),
+                       M[emblem], bevel=0.02, seg=1))
+    elif kind % 4 == 2:          # a boot
+        out.append(box("sign_em", (x - 0.04, ey, z + 0.03), (0.07, 0.03, 0.12),
+                       M[emblem], bevel=0.02, seg=1))
+        out.append(box("sign_em2", (x + 0.02, ey, z - 0.10), (0.13, 0.03, 0.05),
+                       M[emblem], bevel=0.02, seg=1))
+    else:                        # a key
+        out.append(box("sign_em", (x, ey, z + 0.04), (0.028, 0.03, 0.13),
+                       M[emblem], bevel=0.015, seg=1))
+        out.append(K.blob("sign_em2", (x, ey, z - 0.11), (0.08, 0.03, 0.07),
+                          None, M[emblem], seg=10, rings=7, squircle=2.2))
+        out.append(box("sign_em3", (x + 0.07, ey, z + 0.09), (0.05, 0.028, 0.028),
+                       M[emblem], bevel=0.012, seg=1))
+    t.add(*out)
+    return out
+
+
 def building(t, cx, cy, w, d, storeys=2, yaw=0.0, plaster="plaster_a",
-             roof="roof_a", shop=False, bays=None, roof_h=1.5, seed=0):
+             roof="roof_a", shop=False, bays=None, roof_h=1.5, seed=0,
+             gable_front=False):
     """Assemble one building, front facing -Y, then yaw it into place.
 
     Everything is authored in ONE orientation and rotated at the end.  Trying to
@@ -500,8 +548,17 @@ def building(t, cx, cy, w, d, storeys=2, yaw=0.0, plaster="plaster_a",
     # cornice + roof
     out.append(box("bld_cornice", (0, 0, h + 0.16), (w / 2 + 0.16, d / 2 + 0.16, 0.11),
                    M["stone"], bevel=0.04, seg=1))
-    out.append(prism("bld_roof", (0, 0, h + 0.27), w, d, roof_h, M[roof],
-                     over_y=0.30, over_x=0.26))
+    # GABLE TO THE STREET on some of them. A reviewer counted one building
+    # recipe used nine times, and the roof ridge running the same way every time
+    # is most of why: turn the prism a quarter and the same building has a
+    # completely different silhouette from the square.
+    if gable_front:
+        out.append(prism("bld_roof", (0, 0, h + 0.27), d, w, roof_h * 1.25,
+                         M[roof], over_y=0.26, over_x=0.30))
+        K.transform(out[-1], rotate=(0, 0, 90), around=(0, 0, 0))
+    else:
+        out.append(prism("bld_roof", (0, 0, h + 0.27), w, d, roof_h, M[roof],
+                         over_y=0.30, over_x=0.26))
 
     # chimney, offset so the roofline is never symmetrical
     chx = (0.22 if seed % 2 else -0.28) * w
@@ -516,6 +573,8 @@ def building(t, cx, cy, w, d, storeys=2, yaw=0.0, plaster="plaster_a",
             out += doorway(t, bx, y0, 0.16)
             if shop:
                 out += awning(t, bx, y0, 0.16 + 2.35, w=min(1.9, w / bays * 0.95))
+                out += shopsign(t, bx + min(1.5, w / bays * 0.8), y0,
+                                0.16 + 3.05, kind=seed)
         elif shop:
             out += window(t, bx, y0, 0.16 + 1.65, w=min(1.15, w / bays * 0.7),
                           h=1.35, shutters=False)

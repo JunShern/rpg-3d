@@ -276,10 +276,9 @@ showed they restated the code instead of testing the game.
 
 Still open, in rough order of how much they cost:
 
-1. **The town is one building recipe nine times.** Same plinth, band, cornice,
-   gable, chimney, window and door on every one; four plaster tints and three
-   roof tints do all the differentiation. No signage, no glazed shopfronts, no
-   hanging signs — nothing says what any building is.
+1. **The town still has no glazed shopfronts.** Trade signs and gable variety
+   broke up the sameness, but every ground floor is the same door and the same
+   window; nothing is a shop you could look into.
 2. **One time of day, one weather, one key light.** The single biggest thing
    the reference does that this does not: night is half of Traverse Town's
    atmosphere and it costs nothing but a palette and a light rig.
