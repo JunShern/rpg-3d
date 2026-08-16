@@ -52,7 +52,7 @@ check that cannot fail is worse than no check. It asserts draw-call and
 triangle budgets instead, which are meaningful headless and are the thing that
 actually regressed. Frame time stays a hand-measurement, recorded below.
 
-**Currently 44/44.** Roughly two thirds of the time spent writing it went on its
+**Currently 46/46.** Roughly two thirds of the time spent writing it went on its
 own bad assumptions rather than on the game: lock-on picking a different enemy
 than the one a test pinned, a check inheriting a half-finished combo from the
 check before it, enemies parked outside the world falling forever, and a pinned
@@ -306,10 +306,29 @@ The two that were real scene-design faults rather than shading:
   across a field. The climb now belongs to the land and the road is the
   natural ground along its own centreline, smoothed. Transect at z=-62 went
   from 4.1 m of embankment to 0.7 m of fall.
+* the world ended in sky. From the outcrop the town read as four buildings
+  with nothing under or beside them. There are now two rings of ridges at 175
+  and 245 m, unlit, out of the fog and out of the collision manifest -- a
+  painted backdrop that is honest about being one. Two rings, because a single
+  silhouette reads as a wall and the overlap between two reads as depth.
 * the stream was a 3 m ribbon of pale blue in a 12 m saucer with its underside
   showing. The channel is 1.6 m deep with real banks, the water is dark, and
   the ribbon is deliberately *wider* than the waterline so the shoreline is
   where the plane meets the ground.
+
+**Both ground tells were pointing the wrong way.** The Curler's charge lane by
+180 degrees, the Bellow's slam arc by 90 -- for an unknown number of
+iterations. Neither was hard to see once looked at; the reason nobody had was
+that every capture until now let the AI choose the enemy's facing, and an enemy
+walking straight at the camera looks the same whichever way its footprint is
+painted. Aiming the enemy by hand is what made it obvious, and that is now a
+smoke check rather than a thing I happened to notice.
+
+The wind-up glow was also applied to every material on the creature, so a
+charging Bellow became a uniform orange silhouette with no form in it -- less
+legible than no tell at all, since the shape change the design relies on is
+exactly what the flood erased. It is now confined to the surface each species
+points at: the Bellow's sack, the Nettle's quills, the Curler's plates.
 
 And one gameplay regression the suite caught that no capture would have: the
 swing advance added last iteration only stopped for `lockTarget`, so **unlocked
@@ -334,15 +353,11 @@ Both audits returned **FALSE** on "polish exceeds KH1". The first said the
 enemy half of the fight did not run; the second, given the fixes, went further
 and measured that the demo's own headline mechanic — the three-hit combo — was
 unreachable at any human rhythm. Both were right and both are fixed. `npm test`
-is 44/44, and several of those checks were rewritten because the second audit
+is 46/46, and several of those checks were rewritten because the second audit
 showed they restated the code instead of testing the game.
 
 Still open, in rough order of how much they cost:
 
-0. **The world ends in sky.** From the outcrop the town reads as four buildings
-   with nothing under or beside them, and every horizon is terrain silhouette
-   against flat blue. There are no distant hills, no haze band, nothing past
-   the fog's 130 m.
 1. **The town's upper floors are still one window repeated.** Ground floors now
    differ — shopfronts, doors, signs — but every storey above them is the same
    shuttered pane at the same spacing on all nine buildings.

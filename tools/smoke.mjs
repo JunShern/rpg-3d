@@ -599,6 +599,43 @@ async function run() {
                    + `then took ${lost} HP over 15 s` };
   });
 
+  // THE TELL'S FOOTPRINT POINTS WHERE THE ATTACK GOES.
+  //
+  // Both ground tells were drawn off-axis -- the Curler's lane by 180 degrees
+  // and the Bellow's arc by 90 -- for an unknown number of iterations. Every
+  // capture until now let the AI pick the enemy's facing, and an enemy walking
+  // straight at the camera looks identical whichever way its footprint is
+  // painted. The bug only appears if you aim the enemy yourself, which is what
+  // this does.
+  for (const [sp, mesh, x, z] of [['curler', 'line', 2, -52], ['bellow', 'arc', 2, -52]]) {
+    await check(`the ${sp}'s ground tell points at you`, (a) => {
+      combat.respawn();
+      __sim({ warp: [a.x, 4, a.z + 3.0], steps: 20 });
+      const e = window.__t.species(a.sp)[0] || combat.spawn(a.sp, a.x, a.z);
+      if (!e) return { ok: false, detail: 'nothing to aim' };
+      e.pos.set(a.x, __groundAt(a.x, a.z, 40) ?? 0, a.z);
+      e.home.copy(e.pos);
+      e.vel.set(0, 0, 0);
+      combat.forceState(e, 'telegraph');
+      for (let i = 0; i < 6; i++) {
+        e.pos.set(a.x, e.pos.y, a.z);
+        e.facing = Math.atan2(pos.x - e.pos.x, pos.z - e.pos.z);
+        __sim({ steps: 1 });
+      }
+      const m = __threat[a.mesh];
+      if (!m.visible) return { ok: false, detail: 'the tell is not being drawn' };
+      // a point one unit along the footprint's own axis, in world space
+      const tip = m.localToWorld(new THREE.Vector3(0, 0, 1));
+      const ax = tip.x - m.position.x, az = tip.z - m.position.z;
+      const px = pos.x - e.pos.x, pz = pos.z - e.pos.z;
+      const cos = (ax * px + az * pz)
+                / (Math.hypot(ax, az) * Math.hypot(px, pz) || 1);
+      return { ok: cos > 0.92,
+               detail: `${Math.round(Math.acos(Math.max(-1, Math.min(1, cos)))
+                                     * 180 / Math.PI)} degrees off the player` };
+    }, { sp, mesh, x, z });
+  }
+
   await check('a committed attack is not cancellable by mashing', () => {
     combat.respawn();
     // flat open meadow: the previous spot moved onto the relocated hill's

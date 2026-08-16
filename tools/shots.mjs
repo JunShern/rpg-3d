@@ -64,13 +64,13 @@ const SHOTS = [
   {
     name: '12-charge-line', warp: [2.0, 0, -58.0], az: 0, polar: 1.30, dist: 8.5,
     cast: [['curler', 3.4, -5.2]],
-    setup: () => { combat.forceState(window.__cast[0], 'telegraph'); },
+    setup: (p) => { window.__aim(p); combat.forceState(window.__cast[0], 'telegraph'); },
     steps: 8,
   },
   {
     name: '13-slam-arc', warp: [2.0, 0, -58.0], az: 0, polar: 1.28, dist: 8.0,
     cast: [['bellow', 2.4, -2.8]],
-    setup: () => { combat.forceState(window.__cast[0], 'telegraph'); },
+    setup: (p) => { window.__aim(p); combat.forceState(window.__cast[0], 'telegraph'); },
     steps: 10,
   },
   {
@@ -119,6 +119,14 @@ for (const s of list) {
       const e = combat.spawn(name, shot.warp[0] + dx, shot.warp[2] + dz);
       if (e) { e.home.copy(e.pos); window.__cast.push(e); }
     }
+    // A forced state does not steer, and spawn gives a RANDOM facing -- so a
+    // telegraph shot framed the ground tell pointing off into a field. Point
+    // the cast at the player before freezing them.
+    window.__aim = (w) => {
+      for (const e of window.__cast) {
+        e.facing = Math.atan2(w[0] - e.pos.x, w[2] - e.pos.z);
+      }
+    };
     if (shot.setupSrc) {
       // eslint-disable-next-line no-new-func
       new Function('p', `return (${shot.setupSrc})(p)`)(shot.warp);

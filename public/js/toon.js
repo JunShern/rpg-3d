@@ -119,9 +119,18 @@ export function outlineMaterial(color = 0x241d2b, width = 0.0038) {
         #include <skinning_vertex>
         vec4 mvPosition = modelViewMatrix * vec4(transformed, 1.0);
         vec3 n = normalize(normalMatrix * objectNormal);
-        // -mvPosition.z is view depth: this keeps the outline a constant
-        // thickness on screen rather than in the world.
-        mvPosition.xyz += n * (-mvPosition.z) * uWidth;
+        float depth = -mvPosition.z;
+        // CONSTANT ON SCREEN, BUT NOT FOREVER.
+        //
+        // Multiplying by view depth keeps the line a fixed pixel width instead
+        // of a fixed world width, which is what an ink outline should do -- up
+        // to the point where the SUBJECT is only a few pixels across and a
+        // two-pixel hull is most of it. Grazers twenty metres out were solid
+        // dark blobs: a white animal entirely eaten by its own outline. Past
+        // 12 m the width tapers to 30% by 34 m, so distant things thin out the
+        // way a pen line does rather than filling in.
+        float taper = 1.0 - 0.70 * clamp((depth - 12.0) / 22.0, 0.0, 1.0);
+        mvPosition.xyz += n * depth * uWidth * taper;
         gl_Position = projectionMatrix * mvPosition;
       }
     `,

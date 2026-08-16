@@ -122,7 +122,14 @@ const surfaceOf = (matName) => (matName || '').toLowerCase().replace(/_tex$/, ''
 
 // Materials that must NOT be shaded: a lamp that falls into the shadow band
 // stops looking lit, and glass reads better as a flat pane than as a surface.
-const TOWN_FLAT = new Set(['lamp']);
+// `ridge_a`/`ridge_b` are the painted backdrop: unlit on purpose, because a
+// silhouette 200 m away that responds to the key light is a silhouette that
+// swings with it, and aerial perspective is already baked into the colour.
+const TOWN_FLAT = new Set(['lamp', 'ridge_a', 'ridge_b']);
+// ...and out of the fog. The fog reaches 130 m; the rings are at 185 and 245,
+// so leaving them in would fade them to exactly the sky and there would be no
+// backdrop at all.
+const NO_FOG_ENV = new Set(['ridge_a', 'ridge_b']);
 // Foliage is NOT outlined. An inverted hull round 500 grass tufts and every
 // flower turns a meadow into a scribble; outlines belong on things whose
 // silhouette carries meaning.
@@ -135,6 +142,7 @@ const NO_OUTLINE_ENV = new Set([
   // across open grass; the invisible one was half the build's triangles being
   // outline.
   'grass', 'dirt', 'verge', 'cobble', 'cobble_b', 'flagstone', 'ring',
+  'ridge_a', 'ridge_b',
 ]);
 // Ground casts nothing useful onto itself; tufts and blooms cast nothing at all.
 //
@@ -147,7 +155,7 @@ const NO_OUTLINE_ENV = new Set([
 // what found it; from inside the frame it looked like a lighting bug.
 const NO_SHADOW_ENV = new Set([
   'grass', 'dirt', 'verge', 'cobble', 'cobble_b', 'flagstone', 'ring',
-  'grass_hi', 'bloom_a', 'bloom_b', 'leaf_lo',
+  'grass_hi', 'bloom_a', 'bloom_b', 'leaf_lo', 'ridge_a', 'ridge_b',
 ]);
 const TINY_ENV = new Set(['grass_hi', 'bloom_a', 'bloom_b', 'leaf_lo']);
 const TOWN_LOOK = {
@@ -241,6 +249,7 @@ function applyTownLook(root) {
     // against it. Texel snapping stopped the speckle crawling; this is what
     // stops it existing.
     m.material.shadowSide = THREE.BackSide;
+    if (NO_FOG_ENV.has(name)) { m.material.fog = false; m.renderOrder = -1; }
     m.castShadow = !NO_SHADOW_ENV.has(name);
     m.receiveShadow = !TINY_ENV.has(name);
   }
@@ -1196,7 +1205,15 @@ const lockRing = (() => {
  */
 const threatLine = (() => {
   const g = new THREE.PlaneGeometry(1, 1, 1, 1);
-  g.translate(0, 0.5, 0);          // pivot at the near edge
+  // IT POINTS ALONG +Z, because that is where `rotation.y = facing` sends it.
+  //
+  // It used to be translated +0.5 and it pointed the other way: rotateX(-PI/2)
+  // maps local +Y to -Z, so the lane was drawn a hundred and eighty degrees
+  // from the direction the Curler was about to charge. Nothing caught it,
+  // because every capture until now let the AI pick the facing and the enemy
+  // was always coming at the camera anyway -- the error only shows when you
+  // aim the enemy yourself and look at where the lane went.
+  g.translate(0, -0.5, 0);         // pivot at the near edge
   g.rotateX(-Math.PI / 2);
   const m = new THREE.MeshBasicMaterial({
     color: 0x63dcff, transparent: true, opacity: 0.42,
@@ -1218,7 +1235,10 @@ const threatLine = (() => {
  * narrow slice, and you can tell which you are standing in without being told.
  */
 function sectorMesh(color) {
-  const g = new THREE.CircleGeometry(1, 28, -Math.PI / 2, Math.PI);
+  // thetaStart PI, not -PI/2: the same axis error as the charge lane, except
+  // this one was ninety degrees rather than a hundred and eighty, so the
+  // Bellow's slam footprint was painted across its own flank.
+  const g = new THREE.CircleGeometry(1, 28, Math.PI, Math.PI);
   g.rotateX(-Math.PI / 2);
   const m = new THREE.MeshBasicMaterial({
     color, transparent: true, opacity: 0.34,
@@ -1793,6 +1813,11 @@ Object.defineProperty(globalThis, 'terrain', { get: () => terrain, configurable:
 Object.defineProperty(globalThis, 'combat', { get: () => combat, configurable: true });
 globalThis.__ik = IK_ENABLED;   // __ik.value = false to A/B it
 globalThis.__rim = setRimScale; // __rim(0) renders the frame with no rim light
+// The ground tells, so a test can ask which way they point. Both of them
+// pointed the wrong way for an unknown number of iterations because every
+// capture let the AI choose the facing, and an enemy walking at the camera
+// looks the same whichever way its footprint is drawn.
+globalThis.__threat = { line: threatLine, arc: threatArc };
 globalThis.__shadows = (on) => {
   // shadowMap.enabled alone does nothing to already-compiled programs, so
   // an A/B that only flips the flag renders an identical frame and 'proves'

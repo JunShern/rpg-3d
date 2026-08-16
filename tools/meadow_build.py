@@ -536,6 +536,68 @@ def outcrop(M, t):
                      squircle=2.4))
 
 
+def backdrop(M, t):
+    """THE WORLD HAS TO END IN LANDSCAPE, NOT IN SKY.
+
+    The meadow's own hills close it off at ground level, and from anywhere with
+    a bit of elevation -- the outcrop, the far end of the path -- that stopped
+    being true: the town read as four buildings with nothing under or beside
+    them, and every horizon was a terrain silhouette against flat blue. There
+    was nothing at all past the fog.
+
+    So: two rings of ridges, far outside anywhere you can walk. They are a
+    BACKDROP, and they are honest about it -- no collision, no shadow, no
+    outline, and the runtime takes them out of the fog, because a painted
+    distance that fogs is a painted distance that disappears. Two rings rather
+    than one because a single silhouette reads as a wall, and the overlap
+    between two is what makes it read as depth.
+
+    Built as a curtain -- a strip between a base circle well below the horizon
+    and a jagged top -- since only the part above the skyline is ever visible
+    and a solid dome would be several thousand triangles of nothing.
+    """
+    cx, cy = 0.0, 65.0
+    out = []
+    for ring, (rad, base, lo, hi, mat, seed, ph) in enumerate((
+            (175.0, -40.0, 16.0, 52.0, M["ridge_a"], 8821, 0.0),
+            (245.0, -40.0, 34.0, 74.0, M["ridge_b"], 3307, 2.3))):
+        rnd = _lcg(seed)
+        n = 160
+        verts, faces, tops = [], [], []
+        for i in range(n):
+            a = 2 * math.pi * i / n
+            # THREE OCTAVES. The first pass used one slow sine plus a little
+            # noise and then smoothed it, which left a nearly straight line
+            # across the sky -- a wall, not a range. The lowest frequency is
+            # the massif, the middle one the individual hills, the top one the
+            # notches between them.
+            k = (0.52 * (0.5 + 0.5 * math.sin(a * 2.0 + ph))
+                 + 0.32 * (0.5 + 0.5 * math.sin(a * 5.0 + ph * 1.7 + 0.9))
+                 + 0.16 * (0.5 + 0.5 * math.sin(a * 13.0 + ph * 0.6 + 2.2)))
+            tops.append(lo + (hi - lo) * (0.86 * k + 0.14 * rnd()))
+        # ONE light pass, only to take the per-column jitter off the peaks --
+        # smoothing more than this is what flattened the first attempt
+        tops = [(tops[i - 1] + 4.0 * tops[i] + tops[(i + 1) % n]) / 6.0
+                for i in range(n)]
+        for i in range(n):
+            a = 2 * math.pi * i / n
+            px, py = cx + rad * math.cos(a), cy + rad * math.sin(a)
+            verts.append(Vector((px, py, base)))
+            verts.append(Vector((px, py, tops[i])))
+        for i in range(n):
+            j = (i + 1) % n
+            # WOUND INWARD, toward the play space. The obvious order --
+            # base_i, base_j, top_j, top_i -- gives an OUTWARD normal, and
+            # since the backdrop is a single-sided basic material that means a
+            # ring of hills nobody can see from inside it. This order is the
+            # reverse of the intuitive one for exactly that reason.
+            faces.append((i * 2, i * 2 + 1, j * 2 + 1, j * 2))
+        obj = K._new_obj(f"ridge{ring}", verts, faces, mat,
+                         smooth=False, recalc=False)
+        out.append(obj)
+    t.add(*out)
+
+
 def waymarks(M, t):
     """Posts along the path. They do the job a corridor wall does in a town --
     tell you where the road goes -- without enclosing anything."""
@@ -586,6 +648,13 @@ def main():
         "rock":     K.material("rock", (0.52, 0.50, 0.48), roughness=0.9),
         "bloom_a":  K.material("bloom_a", (0.94, 0.86, 0.42), roughness=0.7),
         "bloom_b":  K.material("bloom_b", (0.86, 0.52, 0.72), roughness=0.7),
+        # THE BACKDROP IS PAINTED, NOT LIT. Aerial perspective is most of what
+        # says "far away", so these are authored already hazed toward the sky
+        # rather than left to a fog the runtime would have to reach 250 m to
+        # apply. The far ring is bluer and lighter than the near one by about
+        # the amount another sixty metres of air is worth.
+        "ridge_a":  K.material("ridge_a", (0.40, 0.53, 0.52), roughness=1.0),
+        "ridge_b":  K.material("ridge_b", (0.60, 0.71, 0.79), roughness=1.0),
     })
 
     t = A.Town(M)
@@ -594,6 +663,7 @@ def main():
     outcrop(M, t)
     stream(M, t)
     waymarks(M, t)
+    backdrop(M, t)
     scatter(M, t)
 
     town, floor = A.finish(t, name_town="MEADOW", name_floor="FLOOR_MEADOW")

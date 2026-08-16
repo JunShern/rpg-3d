@@ -102,6 +102,8 @@ export const SPECIES = {
       belly: { rimStrength: 0.40 },
       quill: { rimStrength: 0.95, rimColor: 0xfff0c0 },
     },
+    // the quills stand up AND light up
+    tell: ['quill'],
     flat: ['eye'],
     hostile: true,
   },
@@ -121,6 +123,7 @@ export const SPECIES = {
     look: { shell: { rimStrength: 0.55 },
             plate: { rimStrength: 1.0, rimColor: 0x8fe8ff },
             flesh: { rimStrength: 0.45 } },
+    tell: ['plate'],
     flat: ['eye'], hostile: true,
   },
 
@@ -146,6 +149,7 @@ export const SPECIES = {
     // be able to pulse. `flat` makes a MeshBasicMaterial, which has no
     // `.emissive` at all -- so listing it here meant the wind-up pulse silently
     // skipped the one surface the whole design points at.
+    tell: ['sack'],
     flat: ['eye'], hostile: true,
   },
 
@@ -246,6 +250,7 @@ export function createCombat(ctx) {
     const root = cloneSkinned(gltf.scene);
 
     const meshes = [];
+    const tellMats = [];
     root.traverse((o) => { o.frustumCulled = false; if (o.isMesh) meshes.push(o); });
     for (const m of meshes) {
       const mat = (m.material?.name || '').toLowerCase();
@@ -253,6 +258,13 @@ export function createCombat(ctx) {
       m.material = spec.flat.includes(mat)
         ? flatMaterial(color)
         : toonMaterial(color, { key: `${name}:${mat}`, ...(spec.look[mat] || {}) });
+      // THE TELL IS A PART, NOT THE ANIMAL. The wind-up pulse used to be
+      // applied to every material with an `.emissive`, so a charging Bellow
+      // became a uniform orange silhouette with no form in it at all -- which
+      // is less legible than no tell, because the shape change the design
+      // relies on is exactly what the flood erases. Collect the named tell
+      // surfaces here, while the material still HAS a name.
+      if ((spec.tell || []).includes(mat) && m.material.emissive) tellMats.push(m.material);
       m.castShadow = true;
       m.receiveShadow = false;
       m.material.transparent = true;    // enabled up front; death fades
@@ -299,7 +311,7 @@ export function createCombat(ctx) {
         a.clampWhenFinished = true;
       }
     }
-    return { group, mixer, clips, mats, meshes, outlines, spec, name,
+    return { group, mixer, clips, mats, meshes, outlines, tellMats, spec, name,
              current: null, detail: true };
   }
 
@@ -900,11 +912,19 @@ export function createCombat(ctx) {
     const pulse = winding
       ? 0.30 + 0.34 * Math.sin(e.t / Math.max(0.08, e.spec.telegraph) * 11.0)
       : 0;
-    for (const m of e.mats) {
-      if (!m.emissive) continue;
-      if (e.flash > 0) m.emissive.setScalar(0.55);
-      else if (pulse > 0) m.emissive.copy(TELL[e.name] || TELL._).multiplyScalar(pulse);
-      else m.emissive.setScalar(0);
+    // The hit flash is the whole animal -- that IS a whole-body event -- but
+    // the wind-up pulse is only the surface the species points at with its
+    // design: the Bellow's sack, the Nettle's quills, the Curler's plates.
+    if (e.flash > 0) {
+      for (const m of e.mats) if (m.emissive) m.emissive.setScalar(0.55);
+    } else {
+      for (const m of e.mats) if (m.emissive) m.emissive.setScalar(0);
+      if (pulse > 0) {
+        const c = TELL[e.name] || TELL._;
+        // 1.35, because a quarter of the body lighting up has to be brighter
+        // than all of it was to carry the same distance
+        for (const m of e.tellMats) m.emissive.copy(c).multiplyScalar(pulse * 1.35);
+      }
     }
 
     if (e.dead) {
