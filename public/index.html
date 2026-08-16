@@ -3,18 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Style test — vinyl toon</title>
+<title>Combat demo — vinyl toon</title>
 <style>
-  :root { color-scheme: dark; }
+  :root { color-scheme: dark; --ink: #dfe7f2; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { height: 100%; overflow: hidden; background: #0d1017; }
-  canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
-  canvas:active { cursor: grabbing; }
+  canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
 
   .panel {
     position: fixed;
     font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace;
-    color: #dfe7f2;
+    color: var(--ink);
     background: rgba(14, 18, 27, 0.62);
     border: 1px solid rgba(190, 214, 245, 0.16);
     border-radius: 9px;
@@ -26,19 +25,102 @@
   #hud { top: 12px; left: 12px; }
   #help { bottom: 12px; left: 12px; color: #b6c4d8; }
   #help b { color: #ffe9a8; font-weight: 600; }
-  #loading {
-    top: 50%; left: 50%; transform: translate(-50%, -50%);
-    font-size: 13px; padding: 14px 20px;
+  #loading { top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 13px; padding: 14px 20px; }
+
+  /* ---- health -------------------------------------------------------- */
+  #vitals {
+    position: fixed; left: 24px; bottom: 60px; width: 268px;
+    pointer-events: none; font: 600 11px/1 ui-monospace, Menlo, monospace;
+    letter-spacing: .14em; color: #cfe0f2; text-shadow: 0 1px 3px #0008;
   }
+  #vitals .lab { margin-bottom: 6px; opacity: .82; }
+  #hpwrap {
+    height: 16px; border-radius: 3px; overflow: hidden; position: relative;
+    background: rgba(8, 11, 18, .78);
+    border: 1px solid rgba(190, 214, 245, .28);
+    box-shadow: 0 2px 10px #0007;
+  }
+  /* the lag bar drains behind the real one, so a big hit READS as big */
+  #hplag, #hpfill { position: absolute; inset: 0 auto 0 0; height: 100%; }
+  #hplag { background: #d8556a; transition: width 420ms cubic-bezier(.2,.7,.3,1) 180ms; }
+  #hpfill {
+    background: linear-gradient(180deg, #8fe6a8 0%, #46c07a 55%, #2f9a5f 100%);
+    transition: width 90ms linear;
+  }
+  #hpwrap.low #hpfill { background: linear-gradient(180deg,#ffd08a,#e8853f); }
+  #hpwrap.crit #hpfill { background: linear-gradient(180deg,#ff9a8a,#e04b3c); animation: pulse .7s infinite; }
+  @keyframes pulse { 50% { filter: brightness(1.45); } }
+
+  /* ---- lock-on reticle ----------------------------------------------- */
+  #reticle {
+    position: fixed; left: 0; top: 0; width: 46px; height: 46px;
+    margin: -23px 0 0 -23px; pointer-events: none; display: none;
+  }
+  #reticle svg { width: 100%; height: 100%; overflow: visible;
+                 animation: ret 4.2s linear infinite; }
+  #reticle .r { fill: none; stroke: #ffe9a8; stroke-width: 2.4; }
+  #reticle .k { fill: none; stroke: #12161f; stroke-width: 5.6; opacity: .55; }
+  @keyframes ret { to { transform: rotate(360deg); } }
+
+  /* ---- damage numbers ------------------------------------------------- */
+  #fx { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
+  .dmg {
+    position: absolute;
+    font: 800 26px/1 ui-rounded, "Avenir Next", Verdana, sans-serif;
+    text-shadow: 0 2px 0 #1a1420, 0 0 12px #0009;
+    will-change: transform, opacity;
+  }
+
+  /* ---- hurt vignette --------------------------------------------------- */
+  #vignette {
+    position: fixed; inset: 0; pointer-events: none; opacity: 0;
+    will-change: opacity;
+    background: radial-gradient(ellipse at center,
+      rgba(200,40,40,0) 42%, rgba(190,30,30,.55) 100%);
+  }
+  /* ---- death ----------------------------------------------------------- */
+  #dead {
+    position: fixed; inset: 0; pointer-events: none; opacity: 0;
+    transition: opacity 600ms ease; background: rgba(6,7,11,.72);
+    display: grid; place-content: center; text-align: center;
+    font: 600 14px/2.4 ui-monospace, Menlo, monospace; color: #e8d8c8;
+    letter-spacing: .22em;
+  }
+  #dead.on { opacity: 1; }
+  #dead b { display: block; font-size: 30px; letter-spacing: .3em; color: #f0dcc4; }
 </style>
 </head>
 <body>
   <canvas id="view"></canvas>
+
+  <div id="fx"></div>
+  <div id="vignette"></div>
+  <div id="dead"><b>DOWNED</b>recovering…</div>
+
+  <div id="reticle"><svg viewBox="-24 -24 48 48">
+    <g class="k">
+      <path d="M-17,-9 L-17,-17 L-9,-17 M9,-17 L17,-17 L17,-9
+               M17,9 L17,17 L9,17 M-9,17 L-17,17 L-17,9"/>
+    </g>
+    <g class="r">
+      <path d="M-17,-9 L-17,-17 L-9,-17 M9,-17 L17,-17 L17,-9
+               M17,9 L17,17 L9,17 M-9,17 L-17,17 L-17,9"/>
+      <circle r="3.2"/>
+    </g>
+  </svg></div>
+
+  <div id="vitals">
+    <div class="lab">VITALITY</div>
+    <div id="hpwrap"><div id="hplag"></div><div id="hpfill"></div></div>
+  </div>
+
   <div class="panel" id="hud">loading…</div>
   <div class="panel" id="loading">building the scene…</div>
   <div class="panel" id="help">
-    <b>WASD</b> / arrows move &nbsp;·&nbsp; <b>drag</b> orbit &nbsp;·&nbsp;
-    <b>wheel</b> zoom &nbsp;·&nbsp; <b>space</b> jump &nbsp;·&nbsp; <b>J</b> attack &nbsp;·&nbsp; <b>C</b> swap character (4)
+    <b>WASD</b> move &nbsp;·&nbsp; <b>drag</b> orbit &nbsp;·&nbsp;
+    <b>J</b>/<b>click</b> attack &nbsp;·&nbsp; <b>Q</b> lock-on &nbsp;·&nbsp;
+    <b>Tab</b> next target &nbsp;·&nbsp; <b>space</b> jump &nbsp;·&nbsp;
+    <b>C</b> character
   </div>
 
   <script type="importmap">

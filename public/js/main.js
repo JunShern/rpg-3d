@@ -15,6 +15,7 @@ import {
   toonMaterial, flatMaterial, outlineMaterial, outlineGeometry, skyDome,
   RAMP_3, RAMP_SOFT,
 } from './toon.js';
+import { createCombat, SPECIES, TUNE } from './combat.js';
 
 // ------------------------------------------------------------------ renderer
 
@@ -163,6 +164,7 @@ Promise.all([
 
   world.add(root);
   townReady = true;
+  startCombat();
   console.log(`[town] ${FLOORS.length} floor meshes, ${SOLIDS.length} solids, `
     + `${manifest.lights.length} lamps`);
   done();
@@ -269,10 +271,7 @@ function buildCharacter(def, gltf) {
   const ch = { name: def.name, group, mixer, clips, mats, current: null,
                legs: collectLegs(group) };
   mixer.addEventListener('finished', (e) => {
-    if (e.action === clips.attack) {
-      attacking = false;
-      play(moving() ? 'run' : 'idle', 0.18);
-    } else if (e.action === clips.land) {
+    if (e.action === clips.land) {
       landing = false;
       play(moving() ? 'run' : 'idle', 0.14);
     }
@@ -328,6 +327,8 @@ addEventListener('keydown', (e) => {
   if (e.code === 'Space') { e.preventDefault(); jump(); }
   if (e.code === 'KeyJ' || e.code === 'KeyE') { e.preventDefault(); attack(); }
   if (e.code === 'KeyC') { e.preventDefault(); cycleCharacter(); }
+  if (e.code === 'KeyQ') { e.preventDefault(); if (combat) combat.toggleLock(); }
+  if (e.code === 'Tab') { e.preventDefault(); if (combat) combat.cycleLock(); }
 });
 addEventListener('keyup', (e) => keys.delete(e.code));
 addEventListener('blur', () => keys.clear());
@@ -355,9 +356,8 @@ function jump() {
 }
 
 function attack() {
-  if (!cur || attacking || !grounded || !cur.clips.attack) return;
-  attacking = true;
-  playOnce('attack', 0.10);
+  if (!cur || !grounded || !combat) return;
+  combat.attack();
 }
 
 // --------------------------------------------------------------- collision
@@ -673,14 +673,19 @@ const camTarget = new THREE.Vector3(0, 1.18, 7);
 const camWant = new THREE.Vector3();
 let dragging = false;
 
+let pointerDownAt = 0, pointerDrag = 0;
 canvas.addEventListener('pointerdown', (e) => {
-  dragging = true; canvas.setPointerCapture(e.pointerId);
+  dragging = true; pointerDownAt = Date.now(); pointerDrag = 0;
+  canvas.setPointerCapture(e.pointerId);
 });
 canvas.addEventListener('pointerup', (e) => {
   dragging = false; canvas.releasePointerCapture(e.pointerId);
+  // a click that did not turn into a drag is an attack
+  if (Date.now() - pointerDownAt < 220 && pointerDrag < 6) attack();
 });
 canvas.addEventListener('pointermove', (e) => {
   if (!dragging) return;
+  pointerDrag += Math.abs(e.movementX) + Math.abs(e.movementY);
   cam.az -= e.movementX * 0.005;
   cam.polar = THREE.MathUtils.clamp(cam.polar - e.movementY * 0.004, 0.35, 1.48);
   cam.autoDelay = 1.6;
@@ -689,6 +694,107 @@ canvas.addEventListener('wheel', (e) => {
   e.preventDefault();
   cam.dist = THREE.MathUtils.clamp(cam.dist + e.deltaY * 0.006, 2.2, 12.0);
 }, { passive: false });
+
+// ------------------------------------------------------------------ combat
+
+let combat = null;
+let lastSwingStep = -1;
+
+const hpFill = document.getElementById('hpfill');
+const hpLag = document.getElementById('hplag');
+const hpWrap = document.getElementById('hpwrap');
+const reticle = document.getElementById('reticle');
+const deadOverlay = document.getElementById('dead');
+
+// Where the fight is. Deliberately a clearing off the plaza rather than the
+// plaza itself: enemies that spawn on top of the fountain read as a bug.
+const ARENA = { x: 0.5, z: 6.2, r: 4.2 };
+
+function startCombat() {
+  combat = createCombat({
+    scene,
+    camera,
+    world,
+    groundAt,
+    playerPos: () => pos,
+    playerFacing: () => facing,
+  });
+  combat.load('nettle').then(() => {
+    seedWave();
+    console.log('[combat] ready');
+  }).catch((err) => console.error('[combat] load failed', err));
+}
+
+function seedWave(n = 3) {
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2 + Math.random();
+    const r = ARENA.r * (0.45 + Math.random() * 0.5);
+    combat.spawn('nettle', ARENA.x + Math.cos(a) * r, ARENA.z + Math.sin(a) * r);
+  }
+}
+
+function updateCombat(dt, raw) {
+  if (!combat) return;
+  combat.update(dt, raw);
+  attacking = combat.isAttacking();
+
+  // drive the player's clip from the swing state, and only on a CHANGE --
+  // calling playOnce every frame would restart the clip every frame
+  const step = combat.attackStep();
+  if (step !== lastSwingStep) {
+    lastSwingStep = step;
+    if (step >= 0 && cur) {
+      const clip = combat.attackClipFor(cur.clips, step);
+      if (clip) playOnce(clip, 0.055);
+    }
+  }
+
+  // keep the fight populated so there is always something to test against
+  if (combat.enemies.filter((e) => !e.dead).length === 0) seedWave();
+
+  // vitals
+  const p = combat.player;
+  const pct = Math.max(0, p.hp / p.maxHP) * 100;
+  hpFill.style.width = `${pct}%`;
+  hpLag.style.width = `${pct}%`;
+  hpWrap.classList.toggle('low', pct <= 55 && pct > 25);
+  hpWrap.classList.toggle('crit', pct <= 25);
+
+  if (p.dead) {
+    deadOverlay.classList.add('on');
+    if (p.deadT > 2.0) {
+      combat.respawn();
+      pos.set(0.5, 0, 6.0);
+      vy = 0; grounded = true;
+      deadOverlay.classList.remove('on');
+    }
+  }
+
+  // reticle
+  const t = combat.lockTarget;
+  if (t && !t.dead) {
+    _o.copy(t.pos); _o.y += t.spec.height * 0.75;
+    _o.project(camera);
+    const on = _o.z < 1;
+    reticle.style.display = on ? 'block' : 'none';
+    reticle.style.left = `${(_o.x * 0.5 + 0.5) * innerWidth}px`;
+    reticle.style.top = `${(-_o.y * 0.5 + 0.5) * innerHeight}px`;
+  } else {
+    reticle.style.display = 'none';
+  }
+}
+
+/** Camera shake, applied after the camera is placed so it never fights it. */
+function applyShake() {
+  if (!combat) return;
+  const sh = combat.shake;
+  if (sh.mag <= 0.0001 || sh.t <= 0) return;
+  const k = sh.mag * Math.max(0, sh.t / 0.28);
+  camera.position.x += (Math.random() - 0.5) * k;
+  camera.position.y += (Math.random() - 0.5) * k;
+  camera.position.z += (Math.random() - 0.5) * k;
+}
+
 
 // -------------------------------------------------------------------- step
 
@@ -722,9 +828,25 @@ function step(dt) {
     // along a wall instead of sticking to it the moment they touch one
     isMoving = tryMove(sx, sz) || tryMove(sx, 0) || tryMove(0, sz);
 
-    const want = Math.atan2(wx, wz);
+    // While LOCKED the character keeps facing the target and the stick just
+    // moves them -- that is what makes circling a target feel like circling
+    // rather than steering.
+    const lt = combat && combat.lockTarget;
+    const want = lt && !lt.dead
+      ? Math.atan2(lt.pos.x - pos.x, lt.pos.z - pos.z)
+      : Math.atan2(wx, wz);
     const d = ((want - facing + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
-    facing += d * Math.min(1, dt * 14);
+    facing += d * Math.min(1, dt * (lt ? 10 : 14));
+  }
+
+  // face the target even while standing still, and while swinging
+  {
+    const lt = combat && combat.lockTarget;
+    if (lt && !lt.dead) {
+      const want = Math.atan2(lt.pos.x - pos.x, lt.pos.z - pos.z);
+      const d = ((want - facing + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+      facing += d * Math.min(1, dt * 9);
+    }
   }
 
   // vertical: integrate, then land when we cross the floor going down
@@ -750,12 +872,23 @@ function step(dt) {
 
   // camera
   cam.autoDelay = Math.max(0, cam.autoDelay - dt);
-  if (isMoving && cam.autoDelay === 0) {
+  const lock = combat && combat.lockTarget;
+  if (lock && !lock.dead) {
+    // sit behind the player on the player->target line, so both are in frame
+    const dx = lock.pos.x - pos.x, dz = lock.pos.z - pos.z;
+    const want = Math.atan2(-dx, -dz);
+    const d = ((want - cam.az + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+    cam.az += d * Math.min(1, dt * 3.4);
+    cam.polar += (1.16 - cam.polar) * Math.min(1, dt * 2.4);
+  } else if (isMoving && cam.autoDelay === 0) {
     const want = facing + Math.PI;
     const d = ((want - cam.az + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
     cam.az += d * Math.min(1, dt * 1.3);
   }
-  camTarget.lerp(_o.set(pos.x, pos.y + 1.18, pos.z), Math.min(1, dt * 9));
+  // bias the look-at toward the target so the enemy is not shoved off-screen
+  const bx = lock && !lock.dead ? (lock.pos.x - pos.x) * 0.22 : 0;
+  const bz = lock && !lock.dead ? (lock.pos.z - pos.z) * 0.22 : 0;
+  camTarget.lerp(_o.set(pos.x + bx, pos.y + 1.18, pos.z + bz), Math.min(1, dt * 9));
 
   const sp = Math.sin(cam.polar);
   camWant.set(Math.sin(cam.az) * sp, Math.cos(cam.polar), Math.cos(cam.az) * sp);
@@ -782,6 +915,7 @@ function step(dt) {
     camera.position.y = camGround + 0.35;
   }
   camera.lookAt(camTarget);
+  applyShake();
 
   key.position.set(pos.x + 7, pos.y + 24, pos.z + 9);
   key.target.position.set(pos.x, pos.y, pos.z);
@@ -806,12 +940,15 @@ let acc = 0, frames = 0, fps = 0;
 
 function frame(dt) {
   const isMoving = step(dt);
+  updateCombat(dt, dt);
   if (cur) { cur.mixer.update(dt); applyFootIK(cur, dt); }
   renderer.render(scene, camera);
   hud.textContent =
     `${fps} fps  ·  ${cur ? cur.name : '—'}  ·  ${attacking ? 'attack' : !grounded ? 'air'
-        : landing ? 'land' : isMoving ? 'run' : 'idle'}  ·  `
-    + `${renderer.info.render.calls} draws / `
+        : landing ? 'land' : isMoving ? 'run' : 'idle'}`
+    + `${combat ? `  ·  ${combat.enemies.filter((e) => !e.dead).length} foes` : ''}`
+    + `${combat && combat.lockTarget ? '  ·  LOCK' : ''}`
+    + `  ·  ${renderer.info.render.calls} draws / `
     + `${renderer.info.render.triangles.toLocaleString()} tris`;
   return isMoving;
 }
@@ -883,5 +1020,6 @@ function cycleCharacter() {
 }
 
 globalThis.__cycle = cycleCharacter;
+Object.defineProperty(globalThis, 'combat', { get: () => combat, configurable: true });
 globalThis.__ik = IK_ENABLED;   // __ik.value = false to A/B it
 globalThis.__resume = () => { cam.autoDelay = 0; live(); return 'live'; };

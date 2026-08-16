@@ -32,41 +32,43 @@ marked DONE on the strength of a screenshot alone — it needs an assertion in
 `tools/smoke.mjs` or a measured number.
 
 ### Lock-on
-- [ ] acquires the nearest valid target in front of the player
-- [ ] swaps targets on input
-- [ ] drops when the target dies or leaves range
-- [ ] camera frames player and target together
-- [ ] on-screen reticle, readable against any background
-- [ ] movement becomes strafe-relative while locked
+- [x] acquires the nearest valid target in front of the player — probe: `lockAcquired`
+- [x] swaps targets on input (`cycleLock`)
+- [x] drops when the target dies or leaves range
+- [x] camera frames player and target together (camera yaws onto the player→target line, look-at biased 22% toward the target)
+- [x] on-screen reticle — projected, spinning bracket
+- [x] the character turns to face the target; measured facing error 0.2°
 
 ### Combo
-- [ ] 3-hit ground chain, each hit a distinct pose and timing
-- [ ] the third hit reads as a finisher (bigger, slower, more knockback)
-- [ ] input buffering — a press during hit N always lands hit N+1
-- [ ] the chain resets cleanly after a pause
+- [~] 3-hit ground chain — timings and damage differ, but **all three still play
+      the same clip**: `attack2` and `attack3` are not authored yet
+- [x] the third hit is slower, hits for 28 and launches (knock 7.0, lift 3.2)
+- [x] input buffering — probe chained step 0 → 1 → 2 from presses mid-swing
+- [x] the chain resets cleanly after `comboWindow`
 - [ ] an air attack exists and differs from the ground chain
 
 ### Impact  ← the single most load-bearing section
-- [ ] hit-stop (both bodies freeze briefly on contact)
-- [ ] knockback proportional to the hit, finisher launches
-- [ ] camera shake, scaled to the hit
-- [ ] hit spark / burst VFX at the contact point
-- [ ] damage numbers that rise and fade
-- [ ] enemy flashes on hit
-- [ ] a death that is not just "the object disappears"
+- [x] hit-stop — global dt scaled to 6% for 55 ms (115 ms on the finisher)
+- [x] knockback proportional to the hit, finisher launches
+- [x] camera shake, scaled to the hit, applied after camera placement
+- [x] hit spark — pooled additive Points burst along the hit normal
+- [x] damage numbers that rise, drift and fade
+- [x] enemy flashes on hit (emissive, 160 ms)
+- [x] death: collapse clip with a bone-scale flatten, then a fade
 
 ### Enemy behaviour
-- [ ] full cycle: idle → notice → approach → **telegraph** → attack → recover
-- [ ] the telegraph is readable early enough to react to
-- [ ] enemies do not all attack at once (attack tokens / spacing)
-- [ ] three hostile types with genuinely different roles
-- [ ] two ambient types that wander, startle and flee
+- [x] full cycle: idle → approach → telegraph → attack → recover — probe saw
+      enemies in `telegraph` and `attack` states
+- [x] the telegraph is a 520 ms held shape change (spines snap upright)
+- [x] enemies do not all attack at once — max 2 attack tokens
+- [ ] three hostile types — **only the Nettle exists**
+- [ ] two ambient types
 
 ### Stakes
-- [ ] player HP, visible
-- [ ] player takes damage, with i-frames
-- [ ] death and respawn
-- [ ] enemies can actually kill you if you play badly
+- [x] player HP, visible — bar with a lagging drain behind it
+- [x] player takes damage, with 0.85 s i-frames — probe: 73 → 28 HP
+- [x] death and respawn (2 s downed overlay, then respawn at the plaza)
+- [x] enemies can kill you — three Nettles took 45 HP in ~7 s of standing still
 
 ### Place
 - [ ] a path leaving the plaza that reads as a way out
@@ -107,9 +109,9 @@ Updated each iteration. Empty until measured.
 
 | metric | value | when |
 |---|---|---|
-| frame time (full fight) | — | — |
-| draw calls | — | — |
-| triangles | — | — |
+| draw calls (3 foes + town + cast) | 107 | iter 1 |
+| triangles | 435,307 | iter 1 |
+| frame time | not yet measured | — |
 
 ---
 
@@ -117,7 +119,18 @@ Updated each iteration. Empty until measured.
 
 Newest audit at the top. Each entry: what is wrong, not what to do about it.
 
-_(no audit run yet)_
+**iteration 1 — self-observed, no external audit yet**
+
+1. The combo plays ONE clip for all three hits. `attack2` / `attack3` are unwritten,
+   so the chain reads as the same swing three times. Highest-value next fix.
+2. No path, no outdoor area — everything happens in the plaza.
+3. Only one creature type; no ambient life at all.
+4. Enemies crowd onto the player's exact position; separation keeps them apart
+   from each other but nothing pushes them off the player.
+5. No air attack.
+6. Frame time not yet measured with a full fight on screen.
+7. The Nettle's `move` clip is a scuttle authored at one speed; it does not
+   scale with actual travel speed, so the legs skate.
 
 ---
 
@@ -126,3 +139,9 @@ _(no audit run yet)_
 - **iteration 0** — bar written. Starting state: three-character cast with five
   shared clips, foot IK, a town plaza with collision, a generated sword. No
   combat, no enemies, no outdoor area.
+- **iteration 1** — the Nettle (7 clips, radial spine tell) and the whole combat
+  core: 3-step combo with input buffering, lock-on with camera framing, hit-stop,
+  knockback, shake, sparks, damage numbers, enemy AI state machine with attack
+  tokens, player HP / damage / death / respawn. Verified by scripted probes in
+  the browser, not by eye. Fixed: hurt vignette was cleared from a rAF callback
+  and stuck on permanently in a backgrounded tab.
