@@ -240,3 +240,55 @@ def rooftile(res=RES, rows=11, seed=29, light=1.14, dark=0.68):
     k = k + tone[np.clip(ri.astype(int) % rows, 0, rows - 1), ci]
 
     return np.clip(np.repeat(k[..., None], 3, axis=2), 0, 1)
+
+
+def ashlar(res=RES, rows=6, seed=41, mortar=0.80, spread=0.035):
+    """Cut stone: regular courses with a broken vertical joint.
+
+    Used for the structural pieces -- plinths, cornices, the arch, the fountain,
+    stair treads. Regular, unlike the paving's Voronoi, because dressed stone is
+    the one thing in a town that IS laid out on a grid, and the contrast between
+    the two is what separates "built" from "surfaced".
+    """
+    cols = rows * 2
+    u = (np.arange(res) + 0.5) / res
+    uu, vv = np.meshgrid(u, u, indexing='xy')
+
+    row = vv * rows
+    ri = np.floor(row)
+    rf = row - ri
+    # break the vertical joint by a third every course, not a half: a half looks
+    # like brickwork, a third looks like stone
+    off = (ri % 3) / 3.0
+    col = uu * cols + off
+    cf = col - np.floor(col)
+
+    rng = _rng(seed)
+    tone = rng.normal(0.0, spread, (rows, cols)).astype(np.float32)
+    k = 1.0 + tone[np.clip(ri.astype(int) % rows, 0, rows - 1),
+                   np.clip(np.floor(col).astype(int) % cols, 0, cols - 1)]
+    joint = (rf < 0.045) | (cf < 0.030) | (cf > 0.970)
+    k = np.where(joint, mortar, k)
+    # a lighter chamfer just inside each joint, so blocks read as blocks
+    inner = (~joint) & ((rf < 0.085) | (cf < 0.065) | (cf > 0.935))
+    k = np.where(inner, k * 1.035, k)
+    return np.clip(np.repeat(k[..., None], 3, axis=2), 0, 1)
+
+
+def timber(res=RES, seed=53, spread=0.10):
+    """Sawn wood: grain along one axis, a few darker rings.
+
+    Beams, bands and posts. Directional on purpose -- it is the only texture
+    here with an axis, which is what makes a horizontal band read as a beam
+    rather than as a painted stripe.
+    """
+    n = _fbm(res, seed, octaves=3, base=3)
+    # LONG FIBRES ALONG ONE AXIS. The first pass mixed the noise into itself and
+    # produced soft blobs with no direction at all -- which is the one thing
+    # wood is not. This is a high-frequency sine down V, wobbled by the noise so
+    # the lines wander the way grain does.
+    v = (np.arange(res) + 0.5)[:, None] / res
+    grain = np.sin((v * 34.0 + n * 2.6) * np.pi * 2.0)
+    k = 1.0 + grain * spread * 0.5
+    k *= np.where(_fbm(res, seed + 7, octaves=2, base=9) > 0.78, 0.90, 1.0)
+    return np.clip(np.repeat(k[..., None], 3, axis=2), 0, 1)

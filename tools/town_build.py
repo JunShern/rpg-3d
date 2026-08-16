@@ -78,13 +78,19 @@ def texture_walls(M):
     """
     os.makedirs(TEX_DIR, exist_ok=True)
     out = {}
-    for key, fn in ([(k, surface_tex.plaster) for k in
-                     ("plaster_a", "plaster_b", "plaster_c", "plaster_d")]
-                    + [(k, surface_tex.rooftile) for k in
-                       ("roof_a", "roof_b", "roof_c")]):
+    plan = ([(k, surface_tex.plaster) for k in
+             ("plaster_a", "plaster_b", "plaster_c", "plaster_d")]
+            + [(k, surface_tex.rooftile) for k in ("roof_a", "roof_b", "roof_c")]
+            # dressed stone and sawn wood: the structural pieces and the beams.
+            # Ashlar is REGULAR, unlike the paving's Voronoi, because dressed
+            # stone is the one thing in a town that is genuinely laid out on a
+            # grid -- and the contrast between the two is what separates "built"
+            # from "surfaced".
+            + [("stone", surface_tex.ashlar), ("timber", surface_tex.timber)])
+    for key, fn in plan:
         tint = M[key].diffuse_color[:3]
-        img = fn(res=256, tone=tint) if fn is surface_tex.plaster else \
-            surface_tex.rooftile(res=256) * np.array(tint, np.float32)
+        img = (fn(res=256, tone=tint) if fn is surface_tex.plaster
+               else fn(res=256) * np.array(tint, np.float32))
         path = os.path.abspath(os.path.join(TEX_DIR, f"{key}.png"))
         surface_tex.write_png(path, np.clip(img, 0, 1))
         out[key] = K.image_material(
@@ -139,8 +145,6 @@ def build_ground(t):
 
 
 def build_buildings(t):
-    # textured plaster and roofs, keyed by the same names the plan uses
-    t.M.update(texture_walls(t.M))
     #   cx     cy     w    d   storeys yaw   plaster      roof      shop
     plan = [
         (-11.5, -14.0, 9.0, 8.0, 3, 180, "plaster_a", "roof_a", True,  0),
@@ -248,6 +252,11 @@ def main():
 
     K.clear_scene()
     M = A.palette()
+    # BEFORE anything is built, not partway through. It was swapped inside
+    # build_buildings, which runs after build_ground -- so the terrace, the
+    # stairs and the balustrade kept the flat stone while everything else got
+    # the textured one, and the plaza had two kinds of stone in it.
+    M.update(texture_walls(M))
     t = A.Town(M)
 
     build_ground(t)

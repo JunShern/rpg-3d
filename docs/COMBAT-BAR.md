@@ -228,9 +228,10 @@ whole cluster is fixed above. What it found that is still open:
 1. **Verticality is one climb.** The outcrop on the landmark hill stacks five
    shelves and is the only place in the build where levels sit above each other;
    the town still has no upper storey, balcony or roof you can reach.
-2. **Props are still flat colour** — lamps, planters, crates, barrels, the
-   fountain, the arch. Ground, walls and roofs are textured; the furniture in
-   front of them is not.
+2. **A handful of surfaces are still flat colour** — doors, shutters, awnings,
+   glass, foliage and the creatures themselves. Ground, walls, roofs, dressed
+   stone and timber are textured; small saturated accents are not, which is
+   arguably right for them but has not been tested by trying.
 
 3. **The move list is small** even for one weapon: chain, air attack, dodge. No
    guard, parry, dash attack, charged hit or jump-cancel.
