@@ -10,3 +10,7 @@ docs/qa/
 # scratch
 /tmp/
 *.blend1
+
+# vendored source meshes (~40 MB); char_build.py consumes them, the built
+# characters in public/assets are what the runtime ships
+assets/source/

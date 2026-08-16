@@ -406,7 +406,7 @@ def image_material(name, image, roughness=0.7, preview=(0.8, 0.8, 0.8)):
     return mat
 
 
-def transform(obj, rotate=None, around=None, translate=None, scale=None):
+def transform(obj, rotate=None, around=None, translate=None, scale=None, quat=None):
     """Post-hoc placement.  Applied to mesh data so the object transform stays
     identity -- the armature bind expects parts to live in world space."""
     me = obj.data
@@ -422,6 +422,10 @@ def transform(obj, rotate=None, around=None, translate=None, scale=None):
                 Matrix.Rotation(math.radians(rotate[1]), 3, 'Y') @ \
                 Matrix.Rotation(math.radians(rotate[2]), 3, 'Z')
             p = piv + m @ (p - piv)
+        if quat is not None:
+            # a quaternion is the honest way to aim a prop along a measured
+            # direction; euler triples are for poses a human is choosing
+            p = piv + quat.to_matrix() @ (p - piv)
         if translate:
             p = p + Vector(translate)
         v.co = p

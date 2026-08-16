@@ -547,286 +547,12 @@ def build_keyblade():
 
 # ---------------------------------------------------------------- animation
 #
-# Reminder from kh_lib: EVERY bone rotates +X forward.  Left and right share the
-# sign for flexion; only the sideways (Z) terms flip.
+# The clips live in anim_lib so other characters can use them -- see
+# tools/vesper_build.py, which drives an externally-authored mesh with this
+# exact same set.
 
-def anim_idle(rig):
-    act = K.action(rig, "idle")
-    base_arm = dict(
-        upperarm_x=6.0, forearm_x=16.0,
-    )
-
-    def pose(t, breath, sway):
-        """t in 0..1 around the loop; breath and sway are the two oscillators."""
-        p = {
-            "hips":  (-1.0 + 0.6 * breath, 0.0, 0.0),
-            "spine": (1.5 - 1.2 * breath, 0.5 * sway, 0.0),
-            "chest": (-1.0 - 2.0 * breath, -0.8 * sway, 0.0),
-            "neck":  (1.0 + 0.8 * breath, 0.0, 0.0),
-            "head":  (2.0 - 1.4 * breath, 1.6 * sway, 0.8 * sway),
-        }
-        for s, sgn in (("L", 1.0), ("R", -1.0)):
-            p[f"shoulder.{s}"] = (0.0, 0.0, sgn * (-3.0 - 1.6 * breath))
-            p[f"upperarm.{s}"] = (base_arm["upperarm_x"] + 3.0 * breath,
-                                  0.0, sgn * (-4.0 - 1.5 * breath))
-            p[f"forearm.{s}"] = (base_arm["forearm_x"] + 5.0 * breath, 0.0, 0.0)
-            p[f"hand.{s}"] = (4.0 * breath, 0.0, 0.0)
-            if s == "R":
-                # wrist held back so the keyblade hangs at the side instead of
-                # being pointed forward like a torch
-                p[f"hand.{s}"] = (-24.0 + 3.0 * breath, 0.0, 0.0)
-            p[f"thigh.{s}"] = (-1.0, 0.0, sgn * 2.0)
-            p[f"shin.{s}"] = (2.0 + 1.0 * breath, 0.0, 0.0)
-            p[f"foot.{s}"] = (-1.0 - 0.6 * breath, 0.0, 0.0)
-        # right arm carries the keyblade: hangs a touch heavier and further out
-        p["upperarm.R"] = (base_arm["upperarm_x"] - 4.0 + 2.0 * breath, 0.0, 8.0)
-        p["forearm.R"] = (base_arm["forearm_x"] + 12.0 + 4.0 * breath, 0.0, 0.0)
-        return p
-
-    N = 48
-    for f in range(0, N + 1, 6):
-        t = f / N
-        breath = math.sin(t * math.tau)
-        sway = math.sin(t * math.tau - 0.9)
-        K.key(rig, f, pose(t, breath, sway),
-              loc={"hips": (0.0, -0.008 + 0.008 * breath, 0.0)})
-    K.interp(act)
-    return act
-
-
-def anim_run(rig):
-    """A four-key run cycle: contact, passing, contact, passing.  Amplitudes are
-    pushed well past life -- a toon ramp eats subtlety, and a JRPG run should
-    read as enthusiasm."""
-    act = K.action(rig, "run")
-
-    def half(lead, trail, twist):
-        """One contact pose: `lead` leg forward, `trail` leg driving back."""
-        sl, st = lead, trail
-        p = {
-            "hips":  (3.0, twist * 7.0, 0.0),
-            "spine": (5.0, twist * -3.0, 0.0),
-            "chest": (7.0, twist * -9.0, 0.0),
-            "neck":  (-5.0, 0.0, 0.0),
-            "head":  (-7.0, twist * 3.0, 0.0),
-            f"thigh.{sl}": (44.0, 0.0, 0.0),
-            f"shin.{sl}":  (-20.0, 0.0, 0.0),
-            f"foot.{sl}":  (6.0, 0.0, 0.0),
-            f"thigh.{st}": (-38.0, 0.0, 0.0),
-            f"shin.{st}":  (-46.0, 0.0, 0.0),
-            f"foot.{st}":  (22.0, 0.0, 0.0),
-            f"shoulder.{sl}": (-4.0, 0.0, 0.0),
-            f"shoulder.{st}": (4.0, 0.0, 0.0),
-            f"upperarm.{sl}": (-42.0, 0.0, 0.0),
-            f"forearm.{sl}":  (62.0, 0.0, 0.0),
-            f"upperarm.{st}": (44.0, 0.0, 0.0),
-            f"forearm.{st}":  (70.0, 0.0, 0.0),
-            "hand.L": (0.0, 0.0, 0.0),
-        }
-        p.update(weapon_arm(twist))
-        return p
-
-    def weapon_arm(twist):
-        """The right arm carries the keyblade and CANNOT swing like a free arm.
-
-        Given a full counter-swing the blade -- rigid to hand.R -- whips out to
-        horizontal and the character runs holding it like a rifle.  Real weapon
-        runs in this genre damp the carrying arm and tuck the blade back and
-        down, so that is what this does: a third of the swing, plus a fixed
-        wrist break that keeps the blade angled at the ground."""
-        # Elbow flexes FORWARD (+), wrist extends BACK (-), and the two roughly
-        # cancel: the hand ends up forward of the elbow while the blade still
-        # hangs down and trails.  These were originally tuned against an
-        # inverted elbow, so the numbers only made sense while it was wrong.
-        return {
-            "shoulder.R": (0.0, 0.0, 7.0),
-            "upperarm.R": (-6.0 + twist * 12.0, 0.0, 14.0),
-            "forearm.R": (30.0, 0.0, 0.0),
-            "hand.R": (-26.0, 0.0, 0.0),
-        }
-
-    def passing(support, swing, twist):
-        p = {
-            "hips":  (2.0, twist * 3.0, 0.0),
-            "spine": (5.0, twist * -1.5, 0.0),
-            "chest": (7.0, twist * -4.0, 0.0),
-            "neck":  (-5.0, 0.0, 0.0),
-            "head":  (-7.0, 0.0, 0.0),
-            f"thigh.{support}": (-6.0, 0.0, 0.0),
-            f"shin.{support}":  (-22.0, 0.0, 0.0),
-            f"foot.{support}":  (16.0, 0.0, 0.0),
-            f"thigh.{swing}":   (34.0, 0.0, 0.0),
-            f"shin.{swing}":    (-82.0, 0.0, 0.0),
-            f"foot.{swing}":    (2.0, 0.0, 0.0),
-            f"shoulder.{support}": (0.0, 0.0, 0.0),
-            f"shoulder.{swing}":   (0.0, 0.0, 0.0),
-            f"upperarm.{support}": (-14.0, 0.0, 0.0),
-            f"forearm.{support}":  (66.0, 0.0, 0.0),
-            f"upperarm.{swing}":   (16.0, 0.0, 0.0),
-            f"forearm.{swing}":    (72.0, 0.0, 0.0),
-            "hand.L": (0.0, 0.0, 0.0),
-        }
-        p.update(weapon_arm(twist))
-        return p
-
-    #    frame  pose                       hip height (bone-local +Y = world up)
-    keys = [
-        (0,  half("L", "R", +1.0), -0.055),   # L contact, lowest
-        (4,  passing("L", "R", +0.4), 0.030),  # push off into flight
-        (8,  half("R", "L", -1.0), -0.055),
-        (12, passing("R", "L", -0.4), 0.030),
-        (16, half("L", "R", +1.0), -0.055),
-    ]
-    for f, p, bob in keys:
-        K.key(rig, f, p, loc={"hips": (0.0, bob, 0.0)})
-    K.interp(act)
-    return act
-
-
-NEUTRAL = {
-    "hips": (-1.0, 0.0, 0.0), "spine": (1.5, 0.0, 0.0),
-    "chest": (-1.0, 0.0, 0.0), "neck": (1.0, 0.0, 0.0), "head": (2.0, 0.0, 0.0),
-    "shoulder.L": (0.0, 0.0, -3.0), "shoulder.R": (0.0, 0.0, 3.0),
-    "upperarm.L": (6.0, 0.0, -4.0), "forearm.L": (16.0, 0.0, 0.0),
-    "upperarm.R": (2.0, 0.0, 8.0), "forearm.R": (28.0, 0.0, 0.0),
-    "hand.L": (0.0, 0.0, 0.0), "hand.R": (-24.0, 0.0, 0.0),
-    "thigh.L": (-1.0, 0.0, 2.0), "shin.L": (2.0, 0.0, 0.0), "foot.L": (-1.0, 0.0, 0.0),
-    "thigh.R": (-1.0, 0.0, -2.0), "shin.R": (2.0, 0.0, 0.0), "foot.R": (-1.0, 0.0, 0.0),
-}
-
-# The airborne pose is shared: `jump` ends on it and `land` starts from it, so
-# the two clips meet exactly however long the character was actually in the air.
-AIRBORNE = dict(NEUTRAL)
-AIRBORNE.update({
-    "hips": (4.0, 0.0, 0.0), "spine": (3.0, 0.0, 0.0), "chest": (4.0, 0.0, 0.0),
-    "neck": (-4.0, 0.0, 0.0), "head": (-5.0, 0.0, 0.0),
-    "upperarm.L": (-30.0, 0.0, -30.0), "forearm.L": (40.0, 0.0, 0.0),
-    "upperarm.R": (-24.0, 0.0, 32.0), "forearm.R": (44.0, 0.0, 0.0),
-    "hand.R": (-18.0, 0.0, 0.0),
-    "thigh.L": (46.0, 0.0, 3.0), "shin.L": (-72.0, 0.0, 0.0), "foot.L": (14.0, 0.0, 0.0),
-    "thigh.R": (10.0, 0.0, -3.0), "shin.R": (-46.0, 0.0, 0.0), "foot.R": (-14.0, 0.0, 0.0),
-})
-
-
-def anim_jump(rig):
-    """Crouch, launch, tuck -- and HOLD the tuck.
-
-    Split from the landing on purpose.  Air time is decided by physics at
-    runtime, so a single jump-to-land clip would only line up for one exact
-    hang time; ending clamped on AIRBORNE lets the runtime hold that pose for
-    as long as the character is actually off the ground.
-    """
-    act = K.action(rig, "jump")
-
-    crouch = dict(NEUTRAL)
-    crouch.update({
-        "hips": (10.0, 0.0, 0.0), "spine": (8.0, 0.0, 0.0), "chest": (10.0, 0.0, 0.0),
-        "neck": (-8.0, 0.0, 0.0), "head": (-10.0, 0.0, 0.0),
-        # arms swing BACK to load; the launch continues the same swing overhead
-        "upperarm.L": (-46.0, 0.0, -6.0), "forearm.L": (30.0, 0.0, 0.0),
-        "upperarm.R": (-40.0, 0.0, 10.0), "forearm.R": (36.0, 0.0, 0.0),
-        "thigh.L": (48.0, 0.0, 2.0), "shin.L": (-78.0, 0.0, 0.0), "foot.L": (34.0, 0.0, 0.0),
-        "thigh.R": (48.0, 0.0, -2.0), "shin.R": (-78.0, 0.0, 0.0), "foot.R": (34.0, 0.0, 0.0),
-    })
-
-    launch = dict(NEUTRAL)
-    launch.update({
-        "hips": (-6.0, 0.0, 0.0), "spine": (-4.0, 0.0, 0.0), "chest": (-6.0, 0.0, 0.0),
-        "neck": (6.0, 0.0, 0.0), "head": (8.0, 0.0, 0.0),
-        "upperarm.L": (-100.0, 0.0, -14.0), "forearm.L": (24.0, 0.0, 0.0),
-        "upperarm.R": (-92.0, 0.0, 16.0), "forearm.R": (30.0, 0.0, 0.0),
-        "hand.R": (-12.0, 0.0, 0.0),
-        "thigh.L": (-16.0, 0.0, 2.0), "shin.L": (-6.0, 0.0, 0.0), "foot.L": (-26.0, 0.0, 0.0),
-        "thigh.R": (-16.0, 0.0, -2.0), "shin.R": (-6.0, 0.0, 0.0), "foot.R": (-26.0, 0.0, 0.0),
-    })
-
-    for f, pose, up in [(0, NEUTRAL, -0.008), (3, crouch, -0.300),
-                        (7, launch, 0.060), (12, AIRBORNE, -0.020)]:
-        K.key(rig, f, pose, loc={"hips": (0.0, up, 0.0)})
-    K.interp(act)
-    return act
-
-
-def anim_land(rig):
-    """Absorb and recover.  Starts from AIRBORNE so it cuts in cleanly."""
-    act = K.action(rig, "land")
-
-    absorb = dict(NEUTRAL)
-    absorb.update({
-        "hips": (12.0, 0.0, 0.0), "spine": (9.0, 0.0, 0.0), "chest": (14.0, 0.0, 0.0),
-        "neck": (-10.0, 0.0, 0.0), "head": (-12.0, 0.0, 0.0),
-        "upperarm.L": (-34.0, 0.0, -18.0), "forearm.L": (34.0, 0.0, 0.0),
-        "upperarm.R": (-26.0, 0.0, 20.0), "forearm.R": (38.0, 0.0, 0.0),
-        "thigh.L": (54.0, 0.0, 3.0), "shin.L": (-86.0, 0.0, 0.0), "foot.L": (38.0, 0.0, 0.0),
-        "thigh.R": (54.0, 0.0, -3.0), "shin.R": (-86.0, 0.0, 0.0), "foot.R": (38.0, 0.0, 0.0),
-    })
-
-    for f, pose, up in [(0, AIRBORNE, -0.020), (3, absorb, -0.340),
-                        (9, NEUTRAL, -0.008)]:
-        K.key(rig, f, pose, loc={"hips": (0.0, up, 0.0)})
-    K.interp(act)
-    return act
-
-
-def anim_attack(rig):
-    """Overhead keyblade swing: anticipation, strike, follow-through, recover.
-    The lunge is real translation on the hips, so the runtime gets forward
-    motion out of the clip for free."""
-    act = K.action(rig, "attack")
-
-    neutral = {
-        "hips": (-1.0, 0.0, 0.0), "spine": (1.5, 0.0, 0.0),
-        "chest": (-1.0, 0.0, 0.0), "neck": (1.0, 0.0, 0.0), "head": (2.0, 0.0, 0.0),
-        "shoulder.L": (0.0, 0.0, -3.0), "shoulder.R": (0.0, 0.0, 3.0),
-        "upperarm.L": (6.0, 0.0, -4.0), "forearm.L": (16.0, 0.0, 0.0),
-        "upperarm.R": (2.0, 0.0, 8.0), "forearm.R": (28.0, 0.0, 0.0),
-        "hand.L": (0.0, 0.0, 0.0), "hand.R": (-24.0, 0.0, 0.0),
-        "thigh.L": (-1.0, 0.0, 2.0), "shin.L": (2.0, 0.0, 0.0), "foot.L": (-1.0, 0.0, 0.0),
-        "thigh.R": (-1.0, 0.0, -2.0), "shin.R": (2.0, 0.0, 0.0), "foot.R": (-1.0, 0.0, 0.0),
-    }
-
-    windup = dict(neutral)
-    windup.update({
-        "hips": (-6.0, -14.0, 0.0), "spine": (-4.0, -12.0, 0.0),
-        "chest": (-8.0, -22.0, 0.0), "neck": (2.0, 8.0, 0.0), "head": (0.0, 14.0, 0.0),
-        "shoulder.R": (-14.0, 0.0, 16.0),
-        "upperarm.R": (-128.0, 0.0, 26.0), "forearm.R": (64.0, 0.0, 0.0),
-        "hand.R": (-18.0, 0.0, 0.0),
-        "upperarm.L": (-22.0, 0.0, -18.0), "forearm.L": (52.0, 0.0, 0.0),
-        "thigh.L": (-14.0, 0.0, 4.0), "shin.L": (18.0, 0.0, 0.0), "foot.L": (-6.0, 0.0, 0.0),
-        "thigh.R": (10.0, 0.0, -6.0), "shin.R": (-14.0, 0.0, 0.0), "foot.R": (6.0, 0.0, 0.0),
-    })
-
-    strike = dict(neutral)
-    strike.update({
-        "hips": (10.0, 16.0, 0.0), "spine": (12.0, 14.0, 0.0),
-        "chest": (16.0, 24.0, 0.0), "neck": (-6.0, -8.0, 0.0), "head": (-10.0, -12.0, 0.0),
-        "shoulder.R": (10.0, 0.0, -6.0),
-        "upperarm.R": (78.0, 0.0, -14.0), "forearm.R": (8.0, 0.0, 0.0),
-        "hand.R": (14.0, 0.0, 0.0),
-        "upperarm.L": (-46.0, 0.0, -26.0), "forearm.L": (72.0, 0.0, 0.0),
-        "thigh.L": (36.0, 0.0, 4.0), "shin.L": (-30.0, 0.0, 0.0), "foot.L": (10.0, 0.0, 0.0),
-        "thigh.R": (-24.0, 0.0, -6.0), "shin.R": (-24.0, 0.0, 0.0), "foot.R": (16.0, 0.0, 0.0),
-    })
-
-    settle = dict(strike)
-    settle.update({
-        "hips": (6.0, 10.0, 0.0), "chest": (10.0, 16.0, 0.0),
-        "upperarm.R": (56.0, 0.0, -6.0), "forearm.R": (26.0, 0.0, 0.0),
-        "head": (-4.0, -6.0, 0.0),
-    })
-
-    #   frame  pose     hips (x=side, y=up, z=forward) in bone-local units
-    for f, p, loc in [
-        (0,  neutral, (0.0, -0.008, 0.000)),
-        (5,  windup,  (0.0, -0.030, -0.060)),   # sink and load backwards
-        (11, strike,  (0.0, -0.045,  0.140)),   # lunge through the swing
-        (16, settle,  (0.0, -0.030,  0.110)),
-        (30, neutral, (0.0, -0.008,  0.000)),
-    ]:
-        K.key(rig, f, p, loc={"hips": loc})
-    K.interp(act)
-    return act
+from anim_lib import (NEUTRAL, AIRBORNE, anim_idle, anim_run, anim_attack,
+                      anim_jump, anim_land)  # noqa: E402
 
 
 # ------------------------------------------------------------------ preview
@@ -915,11 +641,17 @@ def render_joint_probe(prefix, rig):
     cam.location = target + Vector((-4.2, 0.0, 0.15))
     cam.rotation_euler = (target - cam.location).to_track_quat('-Z', 'Y').to_euler()
 
+    # (name, pose, view).  "front" looks along +Y at a character facing -Y, so
+    # screen-RIGHT is the character's LEFT (+X).
     probes = [
-        ("forearm_pos", {"forearm.L": (60, 0, 0), "forearm.R": (60, 0, 0)}),
-        ("forearm_neg", {"forearm.L": (-60, 0, 0), "forearm.R": (-60, 0, 0)}),
-        ("thigh_pos",   {"thigh.L": (45, 0, 0), "thigh.R": (45, 0, 0)}),
-        ("upperarm_pos", {"upperarm.L": (45, 0, 0), "upperarm.R": (45, 0, 0)}),
+        ("forearm_pos", {"forearm.L": (60, 0, 0), "forearm.R": (60, 0, 0)}, "side"),
+        ("forearm_neg", {"forearm.L": (-60, 0, 0), "forearm.R": (-60, 0, 0)}, "side"),
+        ("thigh_pos",   {"thigh.L": (45, 0, 0), "thigh.R": (45, 0, 0)}, "side"),
+        ("upperarm_pos", {"upperarm.L": (45, 0, 0), "upperarm.R": (45, 0, 0)}, "side"),
+        # which way does the SIDEWAYS swing go?  the jump's airborne pose
+        # crossed the arms behind the back, so this needs observing, not guessing
+        ("armZ_pos", {"upperarm.L": (0, 0, 45), "upperarm.R": (0, 0, 45)}, "front"),
+        ("armZ_neg", {"upperarm.L": (0, 0, -45), "upperarm.R": (0, 0, -45)}, "front"),
     ]
     os.makedirs(prefix, exist_ok=True)
     out = []
@@ -931,7 +663,12 @@ def render_joint_probe(prefix, rig):
     prev_action = rig.animation_data.action if rig.animation_data else None
     if rig.animation_data:
         rig.animation_data.action = None
-    for name, pose in probes:
+    for name, pose, view in probes:
+        if view == "front":
+            cam.location = target + Vector((0.0, -4.2, 0.15))
+        else:
+            cam.location = target + Vector((-4.2, 0.0, 0.15))
+        cam.rotation_euler = (target - cam.location).to_track_quat('-Z', 'Y').to_euler()
         K.rest(rig)
         for bone, rot in pose.items():
             pb = rig.pose.bones.get(bone)

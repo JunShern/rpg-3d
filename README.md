@@ -4,15 +4,17 @@ A capability probe for a Kingdom Hearts-shaped JRPG: **vinyl-toon forms, real-ti
 third-person**. Two questions, answered in order:
 
 1. **Characters** — can a hand-scripted Blender pipeline produce a stylised
-   character good enough to carry this genre?
+   character good enough to carry this genre? And can that same rig and
+   animation set drive meshes authored somewhere else entirely?
 2. **Environments** — can a scripted kit produce a space a *free camera*
    survives? Emberbrook could compose one good shot per scene; here the player
    owns the camera.
 
-It is not a game. It is one hero, one town plaza, and an orbit camera.
+It is not a game. It is a three-character cast, one town plaza, and an orbit camera.
 
 | | |
 |---|---|
+| ![vesper](docs/shots/vesper.png) | ![attack](docs/shots/vesper-attack.png) |
 | ![hero](docs/shots/hero-turnaround.png) | ![run](docs/shots/hero-run.png) |
 | ![plaza](docs/shots/town-plaza.png) | ![wide](docs/shots/town-wide.png) |
 
@@ -32,7 +34,19 @@ PORT=3100 node server.js      # port 3000 is Emberbrook's
 ```
 
 Open **http://localhost:3100**. `WASD`/arrows move (camera-relative), drag to
-orbit, wheel to zoom, `space` to jump, `J` to swing.
+orbit, wheel to zoom, `space` to jump, `J` to swing, `C` to swap character.
+
+**Vesper, Lake and Maren** — meshes authored for the Emberbrook project,
+re-rigged here — share one animation library, and each carries a generated
+sword joined into their mesh and weighted to the hand. The scripted five-head hero was
+the character *probe*, not a cast member; `tools/hero_build.py` still builds him
+as the reference implementation and he hosts the joint probes, but he is not in
+the roster.
+
+```sh
+# rebuild an externally-authored character
+$B -b -P tools/char_build.py -- --name vesper   # or lake / maren
+```
 
 ## Rebuild the assets
 
@@ -54,6 +68,9 @@ Workbench — which is the feedback loop: check those before opening the browser
 | `tools/kh_lib.py` | geometry, rig and skin helpers — tubes, superellipsoid blobs, bevelled boxes, armature construction, analytic weights |
 | `tools/hero_build.py` | the hero: proportions, skeleton, five animations, face decal, GLB export |
 | `tools/face_tex.py` | the face, drawn as an image with numpy — eyes, lash, brows, mouth |
+| `tools/anim_lib.py` | the shared clips — bone-name-keyed pose data, character-agnostic |
+| `tools/char_build.py` | intake for externally-authored meshes (Vesper, Lake, Maren) |
+| `tools/props.py` | hand-held gear — a generated sword, weighted to `hand.R` |
 | `tools/arch_lib.py` | the architecture kit — windows, doors, awnings, arches, stairs, lanterns, fountain — plus the `Town` collector |
 | `tools/town_build.py` | the plaza layout, collision manifest, preview renders |
 | `public/js/toon.js` | the look: banded ramp, rim light, inverted-hull outline, sky gradient |
@@ -99,6 +116,14 @@ Two tricks carry more than their weight:
 - Toon banding, rim light, screen-constant outlines, six lantern point lights
 - Ground height by raycast with a 0.45 m step-up rule: the stairs climb, the
   1.1 m terrace edge blocks, walking off drops you back down
+- **Analytic two-bone foot IK.** Clips are joint ANGLES, which is what makes
+  them portable — and exactly why feet do not land: the contact pose that plants
+  the hero leaves Vesper's foot above the floor, because her legs are
+  proportionally longer and her soles far thinner. Authoring per character would
+  fix the symptom and destroy the portability, so the solve happens at runtime.
+  Only ankle HEIGHT is retargeted, so the stride is untouched, and the
+  correction eases out as a foot lifts so a swinging leg is never yanked.
+  `__ik.value = false` in the console A/Bs it
 - Camera collision against the manifest boxes, wall-sliding movement
 - `__sim({steps, held, attack, az, polar, dist, warp})` in the browser console
   drives the frame loop deterministically — Chrome throttles rAF in an unfocused
@@ -110,14 +135,22 @@ Two tricks carry more than their weight:
   and pulled to its 0.45 m floor; the hero fades out so you are not inside their
   head. The real fix is a camera that yaws to look *along* a corridor.
 - **Feet slide.** Run speed (3.0 m/s) and stride length are eyeballed, not
-  matched. Real fix is root motion or a speed-driven timescale.
+  matched. Foot IK plants the feet vertically but does not lock them
+  horizontally; the real fix is root motion or a speed-driven timescale.
+- **Foot IK does not orient the foot.** It targets the ankle and assumes the
+  sole is flat, so a foot pitched mid-stride still contacts a couple of
+  centimetres off. Levelling the foot to the ground normal is the next step.
+- **Foot IK ignores sub-centimetre errors by design** (see the trap below), so
+  a character at rest is planted by the POSE, not by the solver.
 - No ledge drop-off animation — falls snap instantly to the new height, and
   there is no falling clip (only jump and land).
 - The keyblade is rigidly bound to `hand.R` and can clip the hip in extreme
   poses. A real build wants a hand attachment point and per-clip weapon poses.
-- One character. The face is now a drawn texture rather than geometry, which
-  makes a cast far more tractable — but every character still needs their own
-  image, and no expression system exists yet.
+- The scripted hero's face is a drawn texture rather than geometry, which makes
+  a cast far more tractable — but no expression system exists yet.
+- The imported cast are ~42k triangles each against the hero's 14k, and their
+  realistic proportions sit oddly beside his five-head build. That clash is a
+  casting decision nobody has made yet.
 - Buildings are solid blocks: no interiors, no enterable doors.
 
 ## Traps worth remembering
@@ -139,6 +172,22 @@ All of these cost real time here, and all will recur:
 - **Do not compare bpy structs with `is`.** Blender rebuilds Python wrappers per
   access, so identity checks fail on objects that are genuinely the same. This
   sent me chasing a node-link bug that had already been fixed.
+- **Never stand a character on locked knees.** Two-bone IK degenerates at full
+  extension: the knee's sideways position goes as sqrt(slack), so at ~99.7%
+  extension a 3 mm ground correction demands ~36 mm of knee swing, and idle
+  breathing turns that into a violent per-frame flicker. The fix was the POSE,
+  not the solver — a few degrees of knee flexion is anatomically right and
+  numerically well-behaved. Idle knee jitter went from ~50-78 mm to ~2 mm.
+  Related: an IK solve is only a safe no-op at zero correction if it uses the
+  ANIMATED bend plane; forcing the knee's own hinge relocates the knee even when
+  nothing needs fixing, so fading the correction out snaps it.
+- **A hard "skip tiny corrections" test is worse than none.** It is a
+  discontinuity, and it snapped the knee every time it was crossed. Ramp
+  instead.
+- **The sideways rotation axis is NOT mirrored.** Unlike forward flexion, whose
+  sign means the same thing on both sides, `+Z` swings the left arm out and the
+  right arm across the body. Writing the same sign on both crossed the arms
+  behind the back through every jump.
 - **Workbench cannot render textures.** It shades from `material.diffuse_color`,
   so the moment the face became a texture the preview stopped being able to show
   the thing being worked on. The hero previews render in EEVEE now.
