@@ -648,6 +648,23 @@ async function run() {
              detail: `took ${inside} inside the window, ${outside} after it` };
   });
 
+  await check('a recovery can be jump-cancelled, a commitment cannot', () => {
+    // the route the moveset was missing: finisher launches, cancel the long
+    // recovery, meet it in the air with the falling cut
+    combat.respawn();
+    __sim({ warp: [-8, 6, -30], steps: 40 });
+    const seen = [];
+    combat.attack();
+    for (let i = 0; i < 45; i++) {
+      const ph = combat.attackPhase();
+      const before = __sim({ steps: 0 }).grounded;
+      const r = __sim({ jump: true, steps: 1 });
+      if (before && !r.grounded) { seen.push(ph); break; }
+    }
+    return { ok: seen[0] === 'recover',
+             detail: seen.length ? `first jump allowed in '${seen[0]}'` : 'never jumped' };
+  });
+
   await check('the slip has a cooldown', () => {
     combat.respawn();
     __sim({ warp: [-8, 6, -30], steps: 30 });

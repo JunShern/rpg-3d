@@ -443,8 +443,17 @@ function playOnce(name, fade = 0.10) {
 }
 
 function jump() {
-  if (!cur || !grounded || attacking) return;
+  if (!cur || !grounded) return;
   if (combat && combat.isStaggered()) return;
+  // JUMP-CANCEL. A swing's recovery can be given up to jump -- which is what
+  // turns the finisher's launch into a route rather than a thing you watch. It
+  // refuses during the wind-up and the active frames, so committing to a swing
+  // still costs you the swing.
+  // ASK COMBAT, don't read the cached flag. `attacking` is refreshed once a
+  // frame in updateCombat, so a jump pressed in the same tick as the swing that
+  // started still saw the old value and sailed straight through the guard.
+  if (combat && combat.isAttacking() && !combat.jumpCancel()) return;
+  attacking = false;
   grounded = false;
   landing = false;
   vy = JUMP_V;

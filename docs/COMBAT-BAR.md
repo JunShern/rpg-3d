@@ -65,6 +65,9 @@ instrument the measurement before you change the thing.
 - [x] the third hit is slower, hits for 28 and launches (knock 7.0, lift 3.2)
 - [x] input buffering — probe chained step 0 → 1 → 2 from presses mid-swing
 - [x] the chain resets cleanly after `comboWindow`
+- [x] a swing's recovery can be jump-cancelled, and its wind-up and active
+      frames cannot — which is what turns the finisher's launch into a route
+      (chain → launch → cancel → falling cut) instead of a thing you watch
 - [x] an air attack exists and differs from the ground chain — the **falling
       cut**: a stall at the top, then a dive forward and down with the blade
       leading. It is not a fourth combo hit and cannot be chained into or out of
@@ -233,8 +236,8 @@ whole cluster is fixed above. What it found that is still open:
    stone and timber are textured; small saturated accents are not, which is
    arguably right for them but has not been tested by trying.
 
-3. **The move list is small** even for one weapon: chain, air attack, dodge. No
-   guard, parry, dash attack, charged hit or jump-cancel.
+3. **The move list is still small** even for one weapon: chain, air attack,
+   slip, jump-cancel. No guard, parry, dash attack or charged hit.
 4. **The playable characters are not generated.** They are imported meshes from
    another project, retargeted and re-rigged here — the README says so, but the
    "everything is scripted geometry" framing does not hold for the character you

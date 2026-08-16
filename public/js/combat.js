@@ -370,6 +370,26 @@ export function createCombat(ctx) {
     return TUNE.dodge;
   }
 
+  /**
+   * Give up the rest of a swing's recovery to jump.
+   *
+   * This is the route the moveset was missing: chain into the finisher, which
+   * launches, cancel the long recovery, and meet the enemy in the air with the
+   * falling cut. Without it the finisher throws something up and then makes you
+   * watch it come down, which is a combo that punishes you for finishing it.
+   *
+   * Recovery only -- never the wind-up or the active frames, so a swing you
+   * committed to still costs you the swing.
+   */
+  function jumpCancel() {
+    if (player.dead || player.stagger > 0) return false;
+    if (player.step < 0 || player.phase !== 'recover') return false;
+    player.step = -1;
+    player.phase = 'none';
+    player.buffered = false;
+    return true;
+  }
+
   function attack(airborne = false) {
     // guarded HERE and not only in main.js's wrapper, so there is no way in
     // that skips it -- being hit has to actually cost you the swing
@@ -1068,6 +1088,7 @@ export function createCombat(ctx) {
     get shake() { return shake; },
     fx,
     dodge,
+    jumpCancel,
     // the smoke test lands a hit through the real path rather than
     // reaching into player.hp, so i-frames and the slip are actually exercised
     hurtPlayerForTest: (dmg, from) => hurtPlayer(dmg, from),
