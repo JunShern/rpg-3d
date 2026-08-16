@@ -110,7 +110,11 @@ instrument the measurement before you change the thing.
 - [x] knockback proportional to the hit, finisher launches
 - [x] camera shake, scaled to the hit, applied after camera placement
 - [x] hit spark — pooled additive Points burst along the hit normal
-- [x] damage numbers that rise, drift and fade
+- [x] damage numbers that rise, drift and fade — outlined all the way round
+      rather than drop-shadowed, because they land on tree trunks, pale
+      hillsides and sky alike, and hidden when world geometry is in front of
+      them (a number floating over the building a hit happened behind tells you
+      the number and lies about where)
 - [x] enemy flashes on hit (emissive, 160 ms)
 - [x] death: collapse clip with a bone-scale flatten, then a fade
 
@@ -227,15 +231,14 @@ whole cluster is fixed above. What it found that is still open:
 2. **Props are still flat colour** — lamps, planters, crates, barrels, the
    fountain, the arch. Ground, walls and roofs are textured; the furniture in
    front of them is not.
-3. **Damage numbers have no occlusion** and are drawn over whatever is behind
-   them.
-4. **The move list is small** even for one weapon: chain, air attack, dodge. No
+
+3. **The move list is small** even for one weapon: chain, air attack, dodge. No
    guard, parry, dash attack, charged hit or jump-cancel.
-5. **The playable characters are not generated.** They are imported meshes from
+4. **The playable characters are not generated.** They are imported meshes from
    another project, retargeted and re-rigged here — the README says so, but the
    "everything is scripted geometry" framing does not hold for the character you
    look at the whole time.
-6. **Tells still have no ground footprint.** They pulse and they change shape,
+5. **Tells still have no ground footprint.** They pulse and they change shape,
    but nothing shows you *where* an attack will land, so reading a Curler's
    committed line is a matter of watching which way it is pointing.
 

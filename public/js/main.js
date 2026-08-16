@@ -903,6 +903,22 @@ function startCombat() {
     world,
     groundAt,
     pushOut,
+    /**
+     * Is `p` hidden from the camera by world geometry?
+     *
+     * Used by the floating damage numbers, which are DOM elements with no depth
+     * at all -- so a number for a hit that happened behind a building drew
+     * cleanly on top of the building. Boxes only, which is all the town and the
+     * meadow's props are, and cheap enough to ask once per number per frame.
+     */
+    occludes: (p) => {
+      _o.subVectors(p, camera.position);
+      const d = _o.length();
+      if (d < 0.5) return false;
+      _o.divideScalar(d);
+      return rayCastSolids(camera.position.x, camera.position.y, camera.position.z,
+                           _o.x, _o.y, _o.z, d - 0.35) < d - 0.35;
+    },
     playerPos: () => pos,
     playerFacing: () => facing,
   });

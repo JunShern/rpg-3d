@@ -176,7 +176,7 @@ export function createCombat(ctx) {
   const loader = new GLTFLoader();
   const protos = {};
   const enemies = [];
-  const fx = makeEffects(ctx.scene);
+  const fx = makeEffects(ctx.scene, ctx);
 
   let hitStop = 0;          // seconds of frozen time remaining
   const shake = { mag: 0, t: 0 };
@@ -1111,7 +1111,7 @@ function cloneSkinned(src) {
 
 // ------------------------------------------------------------------ effects
 
-function makeEffects(scene) {
+function makeEffects(scene, ctx = {}) {
   const layer = document.getElementById('fx');
   const numbers = [];
 
@@ -1189,7 +1189,11 @@ function makeEffects(scene) {
       n.el.style.opacity = String(1 - Math.max(0, (n.t - 0.5) / 0.35));
       n.el.style.transform =
         `translate(-50%,-50%) scale(${1 + 0.5 * Math.min(1, n.t * 7)})`;
-      n.el.style.display = p.z > 1 ? 'none' : '';
+      // Hidden behind the near plane OR behind the world. A number that floats
+      // in front of the hill an enemy died on tells you the number and lies
+      // about where it happened; the same test the lock ring gets.
+      const occluded = ctx.occludes ? ctx.occludes(n.at) : false;
+      n.el.style.display = (p.z > 1 || occluded) ? 'none' : '';
     }
   }
 

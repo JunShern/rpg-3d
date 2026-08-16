@@ -67,7 +67,13 @@
   .dmg {
     position: absolute;
     font: 800 26px/1 ui-rounded, "Avenir Next", Verdana, sans-serif;
-    text-shadow: 0 2px 0 #1a1420, 0 0 12px #0009;
+    /* A FULL OUTLINE, not a drop shadow. The number is drawn over whatever
+       happens to be behind it -- a tree trunk, a pale hillside, the sky -- and
+       a shadow only on one side leaves it unreadable against half of those.
+       An outline all the way round reads on any background there is. */
+    -webkit-text-stroke: 4px #1a1420;
+    paint-order: stroke fill;
+    text-shadow: 0 2px 6px #0007;
     will-change: transform, opacity;
   }
 
