@@ -64,7 +64,10 @@ export function makeTerrain(cfg) {
     h += ramp(x, x1 - 22.0, x1) * 12.0;
 
     const pw = 1.0 - ramp(Math.abs(x - pathAt(y)), 2.6, 6.4);
-    h = h * (1 - pw) + ramp(y, gateY, 62.0) * 3.4 * pw;
+    // two-stage climb: brisk out of town, gentler past halfway, and it never
+    // levels off -- see meadow_build._path_height
+    const road = ramp(y, gateY, 62.0) * 3.4 + ramp(y, 58.0, 104.0) * 2.9;
+    h = h * (1 - pw) + road * pw;
 
     // AFTER the path blend, not before -- see meadow_build.height
     h -= streamCut(x, y);

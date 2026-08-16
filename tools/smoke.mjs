@@ -454,7 +454,7 @@ async function run() {
   }
 
   for (const [sp, x, z, cap] of [['nettle', 0.5, 6.2, 10], ['curler', 6, -54, 24],
-                                 ['bellow', 15, -95, 40]]) {
+                                 ['bellow', 24, -84, 40]]) {
     await check(`${sp} dies to the ground chain`, (a) => {
       const t = window.__t.faceOff(a.sp, a.x, a.z, 1.6);
       const hp0 = t.e.spec.hp;
@@ -539,7 +539,7 @@ async function run() {
 
   await check('a committed attack is not cancellable by mashing', () => {
     combat.respawn();
-    const b = window.__t.summon('bellow', 15, -92, 2.2);
+    const b = window.__t.summon('bellow', 24, -84, 2.2);
     let g = 0;
     while (b.state !== 'attack' && g++ < 1500) { __sim({ steps: 1 }); __face(b.pos.x, b.pos.z); }
     if (b.state !== 'attack') return { ok: false, detail: 'it never committed' };
@@ -786,7 +786,7 @@ async function run() {
     ['flock', 6, -44, 380, 860],
     ['meadow', 6, -54, 400, 880],
     ['ridge', 13, -74, 380, 800],
-    ['far side', 15, -95, 380, 780],
+    ['far side', 24, -84, 380, 780],
   ]) {
     await check(`${label} stays inside its draw budget`, (a) => {
       __sim({ warp: [a.x, 6, a.z], steps: 60, dt: 1 / 20 });

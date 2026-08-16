@@ -47,7 +47,18 @@ GATE_Y = 19.5
 MEADOW = dict(x0=-46.0, x1=46.0, y0=GATE_Y, y1=110.0)
 PATH_X = -1.0                      # the path runs out of the gate on this line
 
-HILL = (14.0, 80.0, 7.2, 17.0)     # x, y, height, radius -- the destination
+# THE HILL HAS TO BE OFF THE PATH.
+#
+# It was at x=14 with the path running through x=13.1 -- 0.9 m from its centre.
+# The path is cut flat and blended at full weight within 2.6 m, so the road
+# simply overwrote the summit: a transect at y=80 read 3.40, 3.40, 3.44 across
+# the middle of a "7.2 m" hill. The meadow's whole organising idea was being
+# flattened by its own road.
+#
+# At x=27 the path climbs its western flank -- which is what makes the walk
+# rise -- and the summit stands clear of it, so there is something to go TO
+# rather than something you cross without noticing.
+HILL = (27.0, 82.0, 7.2, 16.0)     # x, y, height, radius -- the destination
 
 
 def height(x, y):
@@ -147,7 +158,15 @@ def _path_weight(x, y):
 
 
 def _path_height(y):
-    return _ramp(y, GATE_Y, 62.0) * 3.4
+    """THE ROAD CLIMBS THE WHOLE WAY.
+
+    It used to saturate at y=62 and run dead level at 3.40 m for the last forty
+    metres -- so "elevation that reveals the space as you walk" stopped halfway
+    and the entire back half of the meadow, including the landmark and the last
+    encounter, was a table. Two stages: a brisk climb out of town and a longer,
+    gentler one past the halfway point.
+    """
+    return _ramp(y, GATE_Y, 62.0) * 3.4 + _ramp(y, 58.0, 104.0) * 2.9
 
 
 def on_path(x, y, margin=0.0):

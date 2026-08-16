@@ -912,7 +912,7 @@ const ENCOUNTERS = [
     mix: ['curler', 'nettle', 'nettle', 'nettle'] },
   { x: 13.0, z: -74,  r: 6.5, trigger: 16,
     mix: ['curler', 'curler', 'nettle'] },
-  { x: 15.0, z: -95,  r: 8.5, trigger: 19,          // past the landmark hill
+  { x: 24.0, z: -84,  r: 8.5, trigger: 20,          // at the foot of the hill
     mix: ['bellow', 'nettle', 'nettle', 'nettle'] },
 ];
 
@@ -960,7 +960,7 @@ const HERDS = [
   { x: -9,  z: -38, n: 3 },
   { x: 21,  z: -58, n: 4 },
   { x: -4,  z: -70, n: 2 },
-  { x: 26,  z: -88, n: 3 },
+  { x: 34,  z: -92, n: 3 },
 ];
 
 // Flocks sit ON the route, unlike the herds -- you are meant to walk into them.

@@ -172,8 +172,15 @@ instrument the measurement before you change the thing.
       as axis-aligned tops
 - [x] a path leaving the plaza — bends, climbs, waymarked with posts
 - [x] an outdoor area that reads as somewhere: a landmark hill with standing
-      stones visible from the gate, elevation that reveals the space as you
-      walk, hills framing the far edge, tree density that clusters and thins
+      stones, elevation that reveals the space as you walk, hills framing the
+      far edge, tree density that clusters and thins
+- [x] the landmark is actually a landmark — it sat 0.9 m from the path's centre
+      and the road, being cut flat, simply overwrote it: a transect across the
+      middle of a "7.2 m hill" read 3.40, 3.40, 3.44. Moved clear of the road,
+      it now reads 1.26 → 4.14 → 5.70 → 6.48 across the same transect
+- [x] the path climbs the whole way — it saturated at y=62 and ran dead level
+      at 3.40 m for the last forty metres, so the back half of the meadow was a
+      table. Now 0.10 → 1.61 → 3.10 → 3.89 → 5.22 → 6.24 from gate to far edge
 - [x] the transition is continuous — probe walked plaza → gate → meadow with no
       block, terrain height varying under foot. The meadow sits 5 cm below the
       paving at the seam so the two are never coplanar
