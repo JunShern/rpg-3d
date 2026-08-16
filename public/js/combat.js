@@ -910,8 +910,15 @@ export function createCombat(ctx) {
     // An encounter should be a place, so each one goes home when you leave it --
     // but only from states where breaking off is not a cheat. Something mid-swing
     // finishes its swing.
+    // Two ways to break off. Distance from HOME is the territorial one -- it
+    // will not chase you across the county. Distance from YOU is the honest
+    // one: with no pathfinding, an enemy chasing you out of the plaza wedges
+    // against the gateway wall, and while it is stuck it never gets far enough
+    // from home to trip the first test at all. Measured: one of three sat at
+    // 15.1 m from its post indefinitely with the leash threshold at 18 m.
     if (LEASHABLE.has(e.state)
-        && e.pos.distanceTo(e.home) > e.spec.notice * 1.5) {
+        && (e.pos.distanceTo(e.home) > e.spec.notice * 1.5
+            || dist > e.spec.notice * 2.2)) {
       setState(e, 'return'); e.token = false;
     }
 

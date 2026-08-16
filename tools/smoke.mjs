@@ -284,21 +284,37 @@ async function run() {
                    + `${now ? (now === t.e ? 'STILL THE CORPSE' : now.name) : 'none'}` };
   });
 
-  await check('three hits chain from buffered presses', () => {
-    const t = window.__t.faceOff('nettle', 0.5, 6.2, 1.5);
-    // press once per swing and keep stepping -- an earlier version of this
-    // test broke out of the loop the moment the phase read 'active', which
-    // meant the chain never got the frames it needed to advance
-    const steps = new Set();
-    for (let k = 0; k < 3; k++) {
-      combat.attack();
-      for (let i = 0; i < 14; i++) {
-        t.step(1);
-        if (combat.attackStep() >= 0) steps.add(combat.attackStep());
+  await check('the chain is reachable at every human rhythm', () => {
+    // The old version pressed at frame 0 of each block -- always inside the
+    // 0.21 s buffer window -- so it could not see that the combo was reachable
+    // ONLY by mashing. Sweep the rhythms a person would actually play at.
+    const reach = (frames) => {
+      combat.respawn();
+      __sim({ warp: [-8, 6, -30], steps: 30 });
+      let max = -1;
+      for (let k = 0; k < 3; k++) {
+        combat.attack();
+        for (let i = 0; i < frames; i++) {
+          __sim({ steps: 1 });
+          const st = combat.attackStep();
+          if (st >= 0 && st < 3) max = Math.max(max, st);
+        }
       }
-    }
-    return { ok: steps.has(0) && steps.has(1) && steps.has(2),
-             detail: `reached steps ${[...steps].sort((a, b) => a - b).join(',')}` };
+      for (let i = 0; i < 45; i++) {
+        __sim({ steps: 1 });
+        const st = combat.attackStep();
+        if (st >= 0 && st < 3) max = Math.max(max, st);
+      }
+      return max + 1;
+    };
+    const out = {};
+    for (const f of [10, 14, 18, 22, 30, 36, 42]) out[`${(f / 60).toFixed(2)}s`] = reach(f);
+    const worst = Math.min(...Object.values(out));
+    // and it must RESET once the window has clearly passed
+    const late = reach(75);
+    return { ok: worst >= 2 && late === 1,
+             detail: Object.entries(out).map(([k, v]) => `${k}:hit${v}`).join(' ')
+                   + ` | 1.25s:hit${late}` };
   });
 
   await check('the finisher launches', () => {
@@ -482,7 +498,11 @@ async function run() {
     const grp = combat.enemies.filter((e) => !e.dead && e.name === 'nettle' && e.home.z > 0);
     if (!grp.length) return { ok: false, detail: 'plaza group is empty' };
     grp.forEach((e) => { e.hp = e.spec.hp * 0.5; });
-    __sim({ warp: [3, 6, -44], steps: 40 });
+    // STAY INSIDE THE CULL RADIUS. At 50 m the far-cull teleports them home and
+    // restores their HP, so the check passed at exactly 0 m from home without
+    // the leash ever running. 36 m is well outside the leash and inside the
+    // 42 m cull, so they have to walk back under their own power.
+    __sim({ warp: [1, 6, -30], steps: 40 });
     // KEEP THE PLAYER ALIVE while we wait. Standing thirty seconds in the
     // meadow gets you killed, and dying respawns you in the plaza -- next to
     // the very group whose leash we are measuring, which wakes them up and
@@ -495,22 +515,27 @@ async function run() {
     // push apart from each other, so after crossing fifty metres home they end
     // up one to three metres off it. Measured 1.0, 2.1, 2.6.
     const away = grp.map((e) => +e.pos.distanceTo(e.home).toFixed(1));
-    const home = away.filter((d) => d < 3.5).length;
+    // and they must have WALKED, not been teleported: exactly 0.0 for all of
+    // them is the far-cull's signature, not the leash's
+    const teleported = away.every((d) => d === 0);
+    const home = teleported ? 0 : away.filter((d) => d < 3.5).length;
     const healed = grp.filter((e) => e.hp >= e.spec.hp - 0.01).length;
     return { ok: home === grp.length && healed === grp.length,
              detail: `${home}/${grp.length} home (${away.join(', ')} m), `
                    + `${healed}/${grp.length} at full HP` };
   });
 
-  await check('distant enemies are not drawn', () => {
-    __sim({ warp: [0.5, 6, 6.2], steps: 60 });
-    const [hx, hz] = window.__t.heroXZ();
-    const wrong = combat.enemies.filter((e) => !e.dead).filter((e) => {
-      const d = Math.hypot(e.pos.x - hx, e.pos.z - hz);
-      return e.group.visible && d > (e.spec.far || 42) + 2;
-    });
-    const drawn = combat.enemies.filter((e) => !e.dead && e.group.visible).length;
-    return { ok: !wrong.length, detail: `${drawn} of ${combat.enemies.length} drawn` };
+  await check('distant enemies cost nothing to draw', () => {
+    // `e.group.visible === !far` computed from the same distance and constant
+    // is the code restating itself. Ask the RENDERER instead: standing among
+    // them and standing far away should differ by real draw calls.
+    __sim({ warp: [6, 6, -54], steps: 120 });
+    const near = __sim({ steps: 1 }).draws;
+    __sim({ warp: [0.5, 6, 6.2], steps: 120 });
+    const away = __sim({ steps: 1 }).draws;
+    const alive = combat.enemies.filter((e) => !e.dead).length;
+    return { ok: away < near - 20,
+             detail: `${near} draws among them, ${away} away, ${alive} alive either way` };
   });
 
   await fresh();
@@ -560,18 +585,37 @@ async function run() {
              detail: `low-poise enemy went to '${e.state}'` };
   });
 
-  await check('hit-stop freezes the player too', () => {
-    // it used to scale only combat's clock, so the swing clip raced ~17x ahead
-    // of the hitbox windows it is meant to line up with
+  await check('hit-stop freezes the PLAYER, not just combat', () => {
+    // The bug this names lives in main.js's frame(), which scales step(), the
+    // mixer and the IK by combat.timeScale(). Asserting `timeScale() < 1` was
+    // restating combat's own expression and would have passed with main.js
+    // ignoring it entirely -- which IS the original bug. So measure the thing
+    // that actually stops: how far the player travels while frozen.
     const t = window.__t.faceOff('nettle', 0.5, 6.2, 1.5);
-    let frozen = null;
+    const travel = (held) => {
+      const a = window.__t.heroXZ();
+      for (let i = 0; i < 6; i++) t.step(1);
+      const b = window.__t.heroXZ();
+      return Math.hypot(b[0] - a[0], b[1] - a[1]);
+    };
+    // baseline: six frames of walking, unfrozen
+    const free = (() => {
+      const a = window.__t.heroXZ();
+      for (let i = 0; i < 6; i++) { __sim({ steps: 1, held: ['KeyW'] }); t.hold(); }
+      const b = window.__t.heroXZ();
+      return Math.hypot(b[0] - a[0], b[1] - a[1]);
+    })();
+    // now land a hit and walk during the freeze
     combat.attack();
-    for (let i = 0; i < 30; i++) {
-      t.step(1);
-      if (combat.timeScale() < 1) { frozen = combat.timeScale(); break; }
-    }
-    return { ok: frozen !== null && frozen < 0.2,
-             detail: frozen === null ? 'hit-stop never fired' : `timeScale ${frozen}` };
+    let fired = false;
+    for (let i = 0; i < 30 && !fired; i++) { t.step(1); fired = combat.timeScale() < 1; }
+    if (!fired) return { ok: false, detail: 'hit-stop never fired' };
+    const a2 = window.__t.heroXZ();
+    for (let i = 0; i < 3; i++) { __sim({ steps: 1, held: ['KeyW'] }); t.hold(); }
+    const b2 = window.__t.heroXZ();
+    const frozenTravel = Math.hypot(b2[0] - a2[0], b2[1] - a2[1]);
+    return { ok: free > 0.05 && frozenTravel < free * 0.25,
+             detail: `walked ${free.toFixed(3)} m free, ${frozenTravel.toFixed(3)} m frozen` };
   });
 
   await check('lock-on cycles through every target, not just two', () => {
@@ -594,20 +638,39 @@ async function run() {
   group('Defence');
 
   await check('being hit takes the swing away from you', () => {
+    // Asserting attack()===false and dodge()===null was restating the two
+    // guards. Observe the consequences instead: a swing in progress ends, and
+    // the body is thrown.
     combat.respawn();
     __sim({ warp: [0.5, 6, 6.2], steps: 150 });
-    let staggered = false, refused = false;
-    for (let i = 0; i < 400; i++) {
+    let hit = null;
+    for (let i = 0; i < 500; i++) {
+      // keep a swing running so there is something for the hit to take away
+      if (!combat.isAttacking()) combat.attack();
+      const before = { atk: combat.isAttacking(), xz: window.__t.heroXZ() };
       __sim({ steps: 1 });
       if (combat.isStaggered()) {
-        staggered = true;
-        refused = combat.attack() === false && combat.dodge() === null;
+        const after = window.__t.heroXZ();
+        hit = {
+          wasSwinging: before.atk,
+          nowSwinging: combat.isAttacking(),
+          thrown: Math.hypot(after[0] - before.xz[0], after[1] - before.xz[1]),
+        };
         break;
       }
     }
-    return { ok: staggered && refused,
-             detail: staggered ? `staggered, attack+dodge refused=${refused}`
-                               : 'never got hit' };
+    if (!hit) return { ok: false, detail: 'never got hit' };
+    // and it keeps throwing over the next few frames
+    let total = hit.thrown;
+    for (let i = 0; i < 8; i++) {
+      const a = window.__t.heroXZ();
+      __sim({ steps: 1 });
+      const b = window.__t.heroXZ();
+      total += Math.hypot(b[0] - a[0], b[1] - a[1]);
+    }
+    return { ok: hit.wasSwinging && !hit.nowSwinging && total > 0.15,
+             detail: `swinging ${hit.wasSwinging} -> ${hit.nowSwinging}, `
+                   + `thrown ${total.toFixed(2)} m` };
   });
 
   await check('the slip carries you', () => {

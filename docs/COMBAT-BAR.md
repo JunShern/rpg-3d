@@ -186,7 +186,9 @@ instrument the measurement before you change the thing.
       paving at the seam so the two are never coplanar
 
 ### Performance
-- [x] measured with 4 foes on screen: plaza 194 fps, meadow 249 fps, hill 161 fps
+- [x] measured in a real browser — see the table below, which is the only
+      place numbers live. This line used to carry its own stale figures that
+      contradicted it
 - [x] draw calls and triangles recorded below
 
 ---
@@ -219,18 +221,33 @@ Updated each iteration. Empty until measured.
 
 | metric | value | when |
 |---|---|---|
-| plaza | 6.0 ms · 167 fps · 131 draws | iter 3 final |
-| path | 11.1 ms · 90 fps · 287 draws | iter 3 final |
-| flock | 10.2 ms · 98 fps · 266 draws | iter 3 final |
-| meadow | 11.9 ms · 84 fps · 341 draws | iter 3 final |
-| ridge | 12.8 ms · 78 fps · 300 draws | iter 3 final |
-| far side | 11.5 ms · 87 fps · 276 draws | iter 3 final |
+| plaza | 4.2 ms · 238 fps · 103 draws · 501k tris | iter 4 |
+| path | 14.0 ms · 71 fps · 212 draws · 688k tris | iter 4 |
+| meadow | 10.4 ms · 96 fps · 273 draws · 736k tris | iter 4 |
+| ridge | 11.9 ms · 84 fps · 251 draws · 617k tris | iter 4 |
+| hill | 11.6 ms · 86 fps · 283 draws · 654k tris | iter 4 |
+
+Measured synchronously through `__sim` in a foreground tab. The numbers move
+±30% run to run because the tab is scheduled against everything else on the
+machine, so treat them as a band, not a reading.
 | before the leash + far-cull (hostiles only) | 9.4 ms · 106 fps · 281 draws | iter 3 |
 | when ambient life landed, before LOD | 24.4 ms · 41 fps · 616 draws | iter 3 |
 | triangles (worst) | 733k | iter 3 |
 | meadow before the terrain fix | 24-38 ms · 34-42 fps | iter 2 |
 
 ---
+
+## Reading this file
+
+Two rules, both learned the hard way by an auditor catching them:
+
+1. **Numbers live in the table below and nowhere else.** Checklist lines that
+   carried their own figures went stale and then contradicted the table.
+2. **The captures in `docs/shots/` are stills of a HALTED simulation.** They
+   are taken through `__sim`, which detaches the render loop, so every one
+   reads `0 fps` and can show a damage number frozen mid-flight. They are for
+   judging composition and materials, not motion or performance — and they go
+   stale the moment anything is rebuilt.
 
 ## Open faults
 
@@ -280,7 +297,9 @@ Bellow's sack glows as it inflates); no swing VFX at all (there is now a blade
 trail); a lock reticle that drew on the player's own back (there is now a ring
 on the ground under the target, and the 2D bracket hides when it would overlap
 the player); `cycleLock` reaching only two targets; outline shells never being
-frustum-culled (626k → 496k triangles, 287 → 120 draws in the plaza); and **no
+frustum-culled — and later found never to have worked at all, because the
+outline pass read the material name *after* the material had been replaced by an
+unnamed one; and **no
 landmark and no skyline** — the roofs and chimneys existed but the gameplay
 camera never saw them, so the town now has a belltower on the gate's axis, tall
 enough to clear a 9.5 m roofline and visible from the ridge at the far end of
@@ -339,7 +358,8 @@ outline shell; frustum culling disabled on static environment meshes.
   6,120-triangle heightfield ~10 times a frame. The terrain function now travels
   with the mesh in the manifest and the runtime evaluates it in O(1), sampling
   the mesh's own triangulation so collision and visible ground are the same
-  surface. 249 fps, and 0 mm mismatch across 260 samples.
+  surface. 0 mm mismatch across 260 samples, and the meadow went from 34-42 fps
+  to comfortably triple figures.
 - **iteration 1** — the Nettle (7 clips, radial spine tell) and the whole combat
   core: 3-step combo with input buffering, lock-on with camera framing, hit-stop,
   knockback, shake, sparks, damage numbers, enemy AI state machine with attack
