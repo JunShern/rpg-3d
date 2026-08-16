@@ -44,7 +44,19 @@ NAME = "nettle"
 C_SPEC = {
     "hide":  ((0.19, 0.26, 0.24), 0.75),
     "belly": ((0.33, 0.41, 0.36), 0.75),
-    "quill": ((0.88, 0.83, 0.62), 0.55),
+    # THE QUILLS ARE THE SILHOUETTE, so their value is what the player reads
+    # from across a field -- and at 0.88/0.83/0.62 with a 0.95 rim they rendered
+    # at #faf8ea, BRIGHTER than the Woolt's fleece at #f3f0e6. `combat.js` states
+    # the palette contract outright ("the Woolt is the one pale creature, so
+    # 'dark shape' reliably means threat") and this broke it: an audit put a
+    # Nettle and a Woolt side by side at the same distance in the same light and
+    # could not tell which was which. The recolour that fixed "reads as
+    # derivative" fixed the HIDE; the quills are what you actually see.
+    #
+    # Mid-value bone, not near-white. Still one material with the eyes, still
+    # not a dark shape with lights in it, and now clearly darker than the one
+    # animal in the game that is meant to be pale.
+    "quill": ((0.58, 0.54, 0.42), 0.55),
     "eye":   ((0.96, 0.94, 0.82), 0.30, 1.6),
 }
 

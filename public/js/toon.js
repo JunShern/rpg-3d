@@ -34,7 +34,13 @@ export function gradientMap(steps) {
 // image rather than as dark objects. A toon shadow should be a dark VALUE of
 // the colour, not the absence of one.
 export const RAMP_3 = gradientMap([70, 70, 170, 170, 170, 255]);
-export const RAMP_SOFT = gradientMap([88, 88, 166, 166, 212, 212, 255]);
+// THE ENVIRONMENT'S RAMP, and its shadow band is 112, not 88. At 88 a shaded
+// facade multiplies to 35% and, under a fill that used to be strongly blue,
+// nine buildings' worth of distinct colour collapsed into one murk. Raising the
+// band costs a little of the banding's punch on lit surfaces and buys back the
+// difference between terracotta and teal on unlit ones, which is the trade
+// worth making in a square that is mostly in shade.
+export const RAMP_SOFT = gradientMap([112, 112, 176, 176, 216, 216, 255]);
 
 const RIM_UNIFORMS = [];
 const RIM_SCALE = { value: 1 };

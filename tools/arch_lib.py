@@ -94,6 +94,7 @@ class Town:
         self.floors = []
         self.solids = []
         self.platforms = []
+        self.camblocks = []
 
     def add(self, *objs):
         for o in objs:
@@ -125,6 +126,21 @@ class Town:
         """
         self.platforms.append((cx, cy, hx, hy, top))
 
+    def camblock(self, cx, cy, cz, r):
+        """A sphere the CAMERA must not enter, and nothing else cares about.
+
+        A tree's collision is a trunk-width box up to the trunk top, which is
+        right for walking -- you should be able to stand under a canopy -- and
+        leaves the camera nothing to stop on. Standing at the stream ford and
+        looking down the path put the boom inside a canopy, and since the shell
+        is an inverted hull the entire frame became flat dark green with the
+        player nowhere in it. Reproduced byte-identical from a cold load.
+
+        Widening the trunk's solid would fix the camera by making it impossible
+        to walk under a tree, so the camera gets its own list.
+        """
+        self.camblocks.append((cx, cy, cz, r))
+
     def manifest(self):
         """Collision boxes in THREE.JS space (Blender x,y -> three x,-y).
 
@@ -140,6 +156,10 @@ class Town:
                 {"x": round(cx, 4), "z": round(-cy, 4),
                  "hx": round(hx, 4), "hz": round(hy, 4), "top": round(top, 3)}
                 for cx, cy, hx, hy, top in self.platforms],
+            "camBlockers": [
+                {"x": round(cx, 3), "y": round(cz, 3), "z": round(-cy, 3),
+                 "r": round(r, 3)}
+                for cx, cy, cz, r in self.camblocks],
         }
 
 
@@ -204,6 +224,62 @@ def window(t, x, y0, z, w=0.62, h=0.92, shutters=True, sill=True,
             out.append(box("win_shutter", (x + s * (w / 2 + 0.20), y0 - 0.06, z),
                            (0.15, 0.035, h / 2 + 0.02), M["door"],
                            bevel=0.018, seg=1))
+    return t.add(*out) and out
+
+
+def balcony(t, x, y0, z, w=1.05, reach=0.42):
+    """A ledge and a railing off an upper window.
+
+    UPPER FLOORS WERE ONE WINDOW REPEATED -- the same shuttered pane at the same
+    spacing on every storey of every building, which is the thing that makes a
+    town read as one recipe run nine times no matter how much the ground floors
+    differ. A facade needs something that PROJECTS: the ground floor already has
+    awnings and signs breaking its plane, and above the string course nothing
+    did.
+
+    `z` is the sill height of the window it belongs to.
+    """
+    M, out = t.M, []
+    yb = y0 - reach / 2
+    out.append(box("balc_slab", (x, yb, z - 0.06), (w / 2, reach / 2, 0.055),
+                   M["stone"], bevel=0.02, seg=1))
+    # two brackets under it, because a slab growing out of plaster is a shelf
+    for s in (-1, 1):
+        out.append(box("balc_bracket", (x + s * (w / 2 - 0.10), y0 - 0.13, z - 0.18),
+                       (0.045, 0.13, 0.10), M["stone"], bevel=0.02, seg=1))
+    rail_z = z + 0.28
+    out.append(box("balc_rail", (x, y0 - reach + 0.03, rail_z),
+                   (w / 2, 0.035, 0.035), M["brass"], bevel=0.012, seg=1))
+    for s in (-1, 1):
+        out.append(box("balc_rail_side", (x + s * w / 2, yb, rail_z),
+                       (0.035, reach / 2, 0.035), M["brass"], bevel=0.012, seg=1))
+    n = max(3, int(w / 0.19))
+    for i in range(n):
+        bx = x - w / 2 + w * (i + 0.5) / n
+        out.append(box("balc_baluster", (bx, y0 - reach + 0.03, z + 0.11),
+                       (0.018, 0.018, 0.20), M["brass"], bevel=0.006, seg=1))
+    return t.add(*out) and out
+
+
+def flowerbox(t, x, y0, z, w=0.70):
+    """A planted box on a window sill.  `z` is the sill height.
+
+    Three blooms and a trough. At the distance a second storey is ever seen this
+    is four pixels of colour, which is the point: it is the only warm accent
+    above the string course and it is what stops the upper facade being plaster
+    and shutters and nothing else.
+    """
+    M, out = t.M, []
+    yb = y0 - 0.11
+    out.append(box("box_trough", (x, yb, z - 0.09), (w / 2, 0.09, 0.075),
+                   M["timber"], bevel=0.02, seg=1))
+    for i, (dx, dz, rr, mat) in enumerate((
+            (-0.20, 0.05, 0.085, "leaf"), (0.02, 0.08, 0.095, "bloom"),
+            (0.21, 0.04, 0.080, "leaf"))):
+        out.append(K.blob(f"box_bloom{i}", (x + dx * (w / 0.70), yb, z + dz),
+                          (rr, rr * 0.8, rr * 0.9), None,
+                          M["awning"] if mat == "bloom" else M["leaf"],
+                          seg=9, rings=6, squircle=2.2))
     return t.add(*out) and out
 
 

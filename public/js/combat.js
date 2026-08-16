@@ -22,16 +22,48 @@ export const TUNE = {
   // walk in again -- and because movement is forbidden mid-swing there was no
   // way to correct. Each link now steps into its own strike, and the finisher
   // steps through it.
+  // THE WINDOWS ARE SET FROM WHERE THE BLADE IS, NOT FROM THE CLIP'S FRAME
+  // NUMBERS.
+  //
+  // These were previously matched to each clip's own timing -- which fixed an
+  // earlier bug where damage landed before the animation moved at all, and left
+  // a worse one behind. Sampling `hand.R`'s world matrix every frame of every
+  // link, in the player's own frame (+f = in front of her):
+  //
+  //   link 0  windup f -0.92 (loaded behind her head), crosses to the FRONT at
+  //           frame 9 of 12 -- the old active window opened at frame 6, so the
+  //           spark, the number, the hit-stop and the shake all fired with the
+  //           tip 0.81 m BEHIND her and 2.4 m from the thing it hit
+  //   link 1  in front for its whole first half. This one was right.
+  //   link 2  a big overhead load: f -0.99 at the top, and it does not come
+  //           down past the front until frame 15 of 18. The old window opened
+  //           at frame 10, so the 28-damage finisher connected with the sword
+  //           still up behind her shoulder.
+  //
+  // So: windup runs to the frame the edge arrives, and `active` is the sweep
+  // itself. Total windup+active is within 15 ms of what it was on every link,
+  // which is why this changes when damage lands and not how the chain feels.
+  //
+  // `reach` also comes in. The tip is 0.9-1.2 m out at the strike; a 1.75 m
+  // hitbox plus a 0.56 m enemy radius was landing hits 2.3 m away.
   combo: [
-    { clip: 'attack',  windup: 0.10, active: 0.11, recover: 0.20,
-      damage: 12, knock: 2.6, lift: 0.0, stop: 0.055, shake: 0.09, reach: 1.75,
+    { clip: 'attack',  windup: 0.145, active: 0.065, recover: 0.20,
+      damage: 12, knock: 2.6, lift: 0.0, stop: 0.055, shake: 0.09, reach: 1.55,
       arc: 1.5, stun: 0.20, advance: 1.15 },
-    { clip: 'attack2', windup: 0.09, active: 0.11, recover: 0.20,
-      damage: 13, knock: 2.8, lift: 0.0, stop: 0.055, shake: 0.10, reach: 1.80,
+    { clip: 'attack2', windup: 0.085, active: 0.070, recover: 0.20,
+      damage: 13, knock: 2.8, lift: 0.0, stop: 0.055, shake: 0.10, reach: 1.60,
       arc: 1.7, stun: 0.24, advance: 1.30 },
-    { clip: 'attack3', windup: 0.17, active: 0.14, recover: 0.40,
-      damage: 28, knock: 7.0, lift: 3.2, stop: 0.115, shake: 0.26, reach: 2.05,
-      arc: 1.9, stun: 0.55, advance: 2.10 },
+    // THE FINISHER IGNORES POISE. Stagger resistance made it stop launching:
+    // once an enemy had been staggered even once its budget was 22 x 1.9 = 42,
+    // the 28-damage finisher was absorbed, and the whole air game downstream of
+    // the launch quietly stopped existing. The suite caught it as "lift 0.0
+    // m/s". Giving the last link the break is also a better rule than the one
+    // it replaces: the first two links chip, the third one is what a committed
+    // enemy has to be afraid of, and that is a reason to finish the chain
+    // rather than to keep restarting it.
+    { clip: 'attack3', windup: 0.240, active: 0.060, recover: 0.40,
+      damage: 28, knock: 7.0, lift: 3.2, stop: 0.115, shake: 0.26, reach: 1.85,
+      arc: 1.9, stun: 0.55, advance: 2.10, breaks: true },
   ],
   // THE FALLING CUT. Not part of the chain, and deliberately not a fourth hit:
   // it exists because the finisher LAUNCHES, and a launch with nothing to do
@@ -70,7 +102,18 @@ export const TUNE = {
 export const SPECIES = {
   nettle: {
     url: '/assets/nettle.glb', far: 42,
-    hp: 40,
+    // 62, NOT 40. The chain does 12 + 13 + 28 = 53, so at 40 a swarmer died
+    // inside one chain -- and instrumenting the final encounter showed exactly
+    // what that costs: across a ten-second fight each of the three Nettles
+    // entered `telegraph` ONCE, was staggered out of it, and died. Between
+    // them they landed nothing. The only damage the player took all fight was
+    // two Bellow slams, which is why every play rate I measured lost precisely
+    // 64 HP and why slipping changed nothing: there was nothing to slip.
+    //
+    // A swarmer has to survive a chain to get a second wind-up. At 62 the full
+    // chain leaves it on 9 and one more link finishes it, so killing one still
+    // costs one commitment -- it just no longer happens before it can act.
+    hp: 62,
     // 0.56, not 0.42: the quills reach a good 15 cm past the body, and the
     // player push-out keeps centres at radius + 0.42 -- so at the old value a
     // nettle stood close enough to put its spines through the player's coat.
@@ -100,7 +143,10 @@ export const SPECIES = {
     look: {
       hide:  { rimStrength: 0.55 },
       belly: { rimStrength: 0.40 },
-      quill: { rimStrength: 0.95, rimColor: 0xfff0c0 },
+      // 0.42, not 0.95: a rim that strong on a starburst of thin spines lights
+      // every one of them along its whole length rather than at its edge, which
+      // is most of how the quills ended up brighter than a sheep.
+      quill: { rimStrength: 0.42, rimColor: 0xffe8b0 },
     },
     // the quills stand up AND light up
     tell: ['quill'],
@@ -326,6 +372,8 @@ export function createCombat(ctx) {
     e.state = 'idle';
     e.t = 0;
     e.flash = 0;
+    e.resist = 1;
+    e.resistT = 0;
     e.dead = false;
     e.deadT = 0;
     e.hitLock = 0;
@@ -529,7 +577,7 @@ export function createCombat(ctx) {
 
   // -------------------------------------------------------------- damage
 
-  function hurtEnemy(e, dmg, fromPos, knock, lift, stop, shakeMag, stun) {
+  function hurtEnemy(e, dmg, fromPos, knock, lift, stop, shakeMag, stun, breaks) {
     if (e.dead) return;
     e.hp -= dmg;
     e.flash = 0.16;
@@ -540,8 +588,33 @@ export function createCombat(ctx) {
     _v.subVectors(e.pos, fromPos).setY(0);
     if (_v.lengthSq() < 1e-6) _v.set(0, 0, 1);
     _v.normalize();
-    e.vel.addScaledVector(_v, knock);
-    e.vel.y += lift;
+
+    // POISE MEANS IT DOES NOT MOVE YOU EITHER.
+    //
+    // Knockback used to be applied here, before the poise test below, so a hit
+    // that poise "absorbed" still shoved the enemy 2.6 m/s backwards. The
+    // comment down there says "it registers, it just does not stop" and that
+    // was false in the only way that matters: it stopped positionally. Three
+    // Nettles telegraphing for a third of a fight landed ZERO attacks across
+    // every rate I measured, because each of them was being pushed out of its
+    // own strike range by chip damage it was supposed to be shrugging off. The
+    // tells and the slip were unreachable content as a direct result.
+    //
+    // An absorbed hit keeps a fraction, so the impact still reads.
+    // `breaks` MEASURES AGAINST BASE POISE, it does not skip poise.
+    //
+    // The first version had the finisher ignore poise outright, and that broke
+    // the Bellow: its 999 poise is its identity -- "the enemy the finisher
+    // exists for", a commitment you have to respect and cannot mash out of --
+    // and a finisher that staggers it deletes that. Comparing against
+    // `spec.poise` rather than the running `poiseLeft` gives exactly the rule
+    // wanted: the finisher is never blocked by stagger RESISTANCE built up over
+    // a fight, and is still blocked by a brute's actual armour.
+    const committedNow = e.state === 'telegraph' || e.state === 'attack';
+    const budget = breaks ? (e.spec.poise ?? 0) : e.poiseLeft;
+    const absorbed = committedNow && budget - dmg > 0;
+    e.vel.addScaledVector(_v, absorbed ? knock * 0.12 : knock);
+    if (!absorbed) e.vel.y += lift;
 
     // AT THE CREATURE, not two metres over it. The burst was fixed-size white
     // points launched at up to 18 m/s upward, which on a 0.45 m Nettle read as
@@ -569,11 +642,37 @@ export function createCombat(ctx) {
     // The budget only exists while it is committed. Poking something that is
     // walking towards you still interrupts it, which is what makes closing the
     // distance the enemy's problem rather than a formality.
-    const committed = e.state === 'telegraph' || e.state === 'attack';
-    if (committed && (e.poiseLeft -= dmg) > 0) {
+    if (committedNow) e.poiseLeft -= dmg;
+    if (absorbed) {
       e.flash = 0.16;                 // it registers, it just does not stop
       return;
     }
+
+    // ...AND IT GETS HARDER EACH TIME.
+    //
+    // Poise alone is a per-attempt budget, and a budget you can pay every time
+    // is not a cost. Measured on the final encounter -- three Nettles and a
+    // Bellow -- with the player standing still, facing whatever was nearest and
+    // pressing attack on a timer and doing nothing else:
+    //
+    //   10 presses/s  4 dead in 7.2 s, 68 HP left, staggered 0% of frames
+    //    5 presses/s  4 dead in 8.0 s, 68 HP left
+    //  2.4 presses/s  4 dead in 13.1 s, 27 HP left
+    //
+    // Mashing was strictly better at BOTH killing and surviving, and playing
+    // deliberately cost 41 HP. The reason is here: the player was mid-swing 96%
+    // of frames, so every wind-up in the fight got broken the moment its poise
+    // ran out, and nothing ever reached its impact frame. The tells, the slip,
+    // the attack tokens and the poise budget itself were all unreachable
+    // content.
+    //
+    // So a stagger makes the next one cost more. `resist` climbs 0.9 per
+    // stagger and decays back over four seconds, so the first interrupt is
+    // free, the second costs about twice the poise and the third about three
+    // times. Interrupting a swarmer stays the right answer; interrupting
+    // everything, forever, by holding one button does not work any more.
+    e.resist = (e.resist || 1) + 0.9;
+    e.resistT = 4.0;
 
     // ...and the stun is the hit's, not a constant. A finisher that buys the
     // same 0.22 s as a jab makes the finisher pointless.
@@ -625,6 +724,22 @@ export function createCombat(ctx) {
     player.invuln = 1.2;
     player.step = -1;
     player.phase = 'none';
+    // ...AND EVERY OTHER PIECE OF STATE. This reset hp, dead, deadT, invuln,
+    // step, phase and lockTarget and stopped, so an audit measured `dodging =
+    // 0.303` and `dodgeCd = 0.50` immediately after a respawn: you came back
+    // mid-slip and unable to slip again for half a second. It is the one
+    // recovery path in the game and it has to leave the player clean.
+    player.dodging = 0;
+    player.dodgeT = 0;
+    player.dodgeCd = 0;
+    player.stagger = 0;
+    player.buffered = false;
+    player.airChain = 0;
+    player.pogo = 0;
+    player.sinceCombo = 99;
+    player.lastStep = -1;
+    player.knock.set(0, 0, 0);
+    if (player.hitThisSwing) player.hitThisSwing.clear();
     lockTarget = null;
   }
 
@@ -725,7 +840,7 @@ export function createCombat(ctx) {
         if (_v.x * fx2 + _v.z * fz < Math.cos(s.arc / 2)) continue;
       }
       player.hitThisSwing.add(e);
-      hurtEnemy(e, s.damage, p, s.knock, s.lift, s.stop, s.shake, s.stun);
+      hurtEnemy(e, s.damage, p, s.knock, s.lift, s.stop, s.shake, s.stun, s.breaks);
       // combat.js does not own the player's vertical velocity, so it raises a
       // flag and the movement code decides what to do with it
       // DIMINISHING, or a perfect player never has to land. Each bounce
@@ -890,6 +1005,8 @@ export function createCombat(ctx) {
       e.pos.copy(e.home);
       e.pos.y = ctx.groundAt(e.home.x, e.home.z, e.home.y + 3) ?? e.home.y;
       e.hp = e.spec.hp;
+      e.resist = 1;
+      e.resistT = 0;
       e.token = false;
       e.lockDir = null;
       e.state = 'idle';
@@ -899,6 +1016,9 @@ export function createCombat(ctx) {
     }
     e.mixer.update(dt);
     if (e.flash > 0) e.flash -= dt;
+    // stagger resistance decays, so a fight you walk away from and come back to
+    // starts from the same place it did the first time
+    if (e.resistT > 0 && (e.resistT -= dt) <= 0) { e.resist = 1; e.resistT = 0; }
 
     // THE WIND-UP GLOWS.
     //
@@ -975,7 +1095,12 @@ export function createCombat(ctx) {
         _v.subVectors(e.home, e.pos).setY(0);
         const d = _v.length();
         e.hp = Math.min(e.spec.hp, e.hp + e.spec.hp * 0.35 * dt);
-        if (d < 0.6) { setState(e, 'idle'); e.hp = e.spec.hp; break; }
+        if (d < 0.6) {
+          setState(e, 'idle');
+          e.hp = e.spec.hp;
+          e.resist = 1; e.resistT = 0;    // it got away; the fight starts over
+          break;
+        }
         faceToward(e, e.home, dt, 5);
         e.vel.addScaledVector(_v.divideScalar(d), e.spec.speed * 7 * dt);
         break;
@@ -991,7 +1116,7 @@ export function createCombat(ctx) {
         // do not all pile in at once: only a couple hold an attack token
         if (dist <= e.spec.strikeRange && attackTokens() < 2) {
           setState(e, 'telegraph'); e.token = true;
-          e.poiseLeft = e.spec.poise ?? 0;
+          e.poiseLeft = (e.spec.poise ?? 0) * (e.resist || 1);
           play(e, 'telegraph', 0.06);
         }
         break;
@@ -1004,7 +1129,7 @@ export function createCombat(ctx) {
         e.vel.multiplyScalar(0.80);
         if (e.t >= e.spec.telegraph) {
           setState(e, 'attack');
-          e.poiseLeft = e.spec.poise ?? 0;
+          e.poiseLeft = (e.spec.poise ?? 0) * (e.resist || 1);
           play(e, 'attack', 0.04);
           _v.subVectors(p, e.pos).setY(0).normalize();
           // a charger COMMITS: the direction is locked in now, and no amount
@@ -1170,7 +1295,13 @@ export function createCombat(ctx) {
       if (e.dead) continue;
       _v.subVectors(e.pos, p).setY(0);
       let d = _v.length();
-      const min = e.spec.radius + 0.42;
+      // 0.62, not 0.42. The player has a body too, and this formula only ever
+      // knew about the enemy's -- so a Nettle whose 0.56 m radius is measured
+      // to the QUILL TIPS sat 0.98 m from her centre, which put spines through
+      // her sleeve any time an arm was out. Her own collision radius is 0.35;
+      // 0.62 clears it with a little air, and melee reach is 1.55, so this is
+      // still well inside the swing.
+      const min = e.spec.radius + 0.62;
       if (d > min) continue;
       if (d < 1e-4) { _v.set(Math.sin(e.facing), 0, Math.cos(e.facing)); d = 1; }
       const push = (min - d) * (e.state === 'attack' && e.spec.charge ? 0.35 : 1);

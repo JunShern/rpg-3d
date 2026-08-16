@@ -245,8 +245,28 @@ def build_terrain(M, step=TERRAIN_STEP):
             # `_path_weight` field that describes the transition already existed
             # and was being used only for height -- it is what picks the band
             # now, and a third material fills the middle of it.
-            w = _path_weight(x, y)
-            (dirt if w > 0.72 else verge if w > 0.18 else grass) \
+            # ...AND THE BAND EDGE IS RAGGED, not a contour line.
+            #
+            # Three bands off a smooth field still put every boundary on an
+            # exact iso-line of that field, which on a regular 1.6 m grid is a
+            # clean diagonal staircase -- an audit called it a knife edge and
+            # was right, in seven separate captures, after this was written
+            # down as fixed. A dirt track's edge is not a curve; it is where the
+            # grass happens to have given up. Two octaves of cheap noise on the
+            # weight before the threshold breaks each boundary into interlocking
+            # fingers of grass and verge, which is the same three materials and
+            # no extra triangles.
+            # The frequencies matter as much as the amplitude: the grid is
+            # 1.6 m, so a five-metre wavelength makes three-face blobs and the
+            # verge reads as a checkerboard spreading into the field. These
+            # periods are 2-3 m, which is one to two faces -- fingers, not
+            # patches -- and the total amplitude is 0.165, enough to break the
+            # contour and not enough to widen the road.
+            n = (0.075 * math.sin(x * 2.10 + y * 1.70)
+                 + 0.055 * math.sin(x * 4.30 - y * 3.90 + 1.9)
+                 + 0.035 * math.sin(x * 7.70 + y * 6.10 + 0.4))
+            w = _path_weight(x, y) + n
+            (dirt if w > 0.76 else verge if w > 0.16 else grass) \
                 .append(len(faces) - 1)
 
     # recalc=False: the winding above is (i,j) -> (i+1,j) -> (i+1,j+1) -> (i,j+1),
@@ -363,11 +383,13 @@ def tree(M, t, x, y, scale):
     ], at="end", steps=2, height=0.1), seg=8, mat=M["bark"], squircle=2.6))
     for dx, dy, dz, r in ((0, 0, 1.00, 1.45), (0.52, 0.20, 1.32, 1.02),
                           (-0.46, -0.26, 1.26, 0.94), (0.10, -0.50, 1.44, 0.80)):
-        t.add(K.blob(f"canopy{len(t.parts)}",
-                     (x + dx * scale, y + dy * scale, z + h * dz),
+        cx, cy, cz = x + dx * scale, y + dy * scale, z + h * dz
+        t.add(K.blob(f"canopy{len(t.parts)}", (cx, cy, cz),
                      (r * scale, r * scale, r * scale * 0.82), None,
                      M["leaf"] if (len(t.parts) % 3) else M["leaf_lo"],
                      seg=11, rings=7, squircle=2.2))
+        # the camera must not end up inside this; walking under it is fine
+        t.camblock(cx, cy, cz, r * scale * 1.05)
     t.solid(x, y, 0.42 * scale, 0.42 * scale, top=z + h)
 
 

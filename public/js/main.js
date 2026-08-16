@@ -58,10 +58,23 @@ key.shadow.bias = -0.0004;
 key.shadow.normalBias = 0.06;
 scene.add(key, key.target);
 
-// Fill stays LOW: piling on ambient lifts the shadow band toward the lit band
-// until the toon banding stops reading and the whole scene turns pastel.
-scene.add(new THREE.HemisphereLight(0xbcdcff, 0x6a6058, 0.62));
-scene.add(new THREE.AmbientLight(0x6d7fa0, 0.20));
+// THE FILL IS NEUTRAL, NOT BLUE.
+//
+// It used to be a 0xbcdcff sky over a 0x6a6058 ground at 0.62, plus a 0x6d7fa0
+// ambient at 0.20 -- and the note here said fill had to stay low or the toon
+// banding would stop reading. That was the right worry aimed at the wrong
+// control. The plaza is a courtyard ringed by nine buildings, so most of it is
+// in shade most of the time, and in shade a surface is mostly FILL COLOUR: with
+// the fill that blue, warm plaster, terracotta roof, teal shutters and a red
+// awning all collapsed into one brown-navy value. An A/B with the shadow map
+// off showed five distinguishable colours in the same frame that shows one with
+// it on, which is a legibility failure, not a contrast choice.
+//
+// So the fill is brighter and much closer to neutral -- shade is now a darker
+// value OF the material rather than a wash of sky over it -- and the contrast
+// that was being protected is protected where it belongs, in the ramp.
+scene.add(new THREE.HemisphereLight(0xd2e2ee, 0x8f7f6a, 0.88));
+scene.add(new THREE.AmbientLight(0x9d9aa4, 0.26));
 
 // ------------------------------------------------------------------ outlines
 
@@ -125,7 +138,12 @@ const surfaceOf = (matName) => (matName || '').toLowerCase().replace(/_tex$/, ''
 // `ridge_a`/`ridge_b` are the painted backdrop: unlit on purpose, because a
 // silhouette 200 m away that responds to the key light is a silhouette that
 // swings with it, and aerial perspective is already baked into the colour.
-const TOWN_FLAT = new Set(['lamp', 'ridge_a', 'ridge_b']);
+// GLASS IS IN HERE NOW. The comment above has said "glass reads better as a
+// flat pane than as a surface" since it was written and the set never contained
+// it, so every shopfront on the shaded side of the square was a black
+// rectangle -- in a capture framed ON a shopfront, the shopfront was the least
+// readable thing in it.
+const TOWN_FLAT = new Set(['lamp', 'glass', 'ridge_a', 'ridge_b']);
 // ...and out of the fog. The fog reaches 130 m; the rings are at 185 and 245,
 // so leaving them in would fade them to exactly the sky and there would be no
 // backdrop at all.
@@ -196,6 +214,9 @@ const TOWN_LOOK = {
 
 const SOLIDS = [];         // oriented boxes, from every region's manifest
 const PLATFORMS = [];      // flat tops ABOVE the analytic ground
+// Spheres the camera must not enter and nothing else knows about -- tree
+// canopies, chiefly. See Town.camblock for why this is a separate list.
+const CAM_BLOCKERS = [];
 let terrain = null;        // analytic ground for the meadow
 let terrainProbes = [];
 const FLOORS = [];         // meshes the ground raycast targets
@@ -273,6 +294,7 @@ function absorbRegion(root, manifest) {
     if (/FLOOR/i.test(o.name || '')) FLOORS.push(o);
   });
   for (const p of manifest.platforms || []) PLATFORMS.push(p);
+  for (const c of manifest.camBlockers || []) CAM_BLOCKERS.push(c);
   for (const s of manifest.solids || []) {
     SOLIDS.push({
       x: s.x, z: s.z, hx: s.hx, hz: s.hz, top: s.top ?? 3,
@@ -477,6 +499,10 @@ function play(name, fade = 0.22) {
   if (!cur) return;
   const next = cur.clips[name];
   if (!next || next === cur.current) return;
+  // RATE-MATCH THE RUN so the feet keep up with the ground. Foot IK plants the
+  // sole wherever the clip says it should be, so a body moving faster than its
+  // own stride does not read as "fast", it reads as the floor being ice.
+  if (name === 'run') next.setEffectiveTimeScale(SPEED / RUN_CYCLE);
   next.reset().setEffectiveWeight(1).play();
   if (cur.current) next.crossFadeFrom(cur.current, fade, false);
   cur.current = next;
@@ -627,6 +653,30 @@ function rayCastSolids(ox, oy, oz, dx, dy, dz, maxD) {
     if (!slab(loz, ldz, -b.hz, b.hz)) continue;
     if (!slab(oy, dy, -0.5, b.top)) continue;
     if (t0 > 0 && t0 < best) best = t0;
+  }
+  return best;
+}
+
+/**
+ * The nearest camera blocker along the boom. Ray-vs-sphere, no early exit,
+ * because there are a few hundred of these and the test is eight multiplies.
+ *
+ * The ray starts at the look-at point, which is inside the player -- so a
+ * sphere that CONTAINS the origin returns 0 and pins the camera on her
+ * shoulder. That is the right answer: standing inside a canopy, the closest
+ * the camera can get to a clear shot is right behind her head.
+ */
+function rayCastBlockers(ox, oy, oz, dx, dy, dz, maxD) {
+  let best = maxD;
+  for (const b of CAM_BLOCKERS) {
+    const ex = b.x - ox, ey = b.y - oy, ez = b.z - oz;
+    const proj = ex * dx + ey * dy + ez * dz;
+    const d2 = ex * ex + ey * ey + ez * ez - proj * proj;
+    const r2 = b.r * b.r;
+    if (d2 > r2) continue;                      // the line misses it entirely
+    const half = Math.sqrt(r2 - d2);
+    const t = proj - half;
+    if (t < best) best = Math.max(0, t);
   }
   return best;
 }
@@ -836,7 +886,16 @@ const pos = new THREE.Vector3(0, 0, 7);
 // at az = PI, which puts it on the -Z side -- i.e. BEHIND a hero facing +Z.
 // Starting facing at PI instead had the camera staring him in the face.
 let facing = 0;
-const SPEED = 3.0;
+// 4.6, not 3.0. The meadow is ninety metres deep and crossing it at a walking
+// pace is most of the time you spend in the demo.
+//
+// The `run` clip was authored against 3.0 m/s, so raising this alone puts the
+// feet a third out of step with the ground -- which is the same skating bug the
+// enemies already had and `matchGait` already fixes for them. RUN_CYCLE is the
+// speed the clip was drawn for, and the player's run action is rate-matched to
+// the ratio.
+const SPEED = 4.6;
+const RUN_CYCLE = 3.0;
 const CHAR_R = 0.38;
 const STEP_MAX = 0.45;                    // stairs pass, a 1.1 m terrace does not
 // g is well above 9.81: real gravity makes a 1 m jump hang for almost a second,
@@ -955,22 +1014,33 @@ const deadOverlay = document.getElementById('dead');
 // along the route out of town so the fights escalate as you walk it, and each
 // arms once when you get near it. The plaza one is the exception: it keeps
 // refilling, because it is where the combat gets tuned.
+// THE TOWN IS SAFE, and there are fewer of them everywhere else.
+//
+// There was a three-Nettle group standing in the plaza that refilled when you
+// wiped it, so the square you spawn in -- shopfronts, awnings, a fountain,
+// people's front doors -- was a permanent monster pen. A town reads as a town
+// because nothing is trying to kill you in it; it is also the only place in the
+// demo you can look at the architecture, which you cannot do while being
+// swarmed. Combat starts past the gate now.
+//
+// The meadow groups are cut from 3-4 down to 2-3. With a swarmer at 62 HP and
+// the finisher as the poise breaker, three Nettles plus a Bellow was long
+// rather than hard -- the fight ran thirteen seconds and most of it was the
+// third and fourth enemy waiting its turn behind the attack-token cap.
 const ENCOUNTERS = [
-  { x: 0.5,  z: 6.2,  r: 4.2, trigger: 18, refill: true,
-    mix: ['nettle', 'nettle', 'nettle'] },
   // sited ON the route -- the path runs x = -1 -> 2.9 -> 8.5 -> 13 as it climbs,
   // so these are what you walk into rather than what you'd have to go find
   // spaced further apart than they trigger, so you fight one group at a time --
   // overlapping them turned the hill into seventeen things at once, which is a
   // pile rather than an encounter
   { x: 3.0,  z: -32,  r: 5.5, trigger: 15,
-    mix: ['nettle', 'nettle', 'curler'] },
+    mix: ['nettle', 'nettle'] },
   { x: 6.0,  z: -54,  r: 6.5, trigger: 16,
-    mix: ['curler', 'nettle', 'nettle', 'nettle'] },
+    mix: ['curler', 'nettle'] },
   { x: 13.0, z: -74,  r: 6.5, trigger: 16,
-    mix: ['curler', 'curler', 'nettle'] },
+    mix: ['curler', 'nettle'] },
   { x: 24.0, z: -84,  r: 8.5, trigger: 20,          // at the foot of the hill
-    mix: ['bellow', 'nettle', 'nettle', 'nettle'] },
+    mix: ['bellow', 'nettle', 'nettle'] },
 ];
 
 function startCombat() {
@@ -978,6 +1048,7 @@ function startCombat() {
   scene.add(lockRing);
   scene.add(threatLine);
   scene.add(threatArc);
+  scene.add(threatArcEdge);
   combat = createCombat({
     scene,
     camera,
@@ -1005,7 +1076,13 @@ function startCombat() {
   });
   Promise.all(['nettle', 'curler', 'bellow', 'woolt', 'flitter'].map((n) => combat.load(n)))
     .then(() => {
-      armEncounter(ENCOUNTERS[0]);
+      // NOTHING IS ARMED AT LOAD. This used to arm ENCOUNTERS[0] so the demo
+      // had something to fight the moment it opened -- and ENCOUNTERS[0] was
+      // the group standing in the plaza. With the town cleared, arming the
+      // first entry now means the first meadow group is awake and waiting
+      // before you have left the square, which is the same mistake pointed at
+      // a different place. They arm when you walk near them, which is what the
+      // trigger radius is for.
       seedHerds();
       console.log('[combat] ready:', Object.keys(SPECIES).join(', '));
     })
@@ -1015,11 +1092,13 @@ function startCombat() {
 // Grazers are not an encounter -- they are furniture that moves. They exist
 // from the moment the meadow does, off to the sides of the route, so the field
 // is inhabited whether or not you go looking for a fight.
+// Ambient life is thinner too. The HUD counts every creature in the world as a
+// "foe" and it was reading 48 -- most of them sheep and birds, none of them a
+// threat, all of them contributing to "there are way too many enemies".
 const HERDS = [
-  { x: -9,  z: -38, n: 3 },
-  { x: 21,  z: -58, n: 4 },
-  { x: -4,  z: -70, n: 2 },
-  { x: 34,  z: -92, n: 3 },
+  { x: -9,  z: -38, n: 2 },
+  { x: 21,  z: -58, n: 3 },
+  { x: 34,  z: -92, n: 2 },
 ];
 
 // Flocks sit ON the route, unlike the herds -- you are meant to walk into them.
@@ -1029,12 +1108,11 @@ const FLOCKS = [
   // are the cheapest possible inhabitants, and they do something better than
   // decorate: a fight breaking out scatters them, so the plaza reacts to the
   // thing happening in it.
-  { x: -4.5, z: 1.5,  n: 6 },
-  { x: 6.5,  z: -6.0, n: 5 },
-  { x: -2,  z: -24, n: 5 },
-  { x: 6,   z: -44, n: 6 },
-  { x: 10,  z: -62, n: 5 },
-  { x: 16,  z: -86, n: 6 },
+  { x: -4.5, z: 1.5,  n: 4 },
+  { x: 6.5,  z: -6.0, n: 3 },
+  { x: -2,  z: -24, n: 3 },
+  { x: 6,   z: -44, n: 3 },
+  { x: 16,  z: -86, n: 4 },
 ];
 
 function seedHerds() {
@@ -1055,7 +1133,6 @@ function seedHerds() {
 }
 
 function armEncounter(enc) {
-  enc.armed = true;
   enc.spawned = [];
   enc.mix.forEach((species, i) => {
     const a = (i / enc.mix.length) * Math.PI * 2 + enc.z;
@@ -1063,6 +1140,14 @@ function armEncounter(enc) {
     const e = combat.spawn(species, enc.x + Math.cos(a) * r, enc.z + Math.sin(a) * r);
     if (e) enc.spawned.push(e);
   });
+  // ONLY ARMED IF IT ACTUALLY SPAWNED. `combat.spawn` returns null until that
+  // species' GLB has finished loading, and this used to set `armed = true`
+  // before finding out -- so walking straight to an encounter on a cold load
+  // armed it with nothing, permanently. It never refills, because refilling is
+  // what happens when an armed group is WIPED, and a group of zero is already
+  // wiped. Silent, and it is exactly the sort of thing that only ever happens
+  // to someone on a slow connection.
+  enc.armed = enc.spawned.length === enc.mix.length;
 }
 
 // Test hook: stop encounters arming and refilling.
@@ -1073,6 +1158,27 @@ function armEncounter(enc) {
 // is enough to stop the probe landing a single hit.
 let encountersFrozen = false;
 globalThis.__freezeEncounters = (v) => { encountersFrozen = !!v; };
+globalThis.__encounters = ENCOUNTERS;
+// Test hook: put every encounter back exactly as it was at load.
+//
+// A dead enemy is spliced out of the roster 1.9 s later, so there is nothing
+// left to revive -- and an encounter only refills when it is completely wiped.
+// A suite whose kill tests each remove one Nettle from the plaza group
+// therefore drifts: two checks downstream, "enemies cannot stand on the
+// player" was measuring one enemy and "the leash brings them home" was
+// measuring nought out of one, both about a game that was working.
+globalThis.__respawnEncounters = () => {
+  for (const e of combat.enemies) { e.dead = true; e.deadT = 99; e.group.visible = false; }
+  for (const enc of ENCOUNTERS) { enc.armed = false; enc.spawned = []; }
+  frame(1 / 60);                       // let the roster actually drop them
+  for (const enc of ENCOUNTERS) armEncounter(enc);
+  // AND THE AMBIENT LIFE. This re-armed the encounters and stopped, so a suite
+  // that called it to get a deterministic roster deleted every grazer and bird
+  // in the world on the way -- and then failed its own "all five species are
+  // alive" check, about a game in which all five were fine.
+  seedHerds();
+  return combat.enemies.filter((e) => !e.dead).length;
+};
 
 function updateEncounters() {
   if (encountersFrozen) return;
@@ -1216,7 +1322,10 @@ const threatLine = (() => {
   g.translate(0, -0.5, 0);         // pivot at the near edge
   g.rotateX(-Math.PI / 2);
   const m = new THREE.MeshBasicMaterial({
-    color: 0x63dcff, transparent: true, opacity: 0.42,
+    // 0x2ec8ff, not 0x63dcff: the paler cyan at 0.3 alpha was a wash you had
+    // to hunt for on a beige path, which is exactly the ground the Curler
+    // charges you across.
+    color: 0x2ec8ff, transparent: true, opacity: 0.42,
     depthWrite: false, side: THREE.DoubleSide,
   });
   const mesh = new THREE.Mesh(g, m);
@@ -1234,23 +1343,76 @@ const threatLine = (() => {
  * Bellow's 2.5 rad reads as most of a half-circle, the Nettle's 1.45 as a
  * narrow slice, and you can tell which you are standing in without being told.
  */
+/**
+ * A sector of `arc` radians, unit radius, its axis along local +Z.
+ *
+ * THE ANGLE IS IN THE GEOMETRY. The first version drew one half-disc and
+ * narrowed it by scaling X -- which cannot narrow an angle: the extreme rays of
+ * a half-disc lie on the local +/-X axis and stay at exactly +/-90 degrees under
+ * any X scale. Measured off the mesh's own world vertices, the Nettle's true
+ * cone is +/-41.5 degrees out to 1.90 m and the Bellow's +/-71.6 degrees out to
+ * 2.85 m, while BOTH were painted at +/-90 degrees and, because the squash also
+ * shortens every ray off the axis, only 1.14 m and 2.30 m respectively at the
+ * cone's own edge. So the tell claimed safe ground along both edges of the real
+ * cone -- a 0.55 m band on the Nettle and 0.76 m on the Bellow, and the Bellow
+ * hits for a third of your health. It is the only "where will this land"
+ * information in the game and it was wrong in the direction that kills you.
+ *
+ * One geometry per distinct arc, built once and reused.
+ */
+const SECTORS = new Map();
+function sectorGeometry(arc) {
+  const key = arc.toFixed(3);
+  let g = SECTORS.get(key);
+  if (!g) {
+    g = new THREE.CircleGeometry(1, 30, Math.PI + (Math.PI - arc) / 2, arc);
+    g.rotateX(-Math.PI / 2);
+    SECTORS.set(key, g);
+  }
+  return g;
+}
+
 function sectorMesh(color) {
-  // thetaStart PI, not -PI/2: the same axis error as the charge lane, except
-  // this one was ninety degrees rather than a hundred and eighty, so the
-  // Bellow's slam footprint was painted across its own flank.
-  const g = new THREE.CircleGeometry(1, 28, Math.PI, Math.PI);
-  g.rotateX(-Math.PI / 2);
   const m = new THREE.MeshBasicMaterial({
     color, transparent: true, opacity: 0.34,
     depthWrite: false, side: THREE.DoubleSide,
   });
-  const mesh = new THREE.Mesh(g, m);
+  const mesh = new THREE.Mesh(sectorGeometry(Math.PI), m);
   mesh.renderOrder = 1;
   mesh.visible = false;
   mesh.frustumCulled = false;
   return mesh;
 }
 const threatArc = sectorMesh(0xff8a3a);
+// A DARK EDGE ROUND IT. The fill alone is a wash on grass -- a Nettle's pale
+// gold at 0.2-0.5 alpha over pale-green meadow was not visible AT ALL in a
+// capture taken 2.4 m from a winding-up Nettle. An outline survives any ground
+// it is drawn on, which a tinted fill does not.
+const threatArcEdge = (() => {
+  const m = new THREE.LineBasicMaterial({
+    color: 0x2a2028, transparent: true, opacity: 0.85, depthWrite: false,
+  });
+  const line = new THREE.LineLoop(new THREE.BufferGeometry(), m);
+  line.renderOrder = 2;
+  line.visible = false;
+  line.frustumCulled = false;
+  return line;
+})();
+const EDGES = new Map();
+function sectorEdge(arc) {
+  const key = arc.toFixed(3);
+  let g = EDGES.get(key);
+  if (!g) {
+    const pts = [new THREE.Vector3(0, 0, 0)];
+    for (let i = 0; i <= 30; i++) {
+      const th = -arc / 2 + (arc * i) / 30;
+      pts.push(new THREE.Vector3(Math.sin(th), 0, Math.cos(th)));
+    }
+    g = new THREE.BufferGeometry().setFromPoints(pts);
+    EDGES.set(key, g);
+  }
+  return g;
+}
 
 function updateThreatLines(dt) {
   if (!combat) return;
@@ -1261,21 +1423,30 @@ function updateThreatLines(dt) {
     else if (!arced) arced = e;
   }
 
-  // the swingers: an arc sized to the reach and width of what is coming
+  // the swingers: the arc IS the cone -- same half-angle, same reach as the
+  // test in combat.js's 'attack' case, so what is painted is what connects
   threatArc.visible = !!arced;
+  threatArcEdge.visible = !!arced;
   if (arced) {
     const r = arced.spec.strikeRange + 0.35;
+    const arc = arced.spec.hitArc ?? 1.7;
     const k = Math.min(1, arced.t / Math.max(0.05, arced.spec.telegraph));
-    threatArc.position.set(arced.pos.x, arced.pos.y + 0.13, arced.pos.z);
-    threatArc.rotation.y = arced.facing;
-    // CircleGeometry's sector is authored at PI wide, so scaling it is wrong --
-    // set the arc by rebuilding only when the species changes would be worse.
-    // Instead squash it: a 2.5 rad slam keeps most of the half-circle, a
-    // 1.45 rad lunge is pulled in to a slice.
-    const w = (arced.spec.hitArc ?? 1.7) / Math.PI;
-    threatArc.scale.set(r * w, 1, r);
-    threatArc.material.opacity = 0.20 + 0.30 * k;
-    threatArc.material.color.set(arced.name === 'bellow' ? 0xff8a3a : 0xfff0b0);
+    threatArc.geometry = sectorGeometry(arc);
+    threatArcEdge.geometry = sectorEdge(arc);
+    for (const m of [threatArc, threatArcEdge]) {
+      m.position.set(arced.pos.x, arced.pos.y + 0.13, arced.pos.z);
+      m.rotation.y = arced.facing;
+      m.scale.set(r, 1, r);
+    }
+    threatArcEdge.position.y += 0.005;   // the edge sits on top of its own fill
+    // 0.34 -> 0.62, because this is drawn on pale-green grass as often as on
+    // beige path and the low value was invisible on both
+    threatArc.material.opacity = 0.34 + 0.28 * k;
+    threatArcEdge.material.opacity = 0.55 + 0.35 * k;
+    // The Nettle's was 0xfff0b0 -- pale gold on pale green, which is the one
+    // hue the meadow cannot show. Both accents are now saturated enough to sit
+    // on grass, and the dark edge carries the shape wherever the fill does not.
+    threatArc.material.color.set(arced.name === 'bellow' ? 0xff7a26 : 0xffd23f);
   }
 
   if (!shown) { threatLine.visible = false; return; }
@@ -1291,7 +1462,7 @@ function updateThreatLines(dt) {
   const k = Math.min(1, shown.t / Math.max(0.05, shown.spec.telegraph));
   // it has to be seen from across a field on a beige path, so it starts
   // visible and grows -- 0.16 was invisible at the moment it mattered most
-  threatLine.material.opacity = 0.30 + 0.34 * k;
+  threatLine.material.opacity = 0.40 + 0.38 * k;
 }
 
 /** Four evenly spaced ring segments, merged into one buffer geometry. */
@@ -1457,7 +1628,23 @@ function step(dt) {
     tryMove(Math.sin(facing) * k, Math.cos(facing) * k);
   }
 
-  // face the target even while standing still, and while swinging
+  // How far off the player->target line the boom sits, and how high it rides
+// while locked. Swept against the measured NDC separation between target and
+// player at 2.2 m, which is the range melee actually happens at:
+//   0.00 rad -> the target is AT the player's screen position. This was the
+//               shipped behaviour: locked on at 2.18 m, the enemy projected to
+//               (0.02, -0.09) and all you could see of it was one spike past
+//               her shoulder.
+//   0.30 rad -> 0.16 -- clear of her centre, still tucked at her shoulder
+//   0.55 rad -> 0.19, and in the capture the enemy is plainly beside her with
+//               the bracket over it. 
+// Polar 1.06 rather than 1.16 rides the camera higher so the pair separate
+// vertically as well, which is what keeps them apart when the target is
+// directly up-slope.
+const LOCK_YAW_OFF = 0.55;
+const LOCK_POLAR = 1.06;
+
+// face the target even while standing still, and while swinging
   {
     const lt = combat && combat.lockTarget;
     if (lt && !lt.dead) {
@@ -1525,20 +1712,36 @@ function step(dt) {
   cam.autoDelay = Math.max(0, cam.autoDelay - dt);
   const lock = combat && combat.lockTarget;
   if (lock && !lock.dead) {
-    // sit behind the player on the player->target line, so both are in frame
+    // BEHIND, BUT OFF THE LINE.
+    //
+    // This used to sit exactly on the player->target line, which is precisely
+    // the axis along which the target is hidden by the player's own body.
+    // Measured with one enemy at 2.18 m: locked on, it projected to NDC
+    // (0.02, -0.09) -- dead centre, which is also where the player is -- and
+    // all you could see of it was one spike past her shoulder. The core
+    // targeting mechanic framed her back.
+    //
+    // A fixed 17-degree yaw offset puts the target clear of her silhouette at
+    // melee range and stays put as the distance changes, because what has to
+    // clear is her angular width from the CAMERA, which does not depend on how
+    // far away the target is. The sign is fixed rather than chosen per frame:
+    // picking the nearer side flips the camera through the player every time
+    // you cross the line, which is worse than either side.
     const dx = lock.pos.x - pos.x, dz = lock.pos.z - pos.z;
-    const want = Math.atan2(-dx, -dz);
+    const want = Math.atan2(-dx, -dz) + LOCK_YAW_OFF;
     const d = ((want - cam.az + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
     cam.az += d * Math.min(1, dt * 3.4);
-    cam.polar += (1.16 - cam.polar) * Math.min(1, dt * 2.4);
+    cam.polar += (LOCK_POLAR - cam.polar) * Math.min(1, dt * 2.4);
   } else if (isMoving && cam.autoDelay === 0) {
     const want = facing + Math.PI;
     const d = ((want - cam.az + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
     cam.az += d * Math.min(1, dt * 1.3);
   }
   // bias the look-at toward the target so the enemy is not shoved off-screen
-  const bx = lock && !lock.dead ? (lock.pos.x - pos.x) * 0.22 : 0;
-  const bz = lock && !lock.dead ? (lock.pos.z - pos.z) * 0.22 : 0;
+  // 0.30, not 0.22: with the boom off-axis the look-at has to carry more of
+  // the framing, or the pair drifts to the edge of frame together.
+  const bx = lock && !lock.dead ? (lock.pos.x - pos.x) * 0.30 : 0;
+  const bz = lock && !lock.dead ? (lock.pos.z - pos.z) * 0.30 : 0;
   camTarget.lerp(_o.set(pos.x + bx, pos.y + 1.18, pos.z + bz), Math.min(1, dt * 9));
 
   const sp = Math.sin(cam.polar);
@@ -1546,8 +1749,10 @@ function step(dt) {
   // CAMERA COLLISION: pull in short of anything solid.  Without it the camera
   // walks into a facade and the screen fills with the inside of a wall -- which
   // in a town, unlike an open field, happens constantly.
-  const hitD = rayCastSolids(camTarget.x, camTarget.y, camTarget.z,
-                             camWant.x, camWant.y, camWant.z, cam.dist);
+  let hitD = rayCastSolids(camTarget.x, camTarget.y, camTarget.z,
+                           camWant.x, camWant.y, camWant.z, cam.dist);
+  hitD = rayCastBlockers(camTarget.x, camTarget.y, camTarget.z,
+                         camWant.x, camWant.y, camWant.z, hitD);
   // THE GROUND LIFTS THE BOOM; IT DOES NOT SHORTEN IT.
   //
   // Solids are boxes and the meadow is a height field, so nothing above stopped
@@ -1711,7 +1916,11 @@ function frame(dt) {
   hud.textContent =
     `${fps} fps  ·  ${cur ? cur.name : '—'}  ·  ${combat && combat.isStaggered() ? 'hurt' : slip.t > 0 ? 'slip' : attacking ? 'attack' : !grounded ? 'air'
         : landing ? 'land' : isMoving ? 'run' : 'idle'}`
-    + `${combat ? `  ·  ${combat.enemies.filter((e) => !e.dead).length} foes` : ''}`
+    // HOSTILES, not "every creature alive in the world". This said `48 foes`
+    // standing in an empty plaza, because it was counting sheep and birds --
+    // and a number that large is itself a report that the place is overrun,
+    // whether or not any of them can hurt you.
+    + `${combat ? `  ·  ${combat.enemies.filter((e) => !e.dead && e.spec.hostile).length} foes` : ''}`
     + `${combat && combat.lockTarget ? '  ·  LOCK' : ''}`
     + `  ·  ${renderer.info.render.calls} draws / `
     + `${renderer.info.render.triangles.toLocaleString()} tris`;

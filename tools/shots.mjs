@@ -33,7 +33,7 @@ const SHOTS = [
   { name: '01-plaza-fountain', warp: [0.6, 0, 5.6], az: 0, polar: 1.14, dist: 7.0 },
   { name: '02-plaza-shopfront', warp: [-11.5, 0, 9.2], az: Math.PI, polar: 1.22, dist: 7.0 },
   { name: '03-plaza-gallery', warp: [7.6, 0, -8.5], az: -Math.PI / 2, polar: 1.16, dist: 8.0 },
-  { name: '04-belltower', warp: [-1.0, 0, 8.0], az: Math.PI, polar: 0.92, dist: 9.0 },
+  { name: '04-belltower', warp: [-1.0, 0, -7.0], az: Math.PI, polar: 1.47, dist: 9.0 },
   { name: '05-gate-to-meadow', warp: [-1.0, 0, -5.5], az: 0, polar: 1.26, dist: 7.5 },
   { name: '06-path-climb', warp: [0.5, 0, -34.0], az: 0, polar: 1.24, dist: 8.5 },
   { name: '07-stream-ford', warp: [-1.0, 0, -41.0], az: -0.55, polar: 1.30, dist: 9.0 },

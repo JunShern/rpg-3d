@@ -53,6 +53,14 @@ const group = (name) => console.log(`\n\x1b[1m${name}\x1b[0m`);
 // a third of the draws. Physics-precision checks stay at 1/60.
 const SLOW = '1/20';
 
+// WHERE THE FIGHTING IS. The plaza used to hold a three-Nettle group that
+// refilled when wiped, and half this suite stood on the spawn point and waited
+// to be attacked. The town is deliberately empty now -- it is the one place you
+// can look at the architecture without being swarmed -- so anything that needs
+// live hostiles goes to the first meadow encounter instead.
+const FIGHT = [3, 6, -32];      // ENCOUNTERS[0] in main.js: two Nettles
+const FIGHT_AWAY = [3, 6, 4];   // 36 m north of it: outside the leash, inside the cull
+
 // --------------------------------------------------------------- page helpers
 //
 // `pinned` is the important one: it parks a live enemy at a fixed spot and
@@ -240,6 +248,20 @@ async function run() {
   await page.waitForFunction(
     'window.combat && combat.enemies.length > 0 && __sim({steps:1}).who', null, { timeout: 60000 });
   await page.evaluate(installHelpers);
+  // ARM THE ENCOUNTERS. Nothing is armed at load any more -- the town is empty
+  // and the meadow groups wake when you walk near them -- so a suite that grabs
+  // "the first live nettle" finds none until something has triggered.
+  // Wait for a WOOLT to exist, not for one species' proto. `seedHerds()` runs
+  // only after all five GLBs have resolved, so a grazer in the world is the one
+  // signal that means "the whole roster is up" -- polling `spawn('bellow')`
+  // succeeded as soon as the bellow finished, which on some runs was before the
+  // nettle, and the next check went looking for a live nettle and found none.
+  await page.waitForFunction("combat.enemies.some((e) => e.name === 'woolt')",
+                             null, { timeout: 90000 });
+  await page.evaluate(() => {
+    for (const e of combat.enemies) { e.dead = true; e.deadT = 99; }
+    __respawnEncounters();
+  });
 
   group('World');
 
@@ -273,15 +295,51 @@ async function run() {
   });
 
   await check('plaza and meadow are one continuous walk', () => {
-    const ys = [];
-    for (let z = 4; z >= -76; z -= 4) {
-      const px = z > -20 ? 0.5 : 1 + (-z - 20) * 0.19;
-      ys.push(+__sim({ warp: [px, 6, z], steps: 4 }).heroPos[1].toFixed(2));
+    // IT WALKS. Every sample here used to be a `warp`, which assigns
+    // `pos.y = groundAt(...)` directly -- so the check could not see a wall, a
+    // hole or a collider, and its 2.5 m tolerance was five times the 0.45 m
+    // step limit it was nominally testing. A 2.4 m barrier across the path
+    // passed. This holds W from the fountain to the far meadow and reports how
+    // far it actually got and the worst single-frame rise.
+    // az 0 puts the camera on the +z side looking toward -z, so camera-forward
+    // -- which is what W means -- is south, toward the meadow. Without pinning
+    // it the first run of this check walked the player NORTH into the town and
+    // reported a wall.
+    // NO FIGHT. This is a question about the world, not about combat: with the
+    // plaza group live she gets staggered, knocked sideways and walks a
+    // different route every run.
+    __freezeEncounters(true);
+    for (const e of combat.enemies) { e.dead = true; e.deadT = 99; e.group.visible = false; }
+    // START SOUTH OF THE FOUNTAIN, ON THE GATE AXIS. The fountain sits on x=0
+    // and the south range flanks the gate, so "hold W from the spawn point"
+    // walks into one or the other depending which way you dodge -- x=3.6 put
+    // her into the building at x=7 and the check reported a wall that is
+    // supposed to be there. The gate is the route; this walks it.
+    __sim({ warp: [-1.0, 6, -4.0], az: 0, steps: 20 });
+    let worst = 0, best = -99, stall = 0, stuckAt = null;
+    let prev = __sim({ steps: 0 }).heroPos;
+    for (let i = 0; i < 1800; i++) {
+      const now = __sim({ steps: 1, az: 0, held: ['KeyW'] }).heroPos;
+      worst = Math.max(worst, Math.abs(now[1] - prev[1]));
+      best = Math.max(best, now[1]);
+      // SUSTAINED lack of progress, not one frame of it. Brushing a collider
+      // stalls for a frame or two and that is not being stuck; forty
+      // consecutive frames at a standstill while holding W is.
+      stall = Math.abs(now[2] - prev[2]) < 0.004 ? stall + 1 : 0;
+      if (stall > 40 && stuckAt === null) stuckAt = now;
+      prev = now;
+      // THE FAR EDGE IS THE END, NOT A WALL. She reaches z = -110, which is
+      // where the meadow stops, and then stands against it -- which the stall
+      // detector called being stuck. Getting there is the pass condition.
+      if (now[2] < -100) break;
     }
-    let worst = 0;
-    for (let i = 1; i < ys.length; i++) worst = Math.max(worst, Math.abs(ys[i] - ys[i - 1]));
-    return { ok: worst < 2.5 && Math.max(...ys) > 1.5,
-             detail: `climbs to ${Math.max(...ys)} m, worst step ${worst.toFixed(2)} m` };
+    const end = __sim({ steps: 0 }).heroPos;
+    const walked = -4.0 - end[2];
+    __freezeEncounters(false);
+    return { ok: walked > 60 && worst < 0.5 && best > 1.5 && stuckAt === null,
+             detail: `walked ${walked.toFixed(1)} m south, climbed to ${best.toFixed(2)} m, `
+                   + `worst single frame ${worst.toFixed(3)} m`
+                   + (stuckAt ? ` -- STUCK at [${stuckAt.map((v) => v.toFixed(1))}]` : '') };
   });
 
   group('Lock-on and combo');
@@ -436,6 +494,11 @@ async function run() {
   const fresh = () => page.evaluate(() => {
     combat.respawn();
     __freezeEncounters(false);
+    // PUT THE ENCOUNTERS BACK. Each kill test permanently removes one member of
+    // a group, and a group only refills when it is wiped -- so by the time the
+    // separation and leash checks ran, the plaza held one Nettle and both were
+    // reporting failures about a game that was fine.
+    if (globalThis.__respawnEncounters) __respawnEncounters();
     // Clear test subjects away. Leaving them behind crowded the plaza with
     // seven nettles, and separation then shoved the real encounter eight to
     // twelve metres off its own posts -- which read as "the leash is broken".
@@ -500,28 +563,40 @@ async function run() {
 
   await fresh();          // the kill tests left half the roster parked
   await check('enemies cannot stand on the player', () => {
-    __sim({ warp: [0.5, 6, 6.2], steps: 80, dt: 1 / 20 });
+    __sim({ warp: FIGHT, steps: 80, dt: 1 / 20 });
     const [hx, hz] = window.__t.heroXZ();
     const near = combat.enemies.filter((e) => !e.dead && e.spec.hostile)
       .map((e) => ({ d: Math.hypot(e.pos.x - hx, e.pos.z - hz), r: e.spec.radius }))
       .filter((x) => x.d < 30);
     if (!near.length) return { ok: false, detail: 'nothing came near enough to test' };
-    const inside = near.filter((x) => x.d < x.r + 0.30);
+    // 0.90 m ABSOLUTE, not `radius + 0.30`. The old bound was derived from the
+    // same table the push-out reads, so it moved whenever the push-out moved
+    // and could never catch it being too small -- it asserted `>= radius+0.30`
+    // against code that sets exactly `radius + 0.42`. What actually matters is
+    // whether a body is inside the player's, and hers is about 0.35 m.
+    const inside = near.filter((x) => x.d < 0.90);
     return { ok: !inside.length,
              detail: `closest ${Math.min(...near.map((x) => x.d)).toFixed(2)} m of ${near.length}` };
   });
 
   await fresh();
   await check('encounters leash home and heal', () => {
-    __sim({ warp: [0.5, 6, 6.2], steps: 60, dt: 1 / 20 });
-    const grp = combat.enemies.filter((e) => !e.dead && e.name === 'nettle' && e.home.z > 0);
-    if (!grp.length) return { ok: false, detail: 'plaza group is empty' };
+    __sim({ warp: FIGHT, steps: 60, dt: 1 / 20 });
+    // ONE GROUP: the Nettles posted at the first meadow encounter. Collecting
+    // by side of the map picks up members of two different sites, some beyond
+    // the 42 m cull from the vantage below -- and the cull parks them at
+    // exactly 0 m from home, which reads as "teleported" rather than "leashed"
+    // and fails a check about a leash that works.
+    const grp = combat.enemies
+      .filter((e) => !e.dead && e.name === 'nettle'
+                     && Math.hypot(e.home.x - FIGHT[0], e.home.z - FIGHT[2]) < 9);
+    if (!grp.length) return { ok: false, detail: 'the meadow group is empty' };
     grp.forEach((e) => { e.hp = e.spec.hp * 0.5; });
     // STAY INSIDE THE CULL RADIUS. At 50 m the far-cull teleports them home and
     // restores their HP, so the check passed at exactly 0 m from home without
     // the leash ever running. 36 m is well outside the leash and inside the
     // 42 m cull, so they have to walk back under their own power.
-    __sim({ warp: [1, 6, -30], steps: 40 });
+    __sim({ warp: FIGHT_AWAY, steps: 40 });
     // KEEP THE PLAYER ALIVE while we wait. Standing thirty seconds in the
     // meadow gets you killed, and dying respawns you in the plaza -- next to
     // the very group whose leash we are measuring, which wakes them up and
@@ -548,13 +623,23 @@ async function run() {
     // `e.group.visible === !far` computed from the same distance and constant
     // is the code restating itself. Ask the RENDERER instead: standing among
     // them and standing far away should differ by real draw calls.
+    // SAME PLACE, SAME CAMERA, ONLY THE ENEMIES MOVE. Comparing the meadow to
+    // the plaza compares two different sets of scenery -- a ~200-draw
+    // difference measured against a 20-draw threshold, so the check passed on
+    // the buildings alone and would have kept passing with the cull deleted.
     __sim({ warp: [6, 6, -54], steps: 120 });
     const near = __sim({ steps: 1 }).draws;
-    __sim({ warp: [0.5, 6, 6.2], steps: 120 });
+    const home = combat.enemies.map((e) => e.home.clone());
+    combat.enemies.forEach((e, i) => { e.home.set(home[i].x, home[i].y, home[i].z - 300); });
+    combat.enemies.forEach((e) => { e.pos.z -= 300; });
+    __sim({ steps: 30 });
     const away = __sim({ steps: 1 }).draws;
+    combat.enemies.forEach((e, i) => { e.home.copy(home[i]); e.pos.copy(home[i]); });
+    __sim({ steps: 5 });
     const alive = combat.enemies.filter((e) => !e.dead).length;
     return { ok: away < near - 20,
-             detail: `${near} draws among them, ${away} away, ${alive} alive either way` };
+             detail: `${near} draws with them here, ${away} with them 300 m away, `
+                   + `${alive} alive either way` };
   });
 
   await fresh();
@@ -644,9 +729,22 @@ async function run() {
     let g = 0;
     while (b.state !== 'attack' && g++ < 1500) { __sim({ steps: 1 }); __face(b.pos.x, b.pos.z); }
     if (b.state !== 'attack') return { ok: false, detail: 'it never committed' };
-    for (let i = 0; i < 24; i++) { combat.attack(); __sim({ steps: 1 }); }
-    return { ok: b.state !== 'hurt',
-             detail: `after 24 frames of mashing it is in '${b.state}'` };
+    // THE HITS HAVE TO LAND. This mashed `attack()` and asserted the Bellow was
+    // not in 'hurt' -- which passes with ZERO hits landed, and zero hits is the
+    // normal outcome, because the Bellow's own slam staggers the player and a
+    // staggered player's `attack()` is refused. It was checking that a brute
+    // is unbreakable by a player who never swung. Damage dealt is the proof
+    // that the poise was actually tested.
+    const hp0 = b.hp;
+    for (let i = 0; i < 40; i++) {
+      combat.player.hp = combat.player.maxHP;    // isolate: do not be staggered out
+      combat.player.stagger = 0;
+      combat.attack();
+      __sim({ steps: 1 }); __face(b.pos.x, b.pos.z);
+    }
+    const dealt = Math.round(hp0 - b.hp);
+    return { ok: b.state !== 'hurt' && dealt >= 24,
+             detail: `${dealt} damage landed and it is in '${b.state}'` };
   });
 
   await check("a swarmer's wind-up breaks to a chain, not to one poke", () => {
@@ -672,7 +770,10 @@ async function run() {
       if (combat.attack() !== false) presses++;
       __sim({ steps: 1 }); __face(e.pos.x, e.pos.z);
     }
-    const broke = e.state !== 'telegraph';
+    // 'hurt', not merely "no longer winding up". The loop can outlast a 0.52 s
+    // telegraph, and a telegraph that simply EXPIRED also leaves the state !==
+    // 'telegraph' -- so the old test passed whether or not anything broke.
+    const broke = e.state === 'hurt';
     return { ok: afterOne === 'telegraph' && broke && presses > 1,
              // presses, not links: most of these are refused or buffered, so
              // the number is "how long the mashing took", not a damage count
@@ -737,7 +838,7 @@ async function run() {
     // guards. Observe the consequences instead: a swing in progress ends, and
     // the body is thrown.
     combat.respawn();
-    __sim({ warp: [0.5, 6, 6.2], steps: 150 });
+    __sim({ warp: FIGHT, steps: 150 });
     // START CLEAN. Walking in mid-stagger meant the very first `attack()` was
     // refused, the loop broke on that same frame, and the check reported "there
     // was no swing to take away" about a working feature.
@@ -861,6 +962,46 @@ async function run() {
   });
 
   await fresh();
+  group('The camera');
+
+  // NOTHING TOUCHED THE CAMERA. It is the most intricate code in the project --
+  // a solid raycast, a terrain-clearing pitch, a blocker sweep and a pull-in --
+  // and the suite had no opinion about any of it. What that cost: standing at
+  // the stream ford and looking down the path put the boom inside a tree
+  // canopy, and since the shell is an inverted hull the whole frame was flat
+  // dark green with the player nowhere in it. Reproducible from a cold load,
+  // and nothing here would have said a word.
+  //
+  // The property is simple and does not restate the implementation: from where
+  // the camera ends up, the first thing along the view direction should be the
+  // player.
+  await check('the camera can always see the player', () => {
+    const rc = new THREE.Raycaster();
+    const dir = new THREE.Vector3();
+    const bad = [];
+    const spots = [
+      [0, -50, 0], [0, -50, Math.PI], [0, -50, 1.6], [0, -50, -1.6],
+      [2, -58, 0], [12, -62, -0.64], [-16, -70, 0.9],
+      [0.6, 5.6, 0], [-11.5, 9.2, Math.PI], [7.6, -8.5, -Math.PI / 2],
+      [-1, -5.5, 0], [29.9, -85.1, 2.7],
+    ];
+    for (const [x, z, az] of spots) {
+      __sim({ warp: [x, 14, z], az, polar: 1.24, dist: 7.5, steps: 40 });
+      camera.getWorldDirection(dir);
+      rc.set(camera.position.clone(), dir);
+      rc.near = 0.02; rc.far = 9;
+      const hit = rc.intersectObjects(scene.children, true)
+        .filter((h) => h.object.visible && h.distance > 0.05)[0];
+      const name = hit ? (hit.object.userData.matName || hit.object.name || '?') : 'nothing';
+      // the player's own materials are the acceptable answer; so is open air,
+      // which happens when the camera is looking past her down a slope
+      const ok = !hit || /vesper|lake|maren/.test(name);
+      if (!ok) bad.push(`(${x},${z}) az${az.toFixed(1)} sees ${name} at ${hit.distance.toFixed(2)} m`);
+    }
+    return { ok: !bad.length,
+             detail: bad.length ? bad.join(' | ') : `${spots.length} vantages, all clear` };
+  });
+
   group('Ambient life');
 
   await check('a grazer startles and bolts', () => {
@@ -914,7 +1055,7 @@ async function run() {
 
   await check('standing in a fight costs health', () => {
     combat.respawn();
-    __sim({ warp: [0.5, 6, 6.2], steps: 30 });
+    __sim({ warp: FIGHT, steps: 30 });
     const before = combat.player.hp;
     __sim({ steps: 160, dt: 1 / 20 });
     return { ok: combat.player.hp < before - 10,
@@ -923,7 +1064,7 @@ async function run() {
 
   await check('death and respawn', () => {
     combat.respawn();
-    __sim({ warp: [0.5, 6, 6.2], steps: 20 });
+    __sim({ warp: FIGHT, steps: 20 });
     combat.player.hp = 1;
     let died = false;
     for (let i = 0; i < 400 && !died; i++) { __sim({ steps: 1, dt: 1 / 20 }); died = combat.player.dead; }

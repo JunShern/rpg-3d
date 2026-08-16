@@ -157,8 +157,8 @@ def build_buildings(t):
     #   cx     cy     w    d   storeys yaw   plaster      roof      shop
     #                                                          gable to street ↴
     plan = [
+        # THE MIDDLE OF THE NORTH RANGE IS THE TOWER, not a house. See below.
         (-11.5, -14.0, 9.0, 8.0, 3, 180, "plaster_a", "roof_a", True,  0, False),
-        ( -1.0, -15.0, 8.5, 7.0, 2, 180, "plaster_b", "roof_b", False, 1, True),
         (  9.0, -14.0, 8.5, 8.0, 3, 180, "plaster_c", "roof_c", True,  2, False),
 
         (-17.0,  -2.0, 9.0, 8.0, 2,  90, "plaster_b", "roof_b", True,  3, True),
@@ -180,13 +180,22 @@ def build_buildings(t):
     # the south gateway, in the gap between the two south buildings
     A.arch(t, -1.0, 11.0, span=4.4, height=5.6, depth=1.7, thick=0.46)
 
-    # THE LANDMARK, on the gate's axis and well behind the far side of the
-    # plaza. Siting matters more than the model here: put it off to one side and
-    # it is scenery you can walk past, but on the axis it is centred in the arch
-    # from the meadow and centred over the fountain from inside the plaza. Five
-    # storeys because it has to clear a 9.5 m roofline from a camera 1.7 m off
-    # the ground -- at four it was hidden by the buildings in front of it.
-    A.belltower(t, -1.0, -22.5, base=2.5, storeys=5)
+    # THE LANDMARK, and it stands IN the north range rather than behind it.
+    #
+    # It used to sit at y=-22.5, seven metres back, with a two-storey house on
+    # the same axis in front of it -- and the claim written here was that it was
+    # "centred in the arch from the meadow and centred over the fountain from
+    # inside the plaza". The first half was true. The second was not, and could
+    # not be: that house's ridge is 9.9 m at 15.5 m from the fountain, so
+    # ANYTHING visible past it is more than 28 degrees above the horizontal,
+    # and the gameplay camera's whole vertical field is 52. Captures from the
+    # fountain, from z=8 and from z=13 all show no tower. The plaza is simply
+    # too small to look over its own north side.
+    #
+    # So the tower takes that building's place. From the fountain its shaft now
+    # rises out of the roofline you are already looking at, at eye level; from
+    # the meadow it is still dead centre in the arch.
+    A.belltower(t, -1.0, -15.5, base=2.6, storeys=5)
 
     # THE UPPER LEVEL. On the east range, facing the plaza, so from the fountain
     # you can see both the stair and the deck it leads to -- a balcony you
