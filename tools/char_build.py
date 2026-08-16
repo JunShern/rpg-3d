@@ -59,6 +59,8 @@ CHARACTERS = {
     "maren":  {"src": "assets/source/maren-src.glb",  "height": 1.62,
                "tint": (0.52, 0.48, 0.42)},
 }
+# euler degrees in the hand bone's frame -- dialled by eye against renders
+SWORD_TWEAK = (0.0, 0.0, 0.0)
 TARGET_HEIGHT = 1.70
 
 # Source joint -> this project's bone.  Several source joints collapse into one:
@@ -257,11 +259,8 @@ def build(src, decimate=None, target_height=TARGET_HEIGHT,
     # and JOINED into the body so the character stays one skinned mesh -- the
     # runtime then treats the sword as just another material on the character.
     if with_sword:
-        by = {b[0]: b for b in spec}
-        wrist = Vector(by["hand.R"][1])
-        tip = Vector(by["hand.R"][2])
-        blade = props.sword(bone="hand.R", scale=scale * 0.62, mats=props.palette())
-        props.place_in_hand(blade, wrist, tip)
+        blade = props.sword(bone="hand.R", scale=scale * 0.54, mats=props.palette())
+        props.place_in_hand(blade, rig, "hand.R", along=0.48, tweak=SWORD_TWEAK)
         body = K.join([body] + blade, NAME[0].capitalize())
         print(f"[{NAME[0]}] sword: {len(blade)} parts joined into the body")
 

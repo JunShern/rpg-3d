@@ -299,7 +299,9 @@ def anim_attack(rig, weapon=True):
         "chest": (-8.0, -22.0, 0.0), "neck": (2.0, 8.0, 0.0), "head": (0.0, 14.0, 0.0),
         "shoulder.R": (-14.0, 0.0, 16.0),
         "upperarm.R": (-128.0, 0.0, 26.0), "forearm.R": (64.0, 0.0, 0.0),
-        "hand.R": (-18.0, 0.0, 0.0),
+        # wrist cocked hard, so a held blade points UP behind the head at the
+        # top of the windup instead of trailing low
+        "hand.R": (-70.0, 0.0, 0.0),
         "upperarm.L": (-22.0, 0.0, -18.0), "forearm.L": (52.0, 0.0, 0.0),
         "thigh.L": (-14.0, 0.0, 4.0), "shin.L": (18.0, 0.0, 0.0), "foot.L": (-6.0, 0.0, 0.0),
         "thigh.R": (10.0, 0.0, -6.0), "shin.R": (-14.0, 0.0, 0.0), "foot.R": (6.0, 0.0, 0.0),

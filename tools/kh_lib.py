@@ -406,10 +406,17 @@ def image_material(name, image, roughness=0.7, preview=(0.8, 0.8, 0.8)):
     return mat
 
 
-def transform(obj, rotate=None, around=None, translate=None, scale=None, quat=None):
+def transform(obj, rotate=None, around=None, translate=None, scale=None, quat=None,
+              matrix=None):
     """Post-hoc placement.  Applied to mesh data so the object transform stays
     identity -- the armature bind expects parts to live in world space."""
     me = obj.data
+    if matrix is not None:
+        # a full 4x4 is how you place something in ANOTHER object's frame --
+        # e.g. a prop in the local space of the hand bone that holds it
+        for v in me.vertices:
+            v.co = matrix @ v.co
+        return obj
     piv = Vector(around) if around else Vector((0, 0, 0))
     for v in me.vertices:
         p = Vector(v.co)

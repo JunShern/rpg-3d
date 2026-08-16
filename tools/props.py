@@ -12,7 +12,7 @@ something IS.
 """
 import math
 
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
 import kh_lib as K
 
@@ -79,19 +79,44 @@ def sword(bone="hand.R", scale=1.0, mats=None, name="sword"):
     return out
 
 
-def place_in_hand(objs, wrist, handtip, forward=Vector((0, -1, 0))):
-    """Rotate a grip-at-origin prop into a hand and move it there.
+def place_in_hand(objs, rig, bone="hand.R", along=0.48, tweak=(0.0, 0.0, 0.0)):
+    """Place a grip-at-origin prop into the LOCAL FRAME OF THE HAND BONE.
 
-    The blade continues the line of the hand, tipped a little forward so it
-    hangs clear of the thigh rather than along it.  Derived from the character's
-    own wrist and hand-tip landmarks, so it lands correctly whatever the
-    proportions.
+    This has to be done in bone space, not world space.  The first version aimed
+    the blade by blending world-space directions at bind time, which bakes one
+    pose's answer into a rigidly-parented object: the sword then sat at a
+    plausible angle while standing and a strange one through every swing,
+    because it was never actually oriented BY the hand.
+
+    It also used `rotation_difference`, which returns the minimal rotation and
+    therefore leaves the ROLL about the blade unspecified -- so which way the
+    edge faced was arbitrary, and the flat of the blade could lead the swing.
+
+    Bone space (kh_lib convention): +Y runs along the bone, +Z is forward.
+    So the mapping is chosen deliberately:
+
+        canonical -Z (the blade)  ->  bone +Y   blade continues the hand
+        canonical +X (blade WIDTH) ->  bone +Z   width lies in the swing plane,
+                                                 so the EDGE leads, not the flat
+
+    `along` slides the grip up the bone into the fist; `tweak` is euler degrees
+    in bone space for dialling the wrist angle by eye.
     """
-    hand_dir = (handtip - wrist).normalized()
-    aim = (hand_dir * 0.65 + Vector((0, -0.22, -1.0)).normalized() * 0.35).normalized()
-    quat = Vector((0, 0, -1)).rotation_difference(aim)
+    b = rig.data.bones[bone]
 
-    grip = wrist + hand_dir * (handtip - wrist).length * 0.55
+    # columns are the images of the canonical axes, expressed in bone space
+    basis = Matrix(((0.0, -1.0, 0.0),
+                    (0.0, 0.0, -1.0),
+                    (1.0, 0.0, 0.0))).to_4x4()
+
+    adjust = (Matrix.Rotation(math.radians(tweak[0]), 4, 'X')
+              @ Matrix.Rotation(math.radians(tweak[1]), 4, 'Y')
+              @ Matrix.Rotation(math.radians(tweak[2]), 4, 'Z'))
+
+    m = (b.matrix_local
+         @ Matrix.Translation((0.0, b.length * along, 0.0))
+         @ adjust
+         @ basis)
     for o in objs:
-        K.transform(o, quat=quat, around=(0, 0, 0), translate=grip)
+        K.transform(o, matrix=m)
     return objs
