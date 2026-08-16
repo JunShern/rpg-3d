@@ -292,3 +292,18 @@ def timber(res=RES, seed=53, spread=0.10):
     k = 1.0 + grain * spread * 0.5
     k *= np.where(_fbm(res, seed + 7, octaves=2, base=9) > 0.78, 0.90, 1.0)
     return np.clip(np.repeat(k[..., None], 3, axis=2), 0, 1)
+
+
+def verge(res=RES, seed=61):
+    """The band where the worn path meets the grass.
+
+    A road and a field met along a hard binary boundary on a 1.6 m grid, which
+    reads as discoloured patches rather than as an edge something has walked
+    over. This is the middle step: dirt showing through thinning grass, so the
+    transition is two soft steps instead of one hard one.
+    """
+    g = grass(res, seed=seed)
+    d = dirt(res, seed=seed + 4)
+    n = _fbm(res, seed + 11, octaves=4, base=6)
+    k = np.clip((n - 0.38) * 2.4, 0.0, 1.0)[..., None]
+    return np.clip(g * (1 - k) + d * k, 0, 1)

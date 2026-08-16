@@ -65,7 +65,10 @@ export const SPECIES = {
   nettle: {
     url: '/assets/nettle.glb', far: 42,
     hp: 40,
-    radius: 0.42,
+    // 0.56, not 0.42: the quills reach a good 15 cm past the body, and the
+    // player push-out keeps centres at radius + 0.42 -- so at the old value a
+    // nettle stood close enough to put its spines through the player's coat.
+    radius: 0.56,
     height: 0.45,
     speed: 2.5,
     // the fight rhythm, in seconds
@@ -515,7 +518,11 @@ export function createCombat(ctx) {
     e.vel.addScaledVector(_v, knock);
     e.vel.y += lift;
 
-    fx.spark(e.pos.clone().setY(e.pos.y + e.spec.height * 0.6), _v);
+    // AT THE CREATURE, not two metres over it. The burst was fixed-size white
+    // points launched at up to 18 m/s upward, which on a 0.45 m Nettle read as
+    // grey confetti floating above the fight rather than as an impact on it.
+    fx.spark(e.pos.clone().setY(e.pos.y + e.spec.height * 0.55), _v,
+             Math.min(1.0, 0.45 + e.spec.height * 0.55));
     fx.number(e.pos.clone().setY(e.pos.y + e.spec.height * 1.15), dmg,
               e.hp <= 0 ? 0xffd25a : 0xffffff);
 
@@ -1211,15 +1218,24 @@ function makeEffects(scene, ctx = {}) {
   scene.add(pts);
   let head = 0;
 
-  function spark(at, dir, n = 16) {
+  /**
+   * A burst at the point of impact.
+   *
+   * `scale` ties the spread to the size of the thing that was hit. Fixed
+   * velocities meant a hit on a 0.45 m creature threw particles a couple of
+   * metres straight up, where they read as grey confetti floating above the
+   * fight rather than as an impact on it. The upward bias is also down: the
+   * burst should go along the hit, not over it.
+   */
+  function spark(at, dir, scale = 1, n = 16) {
     for (let k = 0; k < n; k++) {
       const i = head = (head + 1) % MAX;
       pos[i * 3] = at.x; pos[i * 3 + 1] = at.y; pos[i * 3 + 2] = at.z;
-      const s = 3.5 + Math.random() * 5.5;
-      vel[i * 3] = (dir.x * 1.4 + (Math.random() - 0.5) * 1.6) * s;
-      vel[i * 3 + 1] = (0.7 + Math.random() * 1.3) * s;
-      vel[i * 3 + 2] = (dir.z * 1.4 + (Math.random() - 0.5) * 1.6) * s;
-      life[i] = 0.30 + Math.random() * 0.16;
+      const s = (2.6 + Math.random() * 3.4) * scale;
+      vel[i * 3] = (dir.x * 1.6 + (Math.random() - 0.5) * 1.4) * s;
+      vel[i * 3 + 1] = (0.25 + Math.random() * 0.75) * s;
+      vel[i * 3 + 2] = (dir.z * 1.6 + (Math.random() - 0.5) * 1.4) * s;
+      life[i] = 0.22 + Math.random() * 0.14;
     }
   }
 

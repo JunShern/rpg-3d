@@ -184,7 +184,7 @@ def build_terrain(M, step=TERRAIN_STEP):
     nx = int((x1 - x0) / step) + 1
     ny = int((y1 - y0) / step) + 1
 
-    verts, faces, grass, dirt = [], [], [], []
+    verts, faces, grass, dirt, verge = [], [], [], [], []
     for j in range(ny):
         for i in range(nx):
             x = x0 + i * step
@@ -196,7 +196,15 @@ def build_terrain(M, step=TERRAIN_STEP):
             faces.append((a, a + 1, a + nx + 1, a + nx))
             x = x0 + (i + 0.5) * step
             y = y0 + (j + 0.5) * step
-            (dirt if on_path(x, y) else grass).append(len(faces) - 1)
+            # A VERGE BETWEEN THEM. This was a binary `on_path` test on a 1.6 m
+            # grid, so the road met the grass along a hard jagged staircase that
+            # read as discoloured patches rather than as a worn edge. The smooth
+            # `_path_weight` field that describes the transition already existed
+            # and was being used only for height -- it is what picks the band
+            # now, and a third material fills the middle of it.
+            w = _path_weight(x, y)
+            (dirt if w > 0.72 else verge if w > 0.18 else grass) \
+                .append(len(faces) - 1)
 
     # recalc=False: the winding above is (i,j) -> (i+1,j) -> (i+1,j+1) -> (i,j+1),
     # whose normal is X x Y = +Z, i.e. up. A heightfield is an OPEN surface, so
@@ -205,8 +213,11 @@ def build_terrain(M, step=TERRAIN_STEP):
     obj = K._new_obj("floor_meadow", verts, faces, mat=M["grass_tex"], smooth=True,
                      recalc=False)
     obj.data.materials.append(M["dirt_tex"])
+    obj.data.materials.append(M["verge_tex"])
     for fi in dirt:
         obj.data.polygons[fi].material_index = 1
+    for fi in verge:
+        obj.data.polygons[fi].material_index = 2
 
     # PLANAR UVs FROM WORLD X/Y. The heightfield is gentle enough that projecting
     # straight down costs nothing visible, and it means grass and path share one
@@ -372,11 +383,17 @@ def stream(M, t):
         x = x0 + (x1 - x0) * i / n
         y = _stream_y(x)
         bed = height(x, y)
+        # NEVER ABOVE ITS OWN BANKS. The surface used to be a fixed lift off the
+        # bed, and where the channel runs shallow that put it proud of the
+        # ground either side -- a blue sheet lying across a field with its
+        # underside showing. Clamp to just under whatever the bank is doing.
+        bank = min(height(x, y - STREAM_HALF * 1.45),
+                   height(x, y + STREAM_HALF * 1.45))
         # rx is ACROSS the channel and ry is its thickness. Swept along +X with
         # up=+Z, the frame puts rx on Y and ry on Z -- the other way round gave a
         # five-metre vertical sheet of water standing in a field. This is the
         # same rx/ry trap the fountain wall and the gate arch both hit.
-        sec.append({"p": Vector((x, y, bed + 0.42)),
+        sec.append({"p": Vector((x, y, min(bed + 0.42, bank - 0.14))),
                     # 0.52, not 0.86: the cut only reaches full depth within 45% of
                     # STREAM_HALF, so a wider ribbon rode up the banks and left a
                     # straight edge of water lying across sloping ground
@@ -492,13 +509,15 @@ def main():
     M = A.palette()
     # generated ground, written next to the assets and packed into the GLB
     os.makedirs("public/assets/tex", exist_ok=True)
-    for nm, fn in (("grass", surface_tex.grass), ("dirt", surface_tex.dirt)):
+    for nm, fn in (("grass", surface_tex.grass), ("dirt", surface_tex.dirt),
+                   ("verge", surface_tex.verge)):
         path = os.path.abspath(f"public/assets/tex/{nm}.png")
         surface_tex.write_png(path, fn())
         M[f"{nm}_tex"] = K.image_material(
             f"{nm}_tex", bpy.data.images.load(path, check_existing=True),
             roughness=0.92,
-            preview=(0.50, 0.66, 0.38) if nm == "grass" else (0.68, 0.59, 0.47))
+            preview=({"grass": (0.50, 0.66, 0.38), "dirt": (0.68, 0.59, 0.47),
+                      "verge": (0.60, 0.63, 0.43)})[nm])
     M.update({
         "grass":    K.material("grass", (0.44, 0.62, 0.30), roughness=0.9),
         "grass_hi": K.material("grass_hi", (0.58, 0.74, 0.34), roughness=0.9),

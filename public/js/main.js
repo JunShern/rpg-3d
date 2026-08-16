@@ -123,12 +123,12 @@ const NO_OUTLINE_ENV = new Set([
   // black line drawn across open grass; the invisible one was half the build's
   // triangles being outline.
   'grass', 'dirt', 'cobble', 'cobble_b',
-  'grass_tex', 'dirt_tex', 'cobble_tex', 'flagstone_tex',
+  'grass_tex', 'dirt_tex', 'verge_tex', 'cobble_tex', 'flagstone_tex',
 ]);
 // ground casts nothing useful onto itself; tufts and blooms cast nothing at all
 const NO_SHADOW_ENV = new Set([
   'grass', 'dirt', 'cobble', 'cobble_b', 'grass_hi', 'bloom_a', 'bloom_b',
-  'grass_tex', 'dirt_tex', 'cobble_tex', 'flagstone_tex',
+  'grass_tex', 'dirt_tex', 'verge_tex', 'cobble_tex', 'flagstone_tex',
 ]);
 const TINY_ENV = new Set(['grass_hi', 'bloom_a', 'bloom_b']);
 const TOWN_LOOK = {
