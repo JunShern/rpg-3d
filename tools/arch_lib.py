@@ -1,17 +1,17 @@
 """arch_lib -- a modular architecture kit for the vinyl-toon town.
 
-Same philosophy as kh_lib: every piece is generated from parameters, and the
+Same philosophy as geo_lib: every piece is generated from parameters, and the
 COLLISION DATA IS EMITTED BY THE CODE THAT PLACES THE GEOMETRY.  A wall and the
 box that blocks you are two outputs of one call, so they cannot drift apart --
 which is the failure mode that makes hand-authored collision miserable.
 
-Conventions (Blender, Z-up), shared with kh_lib:
+Conventions (Blender, Z-up), shared with geo_lib:
     +Z  up
     -Y  the direction a facade FACES; buildings are assembled front-to--Y and
         then yawed into place, so every piece is authored in one orientation
     +X  to the right of that facade
 
-Sizes are SEMI-axes everywhere, matching kh_lib.  Bevels are small and always
+Sizes are SEMI-axes everywhere, matching geo_lib.  Bevels are small and always
 present: a chamfer that catches the rim light is most of what makes a plain box
 read as a vinyl-toy building rather than as a programmer's cube.
 
@@ -22,7 +22,7 @@ import bpy
 import math
 from mathutils import Vector
 
-import kh_lib as K
+import geo_lib as K
 
 FLOOR_H = 3.05          # storey height
 GROUND_H = 3.45         # ground floor is taller -- shopfronts need the room

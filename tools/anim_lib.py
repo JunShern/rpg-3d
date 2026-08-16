@@ -3,11 +3,11 @@
 Clips here are POSE DATA, not baked transforms: each key is a bone name mapped
 to euler degrees in that bone's local frame.  Nothing in this file knows a
 character's proportions, so the same clip drives any skeleton built by
-`kh_lib.build_armature` with the same bone names and the same roll convention.
+`geo_lib.build_armature` with the same bone names and the same roll convention.
 That is the whole reason it is worth separating -- one authored animation set,
 many characters, including ones whose mesh came from somewhere else entirely.
 
-The convention every number below depends on (see kh_lib):
+The convention every number below depends on (see geo_lib):
 
     rotate about local X  ->  forward/back flexion   (positive = forward)
     rotate about local Y  ->  twist along the limb
@@ -27,12 +27,12 @@ import math
 
 from mathutils import Vector
 
-import kh_lib as K
+import geo_lib as K
 
 
 # ---------------------------------------------------------------- animation
 #
-# Reminder from kh_lib: EVERY bone rotates +X forward.  Left and right share the
+# Reminder from geo_lib: EVERY bone rotates +X forward.  Left and right share the
 # sign for flexion; only the sideways (Z) terms flip.
 
 def anim_idle(rig, weapon=True):
@@ -57,7 +57,7 @@ def anim_idle(rig, weapon=True):
             p[f"forearm.{s}"] = (base_arm["forearm_x"] + 5.0 * breath, 0.0, 0.0)
             p[f"hand.{s}"] = (4.0 * breath, 0.0, 0.0)
             if s == "R" and weapon:
-                # wrist held back so the keyblade hangs at the side instead of
+                # wrist held back so the sword hangs at the side instead of
                 # being pointed forward like a torch
                 p[f"hand.{s}"] = (-24.0 + 3.0 * breath, 0.0, 0.0)
             # SOFT KNEES.  This pose used to stand with the knees locked
@@ -70,7 +70,7 @@ def anim_idle(rig, weapon=True):
             p[f"shin.{s}"] = (-9.0 + 1.6 * breath, 0.0, 0.0)
             p[f"foot.{s}"] = (4.0 - 0.8 * breath, 0.0, 0.0)
         if weapon:
-            # right arm carries the keyblade: hangs heavier and further out
+            # right arm carries the sword: hangs heavier and further out
             p["upperarm.R"] = (base_arm["upperarm_x"] - 4.0 + 2.0 * breath, 0.0, 8.0)
             p["forearm.R"] = (base_arm["forearm_x"] + 12.0 + 4.0 * breath, 0.0, 0.0)
         return p
@@ -120,7 +120,7 @@ def anim_run(rig, weapon=True):
         return p
 
     def weapon_arm(twist):
-        """The right arm carries the keyblade and CANNOT swing like a free arm.
+        """The right arm carries the sword and CANNOT swing like a free arm.
 
         Given a full counter-swing the blade -- rigid to hand.R -- whips out to
         horizontal and the character runs holding it like a rifle.  Real weapon
@@ -277,7 +277,7 @@ def anim_land(rig, weapon=True):
 
 
 def anim_attack(rig, weapon=True):
-    """Overhead keyblade swing: anticipation, strike, follow-through, recover.
+    """Overhead sword swing: anticipation, strike, follow-through, recover.
     The lunge is real translation on the hips, so the runtime gets forward
     motion out of the clip for free."""
     act = K.action(rig, "attack")

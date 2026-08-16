@@ -71,7 +71,7 @@ Workbench — which is the feedback loop: check those before opening the browser
 
 | | |
 |---|---|
-| `tools/kh_lib.py` | geometry, rig and skin helpers — tubes, superellipsoid blobs, bevelled boxes, armature construction, analytic weights |
+| `tools/geo_lib.py` | geometry, rig and skin helpers — tubes, superellipsoid blobs, bevelled boxes, armature construction, analytic weights |
 | `tools/hero_build.py` | the hero: proportions, skeleton, five animations, face decal, GLB export |
 | `tools/face_tex.py` | the face, drawn as an image with numpy — eyes, lash, brows, mouth |
 | `tools/anim_lib.py` | the shared clips — bone-name-keyed pose data, character-agnostic |
@@ -150,7 +150,7 @@ Two tricks carry more than their weight:
   a character at rest is planted by the POSE, not by the solver.
 - No ledge drop-off animation — falls snap instantly to the new height, and
   there is no falling clip (only jump and land).
-- The keyblade is rigidly bound to `hand.R` and can clip the hip in extreme
+- The sword is rigidly bound to `hand.R` and can clip the hip in extreme
   poses. A real build wants a hand attachment point and per-clip weapon poses.
 - The scripted hero's face is a drawn texture rather than geometry, which makes
   a cast far more tractable — but no expression system exists yet.
@@ -166,7 +166,7 @@ All of these cost real time here, and all will recur:
 - **Derive the camera basis, do not eyeball it.** `right = forward x up` is
   `(-fz, fx)` in three's Y-up right-handed space. The first version used the
   negation and A/D were swapped for the whole build.
-- **Rotation-sign conventions must be OBSERVED, not asserted.** `kh_lib` claims
+- **Rotation-sign conventions must be OBSERVED, not asserted.** `geo_lib` claims
   "+X rotates forward" for every bone. It is true — but every forearm value in
   the animations was authored negative, so every elbow bent backwards, and it
   survived three review passes because a wrong elbow still looks like *an* elbow.

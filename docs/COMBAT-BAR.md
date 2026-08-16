@@ -11,7 +11,19 @@ and crosses things off. Read it before doing anything else.
 > polish to exceed Kingdom Hearts 1's scene design and combat **on every element
 > it implements**.
 
-**KH1 is the quality bar, not the design source.** The auditor is asked to find
+**KH1 is the quality bar, not the design source.**
+
+An external reviewer answered *"does this read as derivative?"* with **yes**, and
+was specific: the Nettle — small, dark, low-slung, spiky, glowing yellow eyes,
+spawning in threes and swarming — read as the reference's most recognisable
+enemy with quills added, and it fills most of every frame. The overlap was never
+the shape; the radial quills are its own. It was the colour. It is now a cold
+moss-slate animal with bone quills and small pale eyes: still dark enough to
+separate from a pale meadow, no longer a silhouette with lights in it.
+
+The same reviewer noted the source was telling on itself — a geometry library
+called `kh_lib.py` and a weapon called a "keyblade" throughout, in a project
+whose weapon is a sword. Renamed to `geo_lib.py`, and the sword is a sword. The auditor is asked to find
 faults — including *"does any of this read as derivative?"* — and a yes there
 counts as a fault exactly like a bug does.
 

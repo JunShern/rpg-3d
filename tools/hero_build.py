@@ -31,7 +31,7 @@ import sys
 from mathutils import Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import kh_lib as K
+import geo_lib as K
 import face_tex
 
 TAU = math.tau
@@ -384,7 +384,7 @@ def build_face():
     def vid(i, j):
         return 1 + (i - 1) * S + (j % S)
 
-    # winding chosen so face normals come out -Y (forward); see kh_lib.tube for
+    # winding chosen so face normals come out -Y (forward); see geo_lib.tube for
     # why this is derived rather than left to recalc_face_normals
     for j in range(S):
         faces.append((0, vid(1, j), vid(1, j + 1)))
@@ -492,7 +492,7 @@ def build_leg():
     return parts
 
 
-def build_keyblade():
+def build_sword():
     """Held in the right hand, aimed forward-down at rest.  Rigid to hand.R --
     a weapon is the one place where rigid binding is not a compromise."""
     parts = []
@@ -503,7 +503,7 @@ def build_keyblade():
     W = {"hand.R": 1.0}
     parts = []
 
-    # A keyblade has to read as a BLUNT INSTRUMENT: short and thick, not long and
+    # A sword has to read as a BLUNT INSTRUMENT: short and thick, not long and
     # thin.  The first pass was 0.72 long on a 0.024 shaft and read as a cane.
     shaft = [{"p": Vector((0, 0,  0.095)), "r": (0.034, 0.034), "w": W, "n": 2.8},
              {"p": Vector((0, 0,  0.020)), "r": (0.040, 0.040), "w": W, "n": 2.8},
@@ -745,7 +745,7 @@ def main():
     for p in list(parts):
         if p.name.endswith(".L"):
             parts.append(K.mirror(p, p.name[:-2] + ".R"))
-    parts += build_keyblade()
+    parts += build_sword()
 
     body = K.bind(parts, rig, name="Hero")
 

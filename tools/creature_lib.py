@@ -8,7 +8,7 @@ not how the reference game telegraphs (which is almost entirely wind-up poses).
 
 Every creature is built the same way as the cast: analytic geometry, weights
 authored with the mesh, one bone per moving part, and clips that are bone-keyed
-pose data.  Shared conventions from kh_lib apply -- +Z up, -Y is the direction
+pose data.  Shared conventions from geo_lib apply -- +Z up, -Y is the direction
 the creature FACES, and every bone rolls so +X is forward flexion.
 
 Clip vocabulary, identical across every creature so the runtime never
@@ -26,7 +26,7 @@ import math
 
 from mathutils import Vector
 
-import kh_lib as K
+import geo_lib as K
 
 TAU = math.tau
 

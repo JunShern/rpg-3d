@@ -35,7 +35,7 @@ import sys
 from mathutils import Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import kh_lib as K
+import geo_lib as K
 import arch_lib as A
 import surface_tex
 

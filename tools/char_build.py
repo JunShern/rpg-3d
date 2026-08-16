@@ -4,7 +4,7 @@ Vesper, Lake and Maren were authored for the Emberbrook project as Tripo
 image-to-3D generations -- ~95k triangles each, skinned to the same 41-joint
 auto-rig.  This takes the MODEL and nothing else: not that project's skeleton,
 not its retargeted donor clips, not its conventions.  Each gets the rig built by
-`kh_lib.build_armature` and the clips from `anim_lib` -- the same ones the
+`geo_lib.build_armature` and the clips from `anim_lib` -- the same ones the
 scripted hero uses.
 
 Because all three share one source rig, the intake is entirely data-driven:
@@ -41,7 +41,7 @@ import sys
 from mathutils import Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import kh_lib as K
+import geo_lib as K
 import anim_lib
 import props
 

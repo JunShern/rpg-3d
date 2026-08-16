@@ -2,7 +2,7 @@
 
 A prop is built in its OWN frame -- grip at the origin, blade running down -Z --
 and then rotated into the hand as a finished assembly.  Building it already
-tilted is the mistake the keyblade made first: bevelled boxes are axis-aligned,
+tilted is the mistake the sword made first: bevelled boxes are axis-aligned,
 so a guard built directly on an angled blade comes out skewed and its loop never
 closes.
 
@@ -14,7 +14,7 @@ import math
 
 from mathutils import Matrix, Vector
 
-import kh_lib as K
+import geo_lib as K
 
 
 def palette():
@@ -92,7 +92,7 @@ def place_in_hand(objs, rig, bone="hand.R", along=0.48, tweak=(0.0, 0.0, 0.0)):
     therefore leaves the ROLL about the blade unspecified -- so which way the
     edge faced was arbitrary, and the flat of the blade could lead the swing.
 
-    Bone space (kh_lib convention): +Y runs along the bone, +Z is forward.
+    Bone space (geo_lib convention): +Y runs along the bone, +Z is forward.
     So the mapping is chosen deliberately:
 
         canonical -Z (the blade)  ->  bone +Y   blade continues the hand

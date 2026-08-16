@@ -167,7 +167,7 @@ const _hit = { x: 0, z: 0 };
 // The colour each species owns, matched to its palette accent, used for the
 // telegraph pulse. Kept out here so it is one allocation, not one per frame.
 const TELL = {
-  nettle: new THREE.Color(0xffe9a8),
+  nettle: new THREE.Color(0xfff4d2),
   curler: new THREE.Color(0x63dcff),
   bellow: new THREE.Color(0xff7a26),
   _: new THREE.Color(0xffffff),

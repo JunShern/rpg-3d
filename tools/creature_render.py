@@ -12,7 +12,7 @@ import os
 import bpy
 from mathutils import Vector
 
-import kh_lib as K
+import geo_lib as K
 
 
 def _scene(bg=(0.30, 0.36, 0.46)):

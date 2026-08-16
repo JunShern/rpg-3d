@@ -21,16 +21,31 @@ import sys
 from mathutils import Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import kh_lib as K
+import geo_lib as K
 import creature_lib as C
 
 NAME = "nettle"
 
+# NOT A SHADOW.
+#
+# An external reviewer's sharpest line was that this creature -- small, dark,
+# low-slung, spiky, with glowing yellow eyes, spawning in threes and swarming --
+# reads as the reference game's single most recognisable enemy with quills
+# added, and that it fills ninety per cent of every frame in the demo.
+#
+# The overlap was never the shape; the radial quills are its own. It was the
+# COLOUR: a black-violet body with hot yellow glowing eyes is that creature's
+# signature, and nothing else about a hedgehog needs to look like a void.
+#
+# So: a cold moss-slate body, which is still dark enough to separate from a pale
+# meadow, and eyes that are a small bright BONE rather than glowing amber -- the
+# same bone as the quills, so the creature reads as one animal made of one
+# material rather than as a silhouette with lights in it.
 C_SPEC = {
-    "hide":  ((0.22, 0.19, 0.28), 0.75),
-    "belly": ((0.36, 0.30, 0.42), 0.75),
-    "quill": ((0.86, 0.74, 0.42), 0.55),
-    "eye":   ((1.00, 0.82, 0.30), 0.30, 3.0),
+    "hide":  ((0.19, 0.26, 0.24), 0.75),
+    "belly": ((0.33, 0.41, 0.36), 0.75),
+    "quill": ((0.88, 0.83, 0.62), 0.55),
+    "eye":   ((0.96, 0.94, 0.82), 0.30, 1.6),
 }
 
 BODY_C = Vector((0.0, 0.0, 0.155))

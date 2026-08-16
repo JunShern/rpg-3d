@@ -1,4 +1,4 @@
-"""kh_lib -- geometry, rig and skin helpers for the vinyl-toon character pipeline.
+"""geo_lib -- geometry, rig and skin helpers for the vinyl-toon character pipeline.
 
 Everything here is built analytically.  Meshes are generated ring-by-ring along
 a spine, so every vertex knows BY CONSTRUCTION which bones drive it: weights are
@@ -347,11 +347,11 @@ def blob(name, center, size, bone, mat=None, seg=20, rings=12, squircle=2.0):
 
 
 def rounded_box(name, center, size, bevel, bone, mat=None, segments=3, smooth=True):
-    """A bevelled cube.  Hard-surface props (keyblade teeth, belt buckles) read
+    """A bevelled cube.  Hard-surface props (sword teeth, belt buckles) read
     better as a bevelled box than as a superellipsoid.
 
     `size` is SEMI-axes, matching blob() and tube() radii.  It is worth being
-    pedantic about: the first keyblade had its guard built from full extents and
+    pedantic about: the first sword had its guard built from full extents and
     the crossbars came out half as long as the loop they were meant to close, so
     the guard rendered as four disconnected floating sticks."""
     bm = bmesh.new()
