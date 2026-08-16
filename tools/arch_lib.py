@@ -255,6 +255,92 @@ def window(t, x, y0, z, w=0.62, h=0.92, shutters=True, sill=True,
     return t.add(*out) and out
 
 
+def rooftop(t, cx, cy, w, d, z, yaw=0.0, rail=True, name="roof"):
+    """A flat walkable lead laid along a roof, with a low parapet.
+
+    THE TOWN WAS ONE STOREY OF SPACE STACKED ON NOTHING. It has nine buildings,
+    a gallery deck that leads nowhere, and a jump that clears a 1.1 m terrace --
+    so the entire square is one room, and the only way to make it feel like more
+    was to make it bigger. Roofs are the opposite trade: a second storey of
+    PLACE inside exactly the same footprint, with a completely different read of
+    the same square from above.
+
+    A duckboard rather than a walkable pitch. Real slates are not a floor, and a
+    plank run laid along the ridge is both how you would actually cross a roof
+    and a shape the eye immediately understands as a route.
+    """
+    M, out = t.M, []
+    out.append(box(f"{name}_lead", (cx, cy, z), (w / 2, d / 2, 0.055),
+                   M["timber"], bevel=0.02, seg=1))
+    # cross battens, so it reads as boards and not as a slab
+    n = max(2, int(w / 0.75))
+    for i in range(n):
+        bx = cx - w / 2 + w * (i + 0.5) / n
+        out.append(box(f"{name}_batten", (bx, cy, z - 0.05),
+                       (0.05, d / 2 + 0.04, 0.035), M["timber"], bevel=0.01, seg=1))
+    if rail:
+        for sy in (-1, 1):
+            out.append(box(f"{name}_rail", (cx, cy + sy * (d / 2 + 0.02), z + 0.34),
+                           (w / 2, 0.035, 0.035), M["brass"], bevel=0.012, seg=1))
+            m = max(2, int(w / 1.1))
+            for i in range(m + 1):
+                px = cx - w / 2 + w * i / m
+                out.append(box(f"{name}_post", (px, cy + sy * (d / 2 + 0.02), z + 0.17),
+                               (0.028, 0.028, 0.17), M["brass"], bevel=0.008, seg=1))
+    for o in out:
+        if yaw:
+            K.transform(o, rotate=(0, 0, yaw), around=(cx, cy, 0))
+    t.add(*out)
+    # WALKABLE, not solid. `platform` is how anything above the analytic ground
+    # tells the runtime it can be stood on.
+    if yaw % 180 == 0:
+        t.platform(cx, cy, w / 2, d / 2, z + 0.06)
+    else:
+        t.platform(cx, cy, d / 2, w / 2, z + 0.06)
+    return out
+
+
+def ladder(t, x, y, z0, z1, yaw=0.0, name="ladder"):
+    """A way up. Rails and rungs, and a stack of `platform` steps behind them so
+    the runtime's 45 cm step limit can actually climb it."""
+    M, out = t.M, []
+    h = z1 - z0
+    for sx in (-1, 1):
+        out.append(box(f"{name}_rail", (x + sx * 0.22, y, z0 + h / 2),
+                       (0.045, 0.045, h / 2), M["timber"], bevel=0.015, seg=1))
+    n = max(2, int(h / 0.34))
+    for i in range(n):
+        rz = z0 + h * (i + 0.5) / n
+        out.append(box(f"{name}_rung", (x, y, rz), (0.22, 0.035, 0.025),
+                       M["timber"], bevel=0.01, seg=1))
+        # one platform per rung, each inside the step limit of the one below
+        t.platform(x, y - 0.16, 0.30, 0.20, rz)
+    for o in out:
+        if yaw:
+            K.transform(o, rotate=(0, 0, yaw), around=(x, y, 0))
+    t.add(*out)
+    return out
+
+
+def plank(t, x0, y0, x1, y1, z, w=0.72, name="plank"):
+    """A board bridging two roofs. The gap between buildings is the thing that
+    makes a roof route read as a route rather than as a balcony."""
+    M = t.M
+    mx, my = (x0 + x1) / 2, (y0 + y1) / 2
+    span = math.hypot(x1 - x0, y1 - y0)
+    a = math.degrees(math.atan2(y1 - y0, x1 - x0))
+    o = box(name, (mx, my, z), (span / 2, w / 2, 0.05), M["timber"],
+            bevel=0.02, seg=1)
+    K.transform(o, rotate=(0, 0, a), around=(mx, my, 0))
+    t.add(o)
+    # the platform is axis-aligned and a little generous, because a plank you
+    # fall off because the collision is a rotated box you cannot see is a plank
+    # nobody crosses twice
+    t.platform(mx, my, max(abs(x1 - x0) / 2, w / 2) + 0.12,
+               max(abs(y1 - y0) / 2, w / 2) + 0.12, z + 0.05)
+    return [o]
+
+
 def well(t, cx, cy, r=0.86):
     """A wellhead: a drum of coursed stone, two posts, a beam and a bucket.
 

@@ -228,6 +228,41 @@ def build_props(t):
     A.washing(t, 12.6, -3.0, 12.6, 3.2, 5.7, n=5)
     A.washing(t, 3.2, 12.4, 9.0, 12.4, 5.1, n=4)
 
+    # ------------------------------------------------------------- the roofs
+    #
+    # A SECOND STOREY OF PLACE, INSIDE THE SAME FOOTPRINT. The town is nine
+    # buildings round one square: however much furniture goes into it, it is
+    # one room, and the only way to make it feel like more was to make it
+    # bigger. Roofs are the opposite trade -- the same ground seen from above
+    # is a different space, and getting up there is a route rather than a
+    # teleport.
+    #
+    # The gallery stair already lifts you to 3.55 and led nowhere, which was
+    # its own open fault. A ladder off the deck now continues it.
+    #
+    # EVERY LEAD IS AT 8.40, deliberately, rather than each on its own ridge.
+    # The two-storey ridges here run 8.18 to 8.66, and stepping between them
+    # would be a 0.48 m rise against the runtime's 0.45 m limit -- so the route
+    # would silently stop working on one building. Twenty centimetres of
+    # discrepancy against a pitched roof is invisible; a lead you cannot step
+    # onto is not.
+    ROOF_Z = 8.40
+    # x = 12.5, NOT 13.35. The east range's collision box starts at x = 13, so
+    # a ladder against the wall is a ladder INSIDE the wall: every rung was at
+    # the right height and unreachable, because the solid stopped you 40 cm
+    # short of the first one. Probed by walking at it for seven seconds and
+    # never leaving 3.64 m.
+    A.ladder(t, 12.5, 8.5, 3.62, ROOF_Z + 0.10, yaw=90)
+    A.rooftop(t, 17.0, 8.5, 1.7, 7.0, ROOF_Z, name="roof_e")
+    A.plank(t, 16.4, 12.1, 11.6, 14.4, ROOF_Z)
+    A.rooftop(t, 7.0, 15.0, 8.4, 1.7, ROOF_Z, name="roof_s")
+    A.plank(t, 2.4, 15.0, -3.8, 15.0, ROOF_Z)
+    A.rooftop(t, -9.0, 15.0, 8.4, 1.7, ROOF_Z, name="roof_sw")
+    # what the climb is FOR: the only place you can look down into the square,
+    # and a find that is not visible from the ground at all
+    A.embercap(t, -11.4, 15.0, z=ROOF_Z + 0.06)
+    A.embercap(t, 17.0, 5.6, z=ROOF_Z + 0.06)
+
     # EMBERCAPS: four in the town, none of them on the walk from the spawn
     # point to the gate. Behind the market, up on the gallery deck, and one in
     # each alley -- the deck one is the only thing the stairs have ever led to.

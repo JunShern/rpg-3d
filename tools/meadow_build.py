@@ -381,6 +381,17 @@ def scatter(M, t):
         # instead -- bedding planes are what makes stone look like stone, and
         # they cost one extra primitive on the few that are actually large.
         if s > 0.42:
+            # ANCHOR TO THE LOWEST CORNER OF ITS OWN FOOTPRINT, not to the
+            # centre. Sinking the stack by a fixed fraction of the radius was
+            # the wrong shape of fix: it is enough on gentle ground and not
+            # enough on a steep flank, so boulders kept floating on exactly the
+            # slopes where they are most visible against the sky. Sampling the
+            # terrain at the slab's own corners and starting from the minimum
+            # makes the bedding depend on the slope, which is what it always
+            # depended on.
+            zmin = min(height(x + dx * s, y + dy * s)
+                       for dx in (-1, 0, 1) for dy in (-1, 0, 1))
+            z = zmin
             layers = 2 + int(rnd() * 2)
             # BEDDED, not balanced on top. The layers are flat -- half-height
             # 0.26s against a radius of s -- and a flat slab on a slope floats
@@ -394,7 +405,7 @@ def scatter(M, t):
                 # on the steep flanks too -- the shallower value worked on the
                 # gentle middle of the map and left boulders hanging off the
                 # hillsides with their own shadows under them.
-                lz = z + s * (-0.42 + 0.78 * u)
+                lz = z + s * (-0.18 + 0.78 * u)
                 lr = s * (1.0 - 0.30 * u) * (0.86 + 0.22 * rnd())
                 # 0.34, not 0.26: at the thinner value a two-layer boulder was
                 # a pair of discs lying on the grass, and sixty of them read as

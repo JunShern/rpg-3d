@@ -79,6 +79,87 @@ export function setRimScale(k) {
   for (const u of RIM_UNIFORMS) u.value = u.userData.base * k;
 }
 
+/**
+ * THE LOOK IS A PROFILE, NOT A HARD-CODED STYLE.
+ *
+ * Everything visual in this build was one style with no alternative: the
+ * banded ramp, the rim, the inverted hull and the light rig were each written
+ * once and assumed everywhere. None of that is load-bearing on the GEOMETRY,
+ * the collision, the textures or the vertex colours -- so the honest answer to
+ * "are we locked in" is no, and the honest way to show it is to make the other
+ * option runnable rather than describable.
+ *
+ * `surfaceMaterial` below returns a MeshToonMaterial or a MeshStandardMaterial
+ * from the same recipe, so the two looks can be compared on the same frame.
+ *
+ * THE PALETTE IS THE CATCH. These colours were authored as toon MIDTONES --
+ * `arch_lib.palette` says so outright: "values are the toon ramp's MIDTONE, so
+ * they run brighter and more saturated than a PBR albedo would". Handing them
+ * unchanged to a smooth shader gives a bleached, chalky scene. `albedo` below
+ * is the correction: pull the value down and the saturation in, which is
+ * roughly the inverse of what the ramp was doing.
+ */
+export const LOOKS = {
+  toon: {
+    label: 'toon',
+    lit: false,
+    outlines: true,
+    rim: 1,
+    key: { color: 0xfff2d8, intensity: 2.5 },
+    hemi: { sky: 0xd2e2ee, ground: 0x8f7f6a, intensity: 0.88 },
+    ambient: { color: 0x9d9aa4, intensity: 0.26 },
+    exposure: 1.02,
+    albedo: 1,
+  },
+  lit: {
+    label: 'lit',
+    lit: true,
+    // No inverted hull. An ink outline is a stylisation, and leaving it on
+    // under smooth shading gives neither look -- it reads as a rendering bug.
+    outlines: false,
+    rim: 0,
+    // A real midday sun is a hard, slightly warm key with very little else.
+    // The toon rig needed a big neutral fill because the ramp crushed shadows;
+    // a standard shader does not, and keeping that fill makes everything flat.
+    // Tuned against the plaza, which is the hard case: it is a courtyard, so
+    // most of it is in shade most of the time. The first pass cut the fill hard
+    // -- correct in principle, since a standard shader does not need the big
+    // neutral fill the ramp did -- and took the shaded half to near black. A
+    // fair comparison needs the realistic look to be GOOD, not a strawman.
+    key: { color: 0xfff4e2, intensity: 2.7 },
+    hemi: { sky: 0xa8cbec, ground: 0x7a6d58, intensity: 0.95 },
+    ambient: { color: 0x8e8aa0, intensity: 0.22 },
+    exposure: 1.12,
+    // toon midtone -> approximate albedo
+    albedo: 0.74,
+  },
+};
+
+/** Pull a toon midtone down toward a plausible albedo. */
+function toAlbedo(c, k) {
+  if (k >= 1) return c;
+  const out = c.clone();
+  // desaturate slightly as well as darken: the ramp's lit band was doing some
+  // of the saturation work and a smooth shader will not
+  const l = out.r * 0.299 + out.g * 0.587 + out.b * 0.114;
+  out.lerp(new THREE.Color(l, l, l), 0.12).multiplyScalar(k);
+  return out;
+}
+
+/**
+ * One recipe, either shading model. `look` is a member of LOOKS.
+ */
+export function surfaceMaterial(look, color, opts = {}) {
+  if (!look.lit) return toonMaterial(color, opts);
+  const { map = null, vertexColors = false, opacity = 1, roughness = 0.92 } = opts;
+  return new THREE.MeshStandardMaterial({
+    color: toAlbedo(color instanceof THREE.Color ? color : new THREE.Color(color),
+                    look.albedo),
+    map, vertexColors, roughness, metalness: 0.0,
+    transparent: opacity < 1, opacity, depthWrite: opacity >= 1,
+  });
+}
+
 export function toonMaterial(color, opts = {}) {
   const {
     gradient = RAMP_3,

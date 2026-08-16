@@ -13,7 +13,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import {
   toonMaterial, flatMaterial, outlineMaterial, outlineGeometry, skyDome,
-  RAMP_3, RAMP_SOFT, setRimScale, WIND,
+  RAMP_3, RAMP_SOFT, setRimScale, WIND, LOOKS, surfaceMaterial,
 } from './toon.js';
 import { createCombat, SPECIES, TUNE } from './combat.js';
 import { makeBreakables } from './breakables.js';
@@ -74,12 +74,14 @@ scene.add(key, key.target);
 // So the fill is brighter and much closer to neutral -- shade is now a darker
 // value OF the material rather than a wash of sky over it -- and the contrast
 // that was being protected is protected where it belongs, in the ramp.
-scene.add(new THREE.HemisphereLight(0xd2e2ee, 0x8f7f6a, 0.88));
-scene.add(new THREE.AmbientLight(0x9d9aa4, 0.26));
+const hemi = new THREE.HemisphereLight(0xd2e2ee, 0x8f7f6a, 0.88);
+const ambient = new THREE.AmbientLight(0x9d9aa4, 0.26);
+scene.add(hemi, ambient);
 
 // ------------------------------------------------------------------ outlines
 
 const OUTLINES = [];
+const OUTLINE_MESHES = [];   // the shells themselves, so a look can hide them
 const SHELLS = new WeakMap();
 
 function addOutline(mesh, width = 0.0032, sway = 0) {
@@ -114,6 +116,7 @@ function addOutline(mesh, width = 0.0032, sway = 0) {
   // two buildings, a fountain and two enemies, most of it off-screen.
   clone.frustumCulled = mesh.frustumCulled;
   OUTLINES.push(mat);
+  OUTLINE_MESHES.push(clone);
   return clone;
 }
 
@@ -238,6 +241,14 @@ const TOWN_LOOK = {
   bloom_b:  { rimStrength: 0.70, rimColor: 0xffd8ec, sway: 0.03 },
 };
 
+// EVERY MATERIAL THIS FILE OWNS, and the recipe that made it.
+//
+// Switching look means rebuilding materials, not tweaking them: a toon ramp
+// and a standard BRDF are different material classes. Recording the recipe at
+// load is what makes the switch possible at all -- by the time the material
+// exists the GLB's own colour and map have been thrown away.
+const SURFACES = [];       // { mesh, kind, name, color, map, vcol, opts }
+let LOOK = LOOKS.toon;
 let breakables = null;     // the props that come apart -- see breakables.js
 const SOLIDS = [];         // oriented boxes, from every region's manifest
 const PLATFORMS = [];      // flat tops ABOVE the analytic ground
@@ -282,12 +293,11 @@ function applyTownLook(root) {
     // material whose entire grass-to-path transition is a COLOR_0 attribute --
     // ignoring it ships a field of flat mottled white.
     const vcol = !!m.geometry.getAttribute('color');
-    m.material = TOWN_FLAT.has(name)
-      ? flatMaterial(base)
-      : toonMaterial(base, {
-          gradient: RAMP_SOFT, rimStrength: 0.28, map, vertexColors: vcol,
-          key: `town:${name}:${vcol ? 'v' : ''}`, ...(TOWN_LOOK[name] || {}),
-        });
+    const opts = { gradient: RAMP_SOFT, rimStrength: 0.28, map, vertexColors: vcol,
+                   key: `town:${name}:${vcol ? 'v' : ''}`, ...(TOWN_LOOK[name] || {}) };
+    SURFACES.push({ mesh: m, flat: TOWN_FLAT.has(name), color: base, opts });
+    m.material = TOWN_FLAT.has(name) ? flatMaterial(base)
+                                     : surfaceMaterial(LOOK, base, opts);
     // NOT EVERYTHING CASTS. The shadow map is a second full pass over the
     // scene, so a 6k-triangle terrain and 500 grass tufts casting shadows
     // nobody can see is the most expensive nothing in the build. Ground
@@ -459,10 +469,10 @@ function buildCharacter(def, gltf) {
     m.userData.matName = name;
     const color = m.material?.color?.clone() || new THREE.Color(0xffffff);
     const map = m.material?.map || null;      // face decal / body texture
-    m.material = FLAT_MATS.has(name)
-      ? flatMaterial(color)
-      : toonMaterial(color, { key: def.name + ':' + name, map,
-                              ...(def.look[name] || {}) });
+    const opts = { key: def.name + ':' + name, map, ...(def.look[name] || {}) };
+    SURFACES.push({ mesh: m, flat: FLAT_MATS.has(name), color, opts });
+    m.material = FLAT_MATS.has(name) ? flatMaterial(color)
+                                     : surfaceMaterial(LOOK, color, opts);
     m.castShadow = true;
     // A CHARACTER DOES NOT RECEIVE SHADOWS.  A 1.7 m body inside a 32 m shadow
     // frustum gets ~15 texels across the head, so self-shadow lands as grey
@@ -2108,6 +2118,49 @@ Object.defineProperty(globalThis, '__terrainProbes', {
 Object.defineProperty(globalThis, 'terrain', { get: () => terrain, configurable: true });
 Object.defineProperty(globalThis, 'combat', { get: () => combat, configurable: true });
 globalThis.__ik = IK_ENABLED;   // __ik.value = false to A/B it
+/**
+ * Switch the whole build between shading models, live.
+ *
+ * `__look('lit')` for a standard BRDF with a single hard key and no ink;
+ * `__look('toon')` for the banded ramp, rim and inverted hull. The geometry,
+ * the collision, the textures and the ground's vertex colours are identical in
+ * both -- which is the point: none of them were ever tied to the look.
+ */
+globalThis.__look = (name) => {
+  const next = LOOKS[name];
+  if (!next) return `unknown look: ${Object.keys(LOOKS).join(', ')}`;
+  LOOK = next;
+  for (const s of SURFACES) {
+    if (!s.mesh.parent) continue;
+    const keep = s.mesh.material;
+    s.mesh.material = s.flat ? keep : surfaceMaterial(LOOK, s.color, s.opts);
+    if (!s.flat) {
+      // carry the per-surface flags the loaders set after construction
+      s.mesh.material.shadowSide = keep.shadowSide;
+      s.mesh.material.transparent = true;
+      s.mesh.material.opacity = keep.opacity;
+      if (keep !== s.mesh.material) keep.dispose();
+    }
+  }
+  // the ink shells are a stylisation, not a lighting term
+  for (const o of OUTLINE_MESHES) o.visible = LOOK.outlines;
+  setRimScale(LOOK.rim);
+  key.color.set(LOOK.key.color);
+  key.intensity = LOOK.key.intensity;
+  hemi.color.set(LOOK.hemi.sky);
+  hemi.groundColor.set(LOOK.hemi.ground);
+  hemi.intensity = LOOK.hemi.intensity;
+  ambient.color.set(LOOK.ambient.color);
+  ambient.intensity = LOOK.ambient.intensity;
+  renderer.toneMappingExposure = LOOK.exposure;
+  // characters keep their own material list for the close-camera fade
+  for (const c of Object.values(chars)) {
+    if (!c) continue;
+    c.mats = [];
+    c.group.traverse((o) => { if (o.isMesh) c.mats.push(o.material); });
+  }
+  return `look: ${LOOK.label}`;
+};
 globalThis.__rim = setRimScale; // __rim(0) renders the frame with no rim light
 globalThis.__wind = WIND;  // set .value directly to A/B the sway
 Object.defineProperty(globalThis, '__breakables', { get: () => breakables, configurable: true });
