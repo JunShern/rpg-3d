@@ -103,7 +103,12 @@ const SHOTS = [
   // IN the bed, looking west down the channel. The first framing stood her
   // 0.6 m off the y=52 field wall, so the boom was inside it.
   { name: '07e-reeds-close', warp: [21.5, 2, -49.0], az: 1.571, polar: 1.26, dist: 7.5 },
-  { name: '07b-ravine', warp: [-14.0, 5, -38.6], az: 0.35, polar: 1.30, dist: 11.0 },
+  // FROM ACROSS THE GORGE, not from along it. At az 0.35 the 11 m boom lands at
+  // blender (-10.4, 28.6), which is inside the DELL's wood, and the frame was
+  // two thirds tree canopy with the ravine nowhere in it. The gorge runs
+  // north-south at x=-14, so the only bearing with air behind the camera is
+  // square across it from the east.
+  { name: '07b-ravine', warp: [-14.0, 5, -38.6], az: 1.571, polar: 1.26, dist: 9.5 },
   // LOOKING THE OTHER WAY ALONG THE CHANNEL. The water surface follows its own
   // bed, and the bed climbs, so from down in the gorge the ribbon seen edge-on
   // up-channel is a plane across the view with the player behind it. Measured:

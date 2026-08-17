@@ -1307,6 +1307,20 @@ def spine(M, t):
 # straight down a row -- the capture from inside the rows was the interior of a
 # trunk. The dell learned this the same way and was thinned for it. 4.2 m with
 # a smaller crown leaves 2.3 m of air, which is also just what an orchard is.
+# ROCK, ONE NUMBER. It was written twice -- once as the flat material and
+# once as the tint the texture is multiplied by -- which is the same trap the
+# terrain port and the wall gap both fell into, two copies of one constant
+# waiting to disagree.
+#
+# 0.62, not 0.52. The palette's own docstring says these values are the toon
+# ramp's MIDTONE and that "the ramp darkens the shadow band hard and mud is
+# unrecoverable", and rock at 0.52 against stone at 0.78 was exactly that: lit
+# it is a warm tan and it looks right, but every face turned away from the sun
+# collapses to charcoal. In `10-town-from-meadow` the rockwork by the gate sits
+# next to `stone` bollards and reads as a different, blacker material -- and it
+# has done since long before the walls were fixed.
+ROCK_COL = (0.62, 0.60, 0.57)
+
 ORCHARD = (19.0, 30.5, 4.2, 5)      # cx, cy, spacing, rows/cols
 ORCHARD_YAW = math.radians(9.0)     # off-axis, because nothing else here is
 
@@ -1788,7 +1802,7 @@ def main():
         # dead wood is GREY, not brown: a bare trunk in bark colour reads as a
         # living tree whose leaves failed to load
         "bark_dead": K.material("bark_dead", (0.44, 0.41, 0.36), roughness=0.95),
-        "rock":     K.material("rock", (0.52, 0.50, 0.48), roughness=0.9),
+        "rock":     K.material("rock", ROCK_COL, roughness=0.9),
         # REEDS: straw-olive, deliberately yellower than any grass here, so a
         # bed of them reads as a different plant and not as tall lawn.
         "reed":     K.material("reed", (0.60, 0.64, 0.31), roughness=0.9),
@@ -1819,7 +1833,7 @@ def main():
     # This has to happen BEFORE `A.Town(M)`, or the pieces built during
     # assembly capture the old flat materials -- the same ordering trap the
     # town's ground textures hit.
-    for key, fn, tint in (("rock", surface_tex.stone_rough, (0.52, 0.50, 0.48)),
+    for key, fn, tint in (("rock", surface_tex.stone_rough, ROCK_COL),
                           ("stone", surface_tex.stone_rough, (0.74, 0.72, 0.68)),
                           ("bark", surface_tex.bark_rough, (0.44, 0.34, 0.25)),
                           ("bark_dead", surface_tex.bark_rough, (0.44, 0.41, 0.36))):
