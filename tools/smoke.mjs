@@ -1367,18 +1367,25 @@ async function run() {
     for (let k = 0; k < 16; k++)
       moved = Math.max(moved, Math.abs(bell.matrix.elements[k] - before[k]));
     // ...and it must NOT ring from outside its own room, or the rope is just a
-    // radius round the tower
+    // radius round the tower.
+    //
+    // LET IT STOP FIRST. The first version swung again 0.27 s later and
+    // measured 17.16 against the 5.46 it got AT the rope -- not because a
+    // distant swing rang it harder, but because the bell was still going from
+    // the first ring and I was measuring the tail of that. A ring lasts 7 s;
+    // the check has to outwait it.
     __sim({ warp: [-1.0, 0, 8.0], az: 0, steps: 20 });
+    __sim({ steps: 200, dt: 1 / 20 });        // ten seconds: well past RING_T
     __face(-1.0, 12.0);
     const away = bell.matrix.elements.slice();
     __sim({ attack: true, steps: 16 });
     let spurious = 0;
     for (let k = 0; k < 16; k++)
       spurious = Math.max(spurious, Math.abs(bell.matrix.elements[k] - away[k]));
-    return { ok: moved > 1e-3,
+    return { ok: moved > 1e-3 && spurious < 1e-3,
              detail: `at the rope the bell moved ${moved.toFixed(2)}; `
-                   + `from the square outside, ${spurious.toFixed(2)} `
-                   + `(a swing 8 m away should not reach it)` };
+                   + `from the square 8 m away, once it had stopped, `
+                   + `${spurious.toFixed(3)}` };
   });
 
   // THE CAMERA MUST NOT LURCH INDOORS, which is a different property from

@@ -1985,7 +1985,7 @@ def belltower(t, cx, cy, base=2.35, storeys=4, yaw=0.0, hollow=True):
         # box the camera is clamped to (1.03). A rope the camera can sit on is a
         # brown wall across the frame once per revolution.
         rx, ry = cx - 1.10, cy - 1.10
-        out.append(K.tube("tower_rope", [
+        rope_obj = K.tube("tower_rope", [
             {"p": Vector((rx, ry, belfry_top - 0.16)), "r": (0.028, 0.028), "n": 2.2},
             {"p": Vector((rx, ry, floor_z + 3.10)), "r": (0.028, 0.028), "n": 2.2},
             # the sally: the woolly grip a ringer actually holds, and the one
@@ -1993,7 +1993,23 @@ def belltower(t, cx, cy, base=2.35, storeys=4, yaw=0.0, hollow=True):
             {"p": Vector((rx, ry, floor_z + 2.55)), "r": (0.062, 0.062), "n": 2.4},
             {"p": Vector((rx, ry, floor_z + 1.60)), "r": (0.062, 0.062), "n": 2.4},
             {"p": Vector((rx, ry, floor_z + 1.42)), "r": (0.026, 0.026), "n": 2.2},
-        ], seg=6, mat=M["timber"], squircle=2.3, up=(0, 1, 0)))
+        ], seg=6, mat=M["timber"], squircle=2.3, up=(0, 1, 0))
+        # THE ROPE IS THE ONLY VISIBLE PROOF THAT THE BELL RANG.
+        #
+        # You ring from the ground room and the bell is twenty metres over your
+        # head, inside the belfry -- so from where you actually swing, nothing
+        # about the bell is observable. I tried making the roosting flock
+        # scatter instead and measured that it cannot work either: the runtime
+        # parks and HIDES any creature past the cull distance, and from the
+        # rope the belfry flock is 21.9 m away, asleep and invisible.
+        #
+        # The rope is right in front of you and runs the whole height of the
+        # shaft. It takes the same trigger and the same clock as the bell, so
+        # hitting the sally makes the rope leap -- which is the thing a bell
+        # rope does, and the thing you can see.
+        t.moving("rope", [rope_obj],
+                 pivot=(rx, ry, belfry_top - 0.16),
+                 hit=(cx - 1.10, cy - 1.10, floor_z + 2.05), hit_r=1.05)
         out.append(box("tower_ropeeye", (rx, ry, belfry_top - 0.10),
                        (0.07, 0.07, 0.06), M["brass"], bevel=0.02, seg=1))
 

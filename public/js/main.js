@@ -2166,18 +2166,35 @@ function updateMovers(dt) {
       m.obj.matrixWorldNeedsUpdate = true;
       continue;
     }
-    // ABOUT THE BEAM'S OWN AXIS. The headstock runs along x, so a bell swings
-    // in the z-y plane -- rotate about x and it rocks the way a bell rocks
-    // rather than spinning like a carousel.
-    //
     // Decaying as the SQUARE of the remaining time, not linearly: a bell rings
     // hard and then hangs about, and a linear fade reads as somebody slowing it
     // down with their hand.
     const k = 1 - m.t / RING_T;
-    const a = Math.sin(m.t * 6.6) * 0.60 * k * k;
-    _mm.makeTranslation(m.x, m.y, m.z)
-       .multiply(_mr.makeRotationX(a))
-       .multiply(new THREE.Matrix4().makeTranslation(-m.x, -m.y, -m.z));
+    const w = Math.sin(m.t * 6.6) * k * k;
+    if (m.name === 'rope') {
+      // THE ROPE IS WHAT YOU ACTUALLY SEE. You ring from the ground room and
+      // the bell is twenty metres over your head inside the belfry, so nothing
+      // about the bell is observable from where you swing. The rope is in front
+      // of your face and runs the whole height of the shaft.
+      //
+      // It RISES AND FALLS rather than swinging, because that is what a bell
+      // rope does -- the wheel takes it up as the bell goes over -- with a
+      // little sway on a slower beat so it is not a piston.
+      // UP ONLY, NEVER DOWN. A symmetric bob pulls the rope's top DOWN off the
+      // eye it hangs from for half of every cycle, which opens a 0.4 m gap
+      // between the ceiling and the rope. Raised it just slides up through the
+      // hole, which is where a bell rope goes.
+      const rise = (1 - Math.cos(m.t * 6.6)) * 0.5 * k * k;
+      _mm.makeTranslation(Math.sin(m.t * 3.1) * 0.05 * k * k,
+                          rise * 0.40, Math.cos(m.t * 2.7) * 0.05 * k * k);
+    } else {
+      // ABOUT THE BEAM'S OWN AXIS. The headstock runs along x, so a bell swings
+      // in the z-y plane -- rotate about x and it rocks the way a bell rocks
+      // rather than spinning like a carousel.
+      _mm.makeTranslation(m.x, m.y, m.z)
+         .multiply(_mr.makeRotationX(w * 0.60))
+         .multiply(new THREE.Matrix4().makeTranslation(-m.x, -m.y, -m.z));
+    }
     m.obj.matrix.copy(_mm);
     m.obj.matrixWorldNeedsUpdate = true;
   }
@@ -2202,24 +2219,20 @@ function hitMovers(spec) {
     }
     m.t = 0;
     rang = true;
-    // AND WHAT ROOSTS UP THERE SHOULD LEAVE -- the flock in the belfry is 20 m
-    // over your head, so a scatter is the only way you would know from down
-    // here that anything happened.
+    // NO FLOCK SCATTER, and this is a decision I measured my way out of.
     //
-    // MEASURED, AND ONLY HALF WORKING: sampled per frame, all three birds go to
-    // `startle` on the frame the bell is struck and are back to `idle` on the
-    // next one. `spook` itself is fine -- called directly it sticks -- so
-    // something outside `updateAmbient` is resetting ambient state for a flock
-    // roosting 20 m up inside a building, which is a place no flock has been
-    // before. Left in because it is correct and costs nothing, and written down
-    // because a one-frame startle is invisible and I do not want to claim it.
-    if (combat && combat.spook) {
-      for (const e of combat.enemies) {
-        if (e.dead || e.spec.hostile) continue;
-        if (Math.hypot(e.pos.x - m.x, e.pos.z - m.z) > 6 || e.pos.y < m.y - 6) continue;
-        combat.spook(e);
-      }
-    }
+    // The obvious flourish is to send the belfry's roosting flock up when the
+    // bell sounds. It cannot work: the runtime PARKS AND HIDES any creature
+    // past the cull distance -- resets it home, sets it idle, makes it
+    // invisible -- and from the rope the belfry flock is 21.9 m away, which is
+    // past it. Sampled per frame, the birds went to `startle` on the frame the
+    // bell was struck and back to `idle` on the next, every time. `spook`
+    // itself is fine: a flitter 6.6 m away in the plaza holds `startle`
+    // indefinitely.
+    //
+    // So the scatter would have been twenty metres above your head, behind a
+    // wall, on an animal the engine had already put to sleep. The rope is the
+    // feedback instead.
   }
   return rang;
 }
