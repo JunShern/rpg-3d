@@ -1244,6 +1244,11 @@ const HERDS = [
   // well, a trough and a woodpile and read as a room nobody uses; the animals
   // are the difference between a set and a place, and they are already built.
   { x: 26,  z: -3.25, n: 2, y: 1.2 },
+  // IN THE SHEEPFOLD, for the same reason. The fold is sited to be looked at
+  // from the spine's crest, 19 m off and 3 m below the eye -- an empty pen at
+  // that distance is a rectangle of wall, and three animals in it are the only
+  // thing that says what it IS. The yard runs x -30..-26.5, z -70..-80.
+  { x: -28.4, z: -75.5, n: 3 },
 ];
 
 // Flocks sit ON the route, unlike the herds -- you are meant to walk into them.

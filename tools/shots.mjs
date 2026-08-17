@@ -121,10 +121,33 @@ const SHOTS = [
   { name: '09g-spine-face', warp: [-15.0, 6, -70.0], az: -1.571, polar: 1.24, dist: 11.0 },
   { name: '09h-spine-crest', warp: [-8.44, 11, -73.0], az: 0.0, polar: 1.18, dist: 8.0 },
   { name: '09i-spine-view', warp: [-8.44, 11, -73.0], az: 2.2, polar: 1.06, dist: 9.0 },
+  // WHAT THE CLIMB WAS ACTUALLY FOR. az 1.469 = atan2(19.6, 2), derived from
+  // the vector crest -> fold rather than dialled in: the sheepfold sits 19 m
+  // west and 3 m below the eye, and the cairn 29 m out and 3.6 m ABOVE it, so
+  // one frame holds a yard you look down into and a skyline you look up at.
+  //
+  // THE GAME'S OWN CAMERA -- polar 1.22, dist 5.4 -- and not a number chosen to
+  // make the frame work. This shot is a claim about what the player sees when
+  // they reach the crest, so dialling the pitch until the cairn fits would have
+  // been the shot lying about the game. It was doing exactly that at 1.42, and
+  // the smoke check is what caught it.
+  { name: '09l-fold-from-spine', warp: [-8.44, 11, -73.0], az: 1.469, polar: 1.22,
+    dist: 5.4 },
+  // the gateway, from outside it, which is the side the gateposts are on
+  { name: '09m-fold-gate', warp: [-24.2, 6, -75.0], az: 1.571, polar: 1.22, dist: 8.5 },
+  // the cairn against the sky, from below and east -- the only angle at which
+  // the boundary hill is BEHIND it rather than under it
+  { name: '09n-cairn', warp: [-31.0, 10, -77.4], az: 2.09, polar: 1.30, dist: 8.0 },
   { name: '09d-fieldwall', warp: [5.7, 6, -35.0], az: 0.0, polar: 1.26, dist: 9.0 },
   // THE ORCHARD, centred at (19.5, -30.5): from the road, and from inside the
   // rows. The point of both is the contrast with the scattered copses.
-  { name: '09j-orchard', warp: [10.5, 3, -30.0], az: -1.571, polar: 1.22, dist: 11.0 },
+  // FROM THE SOUTH, not from the road. The road framing put the boom 10.3 m
+  // west of the mark, which lands it at x=0.2 -- inside a copse -- and this
+  // shot has been a full frame of tree-trunk interior in the committed sheet
+  // for as long as it has existed. Nobody looked at it. Rule (f) again, and it
+  // is worth saying that a capture sheet is only worth what somebody's eyes
+  // spend on it.
+  { name: '09j-orchard', warp: [19.0, 3, -37.0], az: Math.PI, polar: 1.22, dist: 10.0 },
   // DOWN A ROW, not across one. The planting is yawed 9 degrees, so the only
   // clear line through it is along the rows -- which is also the shot that
   // says "planted" rather than "wooded".

@@ -459,6 +459,13 @@ def _clear_of_landmarks(x, y, pad=0.0):
     if SPINE["y0"] - 3.0 < y < SPINE["y1"] + 3.0 \
        and abs(x - _spine_x(y)) < 4.4 + pad:
         return False
+    # THE FOLD'S YARD AND THE CAIRN'S MOUND are built ground, not wild. The
+    # copse at (-34, 62) has an 11 m radius and reaches y=73, which is halfway
+    # up the fold's west wall.
+    if -36.5 < x < -26.0 and 69.0 < y < 81.5:
+        return False
+    if math.hypot(x + 34.0, y - 79.0) < 4.5 + pad:
+        return False
     # THE ORCHARD IS PLANTED, so nothing may seed itself inside it -- one
     # scattered wild tree in the middle of a grid destroys the only thing the
     # grid is there to say.
@@ -846,9 +853,20 @@ def drywall(M, t, x0, y0, x1, y1, gap_at=None, gap_w=4.2, h=0.92, on_road=False)
     Built as overlapping slabs at jittered heights, because a dry-stone wall is
     a heap of stones that agree to be a wall, and a smooth extrusion reads as
     concrete.
+
+    THE SLABS ARE LAID ALONG THE WALL, which they were not until the sheepfold
+    was built. Each stone was an AXIS-ALIGNED box, 0.68 m across in world x and
+    0.40 m in world y, dropped every 0.62 m: a wall running east-west overlaps
+    by 0.06 m and looks like masonry, and a wall running north-south leaves a
+    0.22 m gap between every stone and looks like a row of gravestones. Every
+    wall in the world happened to run east-west, so the bug was invisible until
+    a fold needed two walls that did not -- and the capture from the spine is
+    unmistakable, a picket of headstones on a green field. `along` is the
+    stone's long axis and it now follows the wall whatever bearing it is on.
     """
     rnd = _lcg(int(abs(x0 * 71 + y0 * 131)) + 5)
     span = math.hypot(x1 - x0, y1 - y0)
+    bearing = math.degrees(math.atan2(y1 - y0, x1 - x0))
     # DERIVE THE GAP FROM THE ROAD, do not type it in twice. The first version
     # had both numbers written by hand, and the second wall's gap was at x=16
     # while `_path_x` puts the road at x=12 -- so the road ran straight into a
@@ -856,7 +874,7 @@ def drywall(M, t, x0, y0, x1, y1, gap_at=None, gap_w=4.2, h=0.92, on_road=False)
     # up on the hill was the same mistake with different geometry.
     if on_road:
         gap_at = _path_x(y0) - x0
-    n = max(2, int(span / 0.62))
+    n = max(2, int(span / 0.58))
     for i in range(n):
         u = (i + 0.5) / n
         px, py = x0 + (x1 - x0) * u, y0 + (y1 - y0) * u
@@ -864,11 +882,26 @@ def drywall(M, t, x0, y0, x1, y1, gap_at=None, gap_w=4.2, h=0.92, on_road=False)
             continue
         hh = h * (0.82 + 0.30 * rnd())
         z = height(px, py)
-        t.add(A.box(f"wall{i}",
-                    (px, py, z + hh / 2 - 0.06),
-                    (0.34 + 0.06 * rnd(), 0.20 + 0.05 * rnd(), hh / 2),
-                    M["rock"], bevel=0.05, seg=1))
-        t.solid(px, py, 0.36, 0.24, top=z + hh)
+        # 0.40-0.47 SEMI-AXIS, not 0.34-0.40. At the old size a stone was 0.68
+        # to 0.80 m long against a 0.63 m spacing, so the smallest ones overlap
+        # their neighbour by 0.048 m -- and `bevel=0.05` insets the flat face
+        # by more than that, which leaves a V-groove between them. Every wall in
+        # the world has had a faint dotted line running along it for that
+        # reason. Rule (a): the fault is in the joint, and here it literally
+        # was. 0.80-0.94 against 0.58 leaves 0.22-0.36 m of overlap, which no
+        # bevel can eat.
+        along = 0.40 + 0.07 * rnd()      # the long axis, laid down the wall
+        stone = A.box(f"wall{i}",
+                      (px, py, z + hh / 2 - 0.06),
+                      (along, 0.20 + 0.05 * rnd(), hh / 2),
+                      M["rock"], bevel=0.05, seg=1)
+        K.transform(stone, rotate=(0, 0, bearing), around=(px, py, 0))
+        t.add(stone)
+        # the collision box stays axis-aligned and takes the LARGER extent on
+        # both axes, so a diagonal wall is never thinner to walk through than
+        # it is to look at
+        t.solid(px, py, 0.36, 0.36 if abs(math.sin(math.radians(bearing))) > 0.3
+                                   else 0.24, top=z + hh)
     # a couple of cap stones sitting proud, so the top line is not level
     for k in range(max(1, n // 7)):
         u = (k + 0.5) / max(1, n // 7)
@@ -1414,6 +1447,151 @@ def backdrop(M, t):
     t.add(*out)
 
 
+def fold(M, t):
+    """A hillside sheepfold and a cairn above it, on the western rise.
+
+    THE WEST EDGE WAS THE LAST PLAIN GROUND. Everything the walk passes has
+    something on it now, and the far south-west had one copse and forty metres
+    of grass climbing into the boundary hills.
+
+    It is sited to be SEEN rather than merely visited, because the reward for
+    climbing the rock spine was a view of nothing. From the crest -- eye at
+    10.94 m -- the fold's yard sits 2 to 3.9 m BELOW you nineteen metres west,
+    so you look down into it and can see what is standing in it, and the cairn
+    sits 2.1 m ABOVE you at 26 m, further up the same slope. They are the only
+    built things on that side of the map. Every sightline clears the ground
+    between by over 1.2 m, measured against the terrain function rather than
+    eyeballed: the spine's 9.29 m crest is BUILT ROCK sitting on 5.65 m of
+    ground, and reading the crest height off `heightXY` gives an eye three and
+    a half metres too low and a completely different composition.
+
+    The cairn is NOT on the skyline from the crest -- the boundary hills behind
+    it rise to 19 m, so it reads as a stone marker against green. It is against
+    sky only from close up, walking the last of the slope, which is the shot
+    `09n-cairn` frames and the reason to go the rest of the way.
+
+    Four walls, not the D-shape a hill fold usually has, because the bank runs
+    the wrong way to be one: see the siting note below.
+    """
+    # ALONG THE CONTOUR, not across it. The first siting ran the yard east-west
+    # and would have enclosed a 4.9 m drop over 6.5 m -- that is a cliff, not a
+    # pen. The ground here falls about 0.55 m per metre in x and is nearly flat
+    # in y, so the fold is long north-south and only 3.5 m across the fall,
+    # which is both how one is actually built and the only shape that leaves a
+    # yard an animal can stand in.
+    x0, x1 = -30.0, -26.5      # x0 uphill, x1 the downhill wall with the gate
+    y0, y1 = 70.0, 80.0
+    drywall(M, t, x0, y0, x1, y0)
+    drywall(M, t, x1, y0, x1, y1, gap_at=5.0, gap_w=2.4)     # the gate, downhill
+    drywall(M, t, x0, y0, x0, y1)                            # the uphill back
+    drywall(M, t, x0, y1, x1, y1)
+
+    rnd = _lcg(8891)
+    # A TROUGH, set along the uphill wall where the ground is level in y. An
+    # empty pen is a rectangle; one thing an animal would use is what says the
+    # rectangle is FOR something.
+    tx, ty = x0 + 0.85, y0 + 3.2
+    tz = height(tx, ty)
+    t.add(A.box("foldtrough", (tx, ty, tz + 0.24), (0.42, 1.15, 0.26),
+                M["stone"], bevel=0.06, seg=1))
+    t.add(A.box("foldtroughin", (tx, ty, tz + 0.44), (0.30, 1.02, 0.10),
+                M["rock"], bevel=0.04, seg=1))
+    t.solid(tx, ty, 0.44, 1.17, top=tz + 0.50)
+
+    # THE GATEPOSTS, ON THE GAP EDGES, derived from the same 5.0/2.4 the wall's gap is cut
+    # with. At +-1.5 they sat 0.3 m INSIDE the stonework -- two posts buried in
+    # a wall rather than two posts framing a gateway.
+    for sgn in (-1, 1):
+        px, py = x1, y0 + 5.0 + sgn * 1.2
+        pz = height(px, py)
+        # 1.62 m, NOT the 1.05 they were built at. The wall runs 0.75-1.03 m
+        # high, so a 1.05 m post is level with the stonework it is meant to
+        # frame -- the capture showed a gap in a wall rather than a gateway. A
+        # gatepost has to read as a POST, which means clearing the wall by more
+        # than the wall's own height jitter.
+        t.add(K.tube(f"foldpost{sgn}", K.dome([
+            {"p": Vector((px, py, pz - 0.2)), "r": (0.24, 0.22), "n": 3.0},
+            {"p": Vector((px, py, pz + 1.62)), "r": (0.19, 0.17), "n": 3.2},
+        ], at="end", steps=2, height=0.12), seg=9, mat=M["stone"], squircle=3.0,
+            up=(0, 0, 1)))
+        t.solid(px, py, 0.28, 0.26, top=pz + 1.74)
+
+    # THE CAIRN, on the rise behind it and deliberately on the skyline. Flat
+    # stones, biggest at the bottom, leaning in -- the only shape in the kit
+    # that reads as STACKED BY SOMEBODY at two hundred metres.
+    # A HEAP, NOT A ZIGGURAT. The first build stacked nine concentric discs on
+    # a smooth linear taper with 0.16 m of jitter, and the capture is a stepped
+    # stone pyramid -- a wedding cake, not something a shepherd piled up. The
+    # REGULARITY was the whole fault: a cairn is only ever read by its
+    # silhouette, and a silhouette of even steps reads as built by a mason. So
+    # every stone now gets its own radius scatter, its own lean off the axis
+    # (and NOT one that tapers to nothing at the top), its own aspect and its
+    # own yaw. Same nine stones, same height.
+    # SITED BY THE DEFAULT CAMERA, not by the capture. At (-36.5, 82) the cairn
+    # stood 3.6 m above the crest eye at 29.5 m, which is 7 degrees up -- and
+    # the game's camera sits polar 1.22 / 5.4 m behind, so it looks 20.1 degrees
+    # DOWN and a 52-degree vertical FOV leaves only 5.9 degrees above
+    # horizontal. The top of the cairn was outside the frame the player
+    # actually gets, and the only reason the capture looked right is that I had
+    # dialled the shot to polar 1.42 to make my own composition work. Rule (b),
+    # one turn of the screw further on: it is not enough to check that you can
+    # SEE it, you have to check the camera the player is given.
+    #
+    # 26.3 m out and 10.70 m up allows 2.96 m of stones against the 2.30 built.
+    ccx, ccy = -34.0, 79.0
+    cz = height(ccx, ccy)
+    n, top = 9, 0.0
+    for k in range(n):
+        u = k / (n - 1)
+        # non-monotonic on purpose: the taper is the trend and the scatter is
+        # what breaks the step pattern. One stone wider than the one beneath it
+        # is exactly what a heap of rocks does and what a staircase never does.
+        # CHUNKS, NOT DISCS. At h = 0.13-0.22 against r = 0.5-0.86 these were
+        # flat pancakes, and rule (i) does the rest: a thin object is mostly
+        # outline, so wherever the lean opened a sliver between two of them the
+        # inverted-hull shell filled it and the cairn had a black band across
+        # its middle. Filling the axis with a core did not help, because the
+        # gaps are at the PERIPHERY where no core reaches. Taller stones with
+        # more vertical overlap leave no sliver to fill in the first place.
+        r = 0.74 * (1.0 - 0.62 * u) * (0.78 + 0.42 * rnd())
+        h = 0.20 + 0.10 * rnd()
+        zz = cz + 0.10 + k * 0.245
+        # LEAN IN PROPORTION TO THE STONE, not a flat 0.34 m. A fixed offset
+        # is a third of the base stone's width and most of the top one's, so
+        # the small stones walked clear of the stack and the capture had a
+        # BLACK HOLE through the middle of the cairn -- you were seeing the
+        # inverted-hull outline shell of the stone behind, from inside it.
+        # Rule (i): a very thin object is mostly outline, and the inside of an
+        # outline is black by construction.
+        lean = r * 0.30 * (0.35 + 0.65 * rnd())
+        a = rnd() * 6.283
+        sx, sy = ccx + math.cos(a) * lean, ccy + math.sin(a) * lean
+        st = K.blob(f"cairn{k}", (sx, sy, zz),
+                    (r, r * (0.66 + 0.34 * rnd()), h), None, M["rock"],
+                    seg=8, rings=5, squircle=2.9)
+        K.transform(st, rotate=(0, 0, rnd() * 360.0), around=(sx, sy, 0))
+        t.add(st)
+        top = zz + h
+    # A CORE up the middle, narrower than every stone in the stack and so never
+    # part of the silhouette. Its only job is that there is something opaque
+    # behind the gaps, which is cheaper and more robust than tuning the lean
+    # until no two stones happen to part company.
+    t.add(K.blob("cairncore", (ccx, ccy, cz + 0.10 + n * 0.245 * 0.46),
+                 (0.32, 0.28, n * 0.245 * 0.52), None, M["rock"],
+                 seg=8, rings=6, squircle=2.4))
+    # two shed at the foot, because a cairn that has stood a while has lost a
+    # couple -- and it breaks the base line, which is the other half of a
+    # silhouette that reads as piled rather than laid
+    for k in range(2):
+        a = rnd() * 6.283
+        fx, fy = ccx + math.cos(a) * 1.25, ccy + math.sin(a) * 1.25
+        t.add(K.blob(f"cairnfall{k}", (fx, fy, height(fx, fy) + 0.11),
+                     (0.34, 0.26, 0.13), None, M["rock"], seg=8, rings=5,
+                     squircle=2.7))
+    t.solid(ccx, ccy, 0.9, 0.8, top=top)
+    A.embercap(t, ccx + 1.5, ccy - 1.1, z=height(ccx + 1.5, ccy - 1.1), scale=1.05)
+
+
 def reedbed(M, t):
     """A reed bed along the stream's eastern reach.
 
@@ -1688,6 +1866,7 @@ def main():
     A.embercap(t, -33.0, 62.0, z=height(-33.0, 62.0))
     A.embercap(t, -9.0, STREAM_Y - 3.1, z=height(-9.0, STREAM_Y - 3.1))
     stream(M, t)
+    fold(M, t)
     reedbed(M, t)
     approach(M, t)
     waymarks(M, t)

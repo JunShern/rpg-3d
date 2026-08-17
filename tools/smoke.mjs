@@ -1215,6 +1215,110 @@ async function run() {
                    + `(the crest peaks at 9.29)${stalled ? ' | ' + stalled : ''}` };
   });
 
+  // THE FOLD AND THE CAIRN ARE THE VIEW FROM THE SPINE.
+  //
+  // The spine is a climb, and until now the reward for making it was a look at
+  // forty metres of empty grass. The sheepfold and the cairn exist to be that
+  // reward -- which makes "can you see them from up there" the property, not
+  // "do they exist". Rule (b): a walk test says nothing about what you can SEE.
+  //
+  // Measured two ways, because either alone lies. The SIGHTLINE is pure maths
+  // against the same height function the mesh was built from -- does the ground
+  // between the crest and the target rise into the line -- and it is the half
+  // that caught the siting error: the crest is 9.29 m of BUILT ROCK standing on
+  // 5.65 m of terrain, and taking the eye height from `heightXY` puts it three
+  // and a half metres too low, at which point the cairn stops being on the
+  // skyline and the whole composition is a different one. The FRUSTUM half then
+  // confirms the camera actually points at what the sightline says is clear.
+  await check('the fold and the cairn are the view from the spine', () => {
+    // three.js z = -blender y, which is where the fold's -75 comes from
+    const EYE = 9.29 + 1.65;                 // crest rock + eye, NOT heightXY
+    const TARGETS = [
+      ['the gatepost', -26.5, -75.0, 1.15],
+      ['the back wall', -30.0, -75.0, 0.90],
+      ['the cairn',    -34.0, -79.0, 2.30],
+    ];
+    const cx = -8.44, cz = -73.0;
+    const rows = [];
+    let clearAll = true, seenAll = true;
+    // FACE WEST AT THE FOLD, AND PIN THE CAMERA. polar and dist are the game's
+    // own defaults, written down here rather than inherited -- `cam.polar` is
+    // global, lock-on drives it toward LOCK_POLAR, and several checks before
+    // this one lock on. So this measured a camera pitch left behind by an
+    // earlier test and reported the cairn 15% past the top edge while the
+    // capture at the real default showed it comfortably inside. Same class of
+    // fault as the draw budgets inheriting `az` from 45 checks back: a suite
+    // that shares one page shares all of its state, and any check that does
+    // not pin what it depends on is measuring the check before it.
+    __sim({ warp: [cx, 12, cz], az: Math.atan2(cx + 26.5, cz + 75.0),
+            polar: 1.22, dist: 5.4, steps: 40, dt: 1 / 20 });
+    camera.updateMatrixWorld();
+    const fr = new THREE.Frustum().setFromProjectionMatrix(
+      new THREE.Matrix4().multiplyMatrices(
+        camera.projectionMatrix, camera.matrixWorldInverse));
+    for (const [name, tx, tz, up] of TARGETS) {
+      const g = terrain.heightXY(tx, -tz);
+      const top = g + up;
+      let worst = 99;
+      for (let u = 0.04; u < 0.99; u += 0.01) {
+        const px = cx + (tx - cx) * u, pz = cz + (tz - cz) * u;
+        worst = Math.min(worst, EYE + (top - EYE) * u - terrain.heightXY(px, -pz));
+      }
+      const inView = fr.containsPoint(new THREE.Vector3(tx, top, tz));
+      // HOW MUCH ROOM IS LEFT, not just in or out. `containsPoint` says yes
+      // right up to the moment it says no, and a target one pixel inside the
+      // top edge is a target that leaves the frame the instant the boom
+      // shortens on a rock. Rule (k). Projected y in NDC: +-1 is the edge.
+      const ndc = new THREE.Vector3(tx, top, tz).project(camera);
+      const marg = 1 - Math.abs(ndc.y);
+      if (worst < 0.8) clearAll = false;
+      if (!inView || marg < 0.06) seenAll = false;
+      rows.push(`${name} ${(top - EYE >= 0 ? '+' : '')}${(top - EYE).toFixed(1)} m `
+              + `vs eye, clears by ${worst.toFixed(2)}, `
+              + `${(marg * 100).toFixed(0)}% of the half-frame to spare`
+              + `${inView ? '' : ' -- OUT OF FRAME'}`);
+    }
+    return { ok: clearAll && seenAll,
+             detail: rows.join(' · ') + ' (the cairn must read above the eye and '
+                   + 'stay in frame under the DEFAULT camera, not a dialled one)' };
+  });
+
+  // AND YOU CAN GET INTO THE YARD. A pen you can only look at is a texture.
+  await check('the sheepfold can be entered through its gate', () => {
+    const WAY = [
+      ['the approach', -22.0, -75.0],
+      ['the gateway',  -26.4, -75.0],
+      ['inside',       -28.3, -75.0],
+      ['the top corner', -29.2, -78.5],
+    ];
+    __sim({ warp: [-19.0, 8, -75.0], az: 0, steps: 30 });
+    let reached = 0, stalled = null;
+    for (const [name, tx, tz] of WAY) {
+      for (let i = 0; i < 500; i++) {
+        const h = __sim({ steps: 0 }).heroPos;
+        if (Math.hypot(tx - h[0], tz - h[2]) < 0.45) break;
+        __sim({ steps: 1, az: Math.atan2(h[0] - tx, h[2] - tz), held: ['KeyW'] });
+      }
+      const h = __sim({ steps: 0 }).heroPos;
+      if (Math.hypot(tx - h[0], tz - h[2]) < 0.9) reached++;
+      else if (!stalled) stalled = `${name}: ${Math.hypot(tx - h[0], tz - h[2]).toFixed(2)} m `
+        + `short at ${h[1].toFixed(2)} m`;
+    }
+    // THE WALL MUST STILL BE A WALL. Walking in through the gate proves the gap
+    // is passable; it says nothing about whether the stonework stops you, and a
+    // fold you can stroll through the side of is a decoration.
+    __sim({ warp: [-24.0, 8, -71.5], az: 0, steps: 30 });
+    for (let i = 0; i < 220; i++)
+      __sim({ steps: 1, az: Math.atan2(-24.0 + 29.0, -71.5 + 71.5), held: ['KeyW'] });
+    const stop = __sim({ steps: 0 }).heroPos;
+    const blocked = stop[0] > -26.9;
+    return { ok: reached === WAY.length && blocked,
+             detail: `${reached}/${WAY.length} waypoints · walked at the solid wall `
+                   + `and stopped at x=${stop[0].toFixed(2)} `
+                   + `(the wall is x=-26.5, so past -26.9 is through it)`
+                   + `${stalled ? ' | ' + stalled : ''}` };
+  });
+
   // NOTHING RENDERS BLACK BECAUSE IT LOST ITS VERTEX COLOURS.
   //
   // The meadow floor carries the grass/path blend as a per-vertex colour, and
