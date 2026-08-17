@@ -474,6 +474,13 @@ def main():
     # lamp being below the paving, which described the cellar and nothing else.
     man["lights"] = [{"x": round(x, 3), "y": round(z, 3), "z": round(-y, 3), "k": k}
                      for x, y, z, k in t.lights]
+    # things the runtime animates: where they turn, and where you have to swing
+    # to set them going -- which for a bell is at the bottom of a 20 m rope
+    man["movers"] = [{"name": nm,
+                      "x": round(px, 3), "y": round(pz, 3), "z": round(-py, 3),
+                      "hx": round(hx, 3), "hy": round(hz, 3), "hz": round(-hy, 3),
+                      "r": round(hr, 3)}
+                     for nm, _g, (px, py, pz), (hx, hy, hz), hr in t.movers]
     man["shafts"] = [{"x": round(x, 3), "z": round(-y, 3),
                       "hx": round(hx, 3), "hz": round(hy, 3),
                       "y0": round(z0, 3), "y1": round(z1, 3),

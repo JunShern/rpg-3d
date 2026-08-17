@@ -1393,6 +1393,10 @@ export function createCombat(ctx) {
   }
 
   return {
+    // exposed so the town can startle a flock without reaching into the
+    // ambient state machine: ringing the bell scatters what roosts in the belfry
+    spook,
+
     load, spawn, update, attack, respawn,
     toggleLock, cycleLock,
     get lockTarget() { return lockTarget; },

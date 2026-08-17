@@ -60,7 +60,12 @@ const SHOTS = [
   // doorway is the only opening for it to sit in.
   { name: '04g-tower-room', warp: [-1.0, 0.6, 15.6], az: Math.PI, polar: 1.24, dist: 5.5 },
   { name: '04e-belfry', warp: [-1.0, 20.5, 16.6], az: 0.2, polar: 1.30, dist: 6.5 },
-  { name: '04f-tower-from-the-air', warp: [-1.0, 20.5, 16.6], az: 0.0, polar: 0.80, dist: 9.5 },
+  // FROM THE ROOF ROUTE, not from the belfry. This used to warp into the belfry
+  // and rely on the boom swinging OUT of the tower to frame it from the air --
+  // which the belfry's camera volume now correctly forbids, because standing in
+  // a room is not a vantage on the outside of it. The roof leads are 30 m south
+  // and 12 m up, which is the view the tower was sited for anyway.
+  { name: '04f-tower-from-the-roofs', warp: [7.0, 9, -15.0], az: 2.885, polar: 1.10, dist: 9.0 },
   // the market, framed on the stalls -- whose goods now come apart
   // camera on the +x side so the view looks WEST at the stall fronts; az -1.2
   // put it behind them and filled the frame with the tops of the canopies

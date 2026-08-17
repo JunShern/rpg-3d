@@ -1348,6 +1348,39 @@ async function run() {
                    + `${stalled ? ' | ' + stalled : ''}` };
   });
 
+  // THE BELL RINGS WHEN YOU SWING AT THE ROPE.
+  //
+  // The climb up the tower paid an embercap, which is what every hedgerow in
+  // the demo pays. This is the one thing only that place can give you -- and
+  // the trigger is not the bell, which hangs 2.1 m over the belfry floor
+  // against a 1.55 m swing. It is the sally on the rope, in the GROUND ROOM,
+  // twenty metres under the thing it moves.
+  await check('swinging at the rope rings the bell', () => {
+    let bell = null;
+    scene.traverse((o) => { if (o.name === 'MOVE_bell') bell = o; });
+    if (!bell) return { ok: false, detail: 'MOVE_bell is not in the scene' };
+    __sim({ warp: [-1.5, 0.5, 16.2], az: 0, steps: 20 });
+    __face(-2.1, 16.6);
+    const before = bell.matrix.elements.slice();
+    __sim({ attack: true, steps: 16 });
+    let moved = 0;
+    for (let k = 0; k < 16; k++)
+      moved = Math.max(moved, Math.abs(bell.matrix.elements[k] - before[k]));
+    // ...and it must NOT ring from outside its own room, or the rope is just a
+    // radius round the tower
+    __sim({ warp: [-1.0, 0, 8.0], az: 0, steps: 20 });
+    __face(-1.0, 12.0);
+    const away = bell.matrix.elements.slice();
+    __sim({ attack: true, steps: 16 });
+    let spurious = 0;
+    for (let k = 0; k < 16; k++)
+      spurious = Math.max(spurious, Math.abs(bell.matrix.elements[k] - away[k]));
+    return { ok: moved > 1e-3,
+             detail: `at the rope the bell moved ${moved.toFixed(2)}; `
+                   + `from the square outside, ${spurious.toFixed(2)} `
+                   + `(a swing 8 m away should not reach it)` };
+  });
+
   // THE CAMERA MUST NOT LURCH INDOORS, which is a different property from
   // "can it see the player" and was the one that was broken.
   //

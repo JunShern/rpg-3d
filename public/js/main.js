@@ -275,6 +275,13 @@ let terrainProbes = [];
 const FLOORS = [];         // meshes the ground raycast targets
 // OPEN VOLUMES THE CAMERA MAY ALWAYS OCCUPY -- see `Town.shafts` in arch_lib.
 const SHAFTS = [];
+// THINGS THAT MOVE WHEN YOU HIT THEM -- see `Town.moving` in arch_lib. One so
+// far: the bell. Kept out of the town's big join, because you cannot rotate one
+// bell inside a mesh that contains the whole town.
+const MOVERS = [];
+const RING_T = 7.0;             // how long a ring takes to die away
+const _mm = new THREE.Matrix4();
+const _mr = new THREE.Matrix4();
 let townReady = false;
 
 function applyTownLook(root) {
@@ -349,9 +356,19 @@ function absorbRegion(root, manifest) {
   // its source mesh, so a parent-name match silently added every outline to the
   // ground raycast -- doubling its cost and letting it return a surface 2 mm
   // off the real floor.
+  // THE LOOKUP HAS TO EXIST BEFORE THE LOOP THAT USES IT. This was below the
+  // traverse, so `MOVERS.find` matched nothing on every node and the bell was
+  // never claimed -- it loaded, it was in the scene, and it sat there.
+  for (const q of manifest.movers || []) MOVERS.push({ ...q, obj: null, t: -1 });
   root.traverse((o) => {
     if (!o.isMesh || o.material?.isShaderMaterial) return;
     if (/FLOOR/i.test(o.name || '')) FLOORS.push(o);
+    const mv = /^MOVE_(.+)$/.exec(o.name || '');
+    if (mv) {
+      const m = MOVERS.find((q) => q.name === mv[1]);
+      // the transform is composed by hand every frame -- see `updateMovers`
+      if (m) { m.obj = o; o.matrixAutoUpdate = false; }
+    }
   });
   for (const p of manifest.platforms || []) PLATFORMS.push(p);
   for (const q of manifest.shafts || []) SHAFTS.push(q);
@@ -2138,6 +2155,75 @@ function updateTrail(dt) {
 // four frames and throws thirty-six chunks.
 let smashedThisSwing = false;
 const _sd = new THREE.Vector3();
+/** Swing the things that have been set swinging. */
+function updateMovers(dt) {
+  for (const m of MOVERS) {
+    if (!m.obj || m.t < 0) continue;
+    m.t += dt;
+    if (m.t >= RING_T) {
+      m.t = -1;
+      m.obj.matrix.identity();
+      m.obj.matrixWorldNeedsUpdate = true;
+      continue;
+    }
+    // ABOUT THE BEAM'S OWN AXIS. The headstock runs along x, so a bell swings
+    // in the z-y plane -- rotate about x and it rocks the way a bell rocks
+    // rather than spinning like a carousel.
+    //
+    // Decaying as the SQUARE of the remaining time, not linearly: a bell rings
+    // hard and then hangs about, and a linear fade reads as somebody slowing it
+    // down with their hand.
+    const k = 1 - m.t / RING_T;
+    const a = Math.sin(m.t * 6.6) * 0.60 * k * k;
+    _mm.makeTranslation(m.x, m.y, m.z)
+       .multiply(_mr.makeRotationX(a))
+       .multiply(new THREE.Matrix4().makeTranslation(-m.x, -m.y, -m.z));
+    m.obj.matrix.copy(_mm);
+    m.obj.matrixWorldNeedsUpdate = true;
+  }
+}
+
+/** Anything the swing can set going that is not a breakable. */
+function hitMovers(spec) {
+  let rang = false;
+  for (const m of MOVERS) {
+    if (!m.obj || m.t >= 0) continue;
+    const dx = m.hx - pos.x, dz = m.hz - pos.z;
+    const d = Math.hypot(dx, dz);
+    if (d > m.r + (spec.reach ?? 1.6) * 0.7) continue;
+    // THE TRIGGER IS NOT THE THING. You cannot reach the bell -- it hangs 2.1 m
+    // over the belfry floor and the swing reaches 1.55 -- so what you actually
+    // hit is the sally on the rope, twenty metres below it. Which is how a bell
+    // is rung, and the reason the rope was worth modelling.
+    if (Math.abs(pos.y + 1.0 - m.hy) > 1.5) continue;
+    if (d > 1e-4) {
+      const cos = (dx / d) * Math.sin(facing) + (dz / d) * Math.cos(facing);
+      if (cos < Math.cos(1.1)) continue;
+    }
+    m.t = 0;
+    rang = true;
+    // AND WHAT ROOSTS UP THERE SHOULD LEAVE -- the flock in the belfry is 20 m
+    // over your head, so a scatter is the only way you would know from down
+    // here that anything happened.
+    //
+    // MEASURED, AND ONLY HALF WORKING: sampled per frame, all three birds go to
+    // `startle` on the frame the bell is struck and are back to `idle` on the
+    // next one. `spook` itself is fine -- called directly it sticks -- so
+    // something outside `updateAmbient` is resetting ambient state for a flock
+    // roosting 20 m up inside a building, which is a place no flock has been
+    // before. Left in because it is correct and costs nothing, and written down
+    // because a one-frame startle is invisible and I do not want to claim it.
+    if (combat && combat.spook) {
+      for (const e of combat.enemies) {
+        if (e.dead || e.spec.hostile) continue;
+        if (Math.hypot(e.pos.x - m.x, e.pos.z - m.z) > 6 || e.pos.y < m.y - 6) continue;
+        combat.spook(e);
+      }
+    }
+  }
+  return rang;
+}
+
 function updateSmash(dt) {
   if (!breakables) return;
   breakables.update(dt);
@@ -2151,6 +2237,11 @@ function updateSmash(dt) {
   // is the same shape as what you can hit
   const n = breakables.hit(pos.x, pos.z, _sd, (spec.reach ?? 1.6) * 0.95,
                            (spec.arc ?? 1.6) + 0.5);
+  if (hitMovers(spec)) {
+    smashedThisSwing = true;
+    combat.shake.mag = Math.max(combat.shake.mag, 0.10);
+    combat.shake.t = 0.20;
+  }
   if (n > 0) {
     smashedThisSwing = true;
     // it has to FEEL like it connected, or a barrel bursting reads as scenery
@@ -2177,6 +2268,7 @@ function frame(dt) {
   updateTrail(sdt);
   updateThreatLines(sdt);
   updateSmash(sdt);
+  updateMovers(sdt);
   renderer.render(scene, camera);
   hud.textContent =
     `${fps} fps  ·  ${cur ? cur.name : '—'}  ·  ${combat && combat.isStaggered() ? 'hurt' : slip.t > 0 ? 'slip' : attacking ? 'attack' : !grounded ? 'air'

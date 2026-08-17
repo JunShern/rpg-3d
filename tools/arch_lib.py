@@ -143,6 +143,11 @@ class Town:
         # empty for the shaft's whole height -- that is what a well IS -- so the
         # runtime confines the camera to it rather than trying to find air.
         self.shafts = []
+        # OBJECTS THE RUNTIME ANIMATES. Kept out of the big join for the same
+        # reason breakables are -- you cannot rotate one bell inside a mesh that
+        # contains the whole town -- but they are not breakable, so they need
+        # their own list and their own name prefix.
+        self.movers = []            # (name, objs, pivot, hit_point, hit_r)
 
     def add(self, *objs):
         for o in objs:
@@ -191,6 +196,18 @@ class Town:
         has to be declared, or it is scenery you walk straight through.
         """
         self.platforms.append((cx, cy, hx, hy, top))
+
+    def moving(self, name, objs, pivot, hit=None, hit_r=0.9):
+        """A prop the runtime can move. `pivot` is what it turns about; `hit`
+        is where the player has to swing to set it going, which is NOT
+        necessarily anywhere near the prop -- a bell is rung from the bottom of
+        the tower by a rope hanging twenty metres below it."""
+        group = [o for o in objs if o is not None]
+        if not group:
+            return None
+        self.loose.extend(group)
+        self.movers.append((name, group, pivot, hit or pivot, hit_r))
+        return group[0]
 
     def breakable(self, *objs):
         """A prop the player can smash, kept OUT of the join.
@@ -1598,6 +1615,9 @@ def finish(t, name_town="TOWN", name_floor="FLOOR"):
     # the GLB and the runtime reports "0 breakable" with nothing else wrong.
     t.props = [K.join(group, f"BREAK_{group[0].name}_{i}")
                for i, group in enumerate(t.loose_groups)]
+    # movers keep their own prefix so the runtime can tell them from breakables
+    t.props += [K.join(list(group), f"MOVE_{name}")
+                for name, group, _, _, _ in t.movers]
     return town_obj, floor_obj
 
 
@@ -1861,13 +1881,29 @@ def belltower(t, cx, cy, base=2.35, storeys=4, yaw=0.0, hollow=True):
     # the bell hangs from the TOP of the chamber, not the middle of it
     out.append(box("tower_beam", (cx, cy, bell_z + 0.08), (bw - 0.30, 0.09, 0.09),
                    M["timber"], bevel=0.02, seg=1))
-    out.append(K.tube("tower_bell", [
+    bell_obj = K.tube("tower_bell", [
         {"p": Vector((cx, cy, bell_z + (0.00))), "r": (0.10, 0.10), "n": 2.4},
         {"p": Vector((cx, cy, bell_z + (-0.30))), "r": (0.30, 0.30), "n": 2.6},
         {"p": Vector((cx, cy, bell_z + (-0.50))), "r": (0.44, 0.44), "n": 3.0},
         {"p": Vector((cx, cy, bell_z + (-0.56))), "r": (0.45, 0.45), "n": 3.0},
         {"p": Vector((cx, cy, bell_z + (-0.58))), "r": 0.0, "n": 3.0},
-    ], seg=16, mat=M["brass"], squircle=2.6, up=(0, 1, 0)))
+    ], seg=16, mat=M["brass"], squircle=2.6, up=(0, 1, 0))
+    # THE BELL IS THE ONE THING IN THE TOWER YOU CAN DO SOMETHING TO.
+    #
+    # The climb pays an embercap, which is what every detour in the demo pays,
+    # so the tallest thing in the level rewarded you exactly like a hedgerow.
+    # A bell you can ring is a payoff that only this place can give.
+    #
+    # You do not ring it from the belfry -- it hangs 2.1 m over that floor and
+    # the swing reaches 1.55 -- you ring it from the GROUND ROOM, by hitting the
+    # sally on the rope that runs the whole height of the shaft. Which is both
+    # how a bell is actually rung and the reason the rope was worth modelling.
+    if hollow:
+        t.moving("bell", [bell_obj],
+                 pivot=(cx, cy, bell_z + 0.08),
+                 hit=(cx - 1.10, cy - 1.10, floor_z + 2.05), hit_r=1.05)
+    else:
+        out.append(bell_obj)
 
     # hipped cap: a pyramid, not a gable, so the tower reads the same from every
     # approach -- a ridge would give it a "front" it does not have
