@@ -40,6 +40,10 @@ const SHOTS = [
   { name: '03c-cellar', warp: [-8.7, 3, -4.6], az: Math.PI, polar: 1.40, dist: 6.0,
     walk: { keys: ['KeyW'], frames: 420 } },
   { name: '03b-rooftops', warp: [7.0, 12, -15.0], az: 1.9, polar: 1.30, dist: 9.0 },
+  // Reached down a 1.5 m alley between the two east buildings, so like the
+  // cellar it has to be walked to rather than warped into.
+  { name: '03d-yard', warp: [12.0, 3, -3.25], az: -Math.PI / 2, polar: 1.24, dist: 9.0,
+    walkTo: [[20.0, -3.25], [25.6, -3.25], [27.0, -1.4]] },
   { name: '04-belltower', warp: [-1.0, 0, -7.0], az: Math.PI, polar: 1.47, dist: 9.0 },
   { name: '05-gate-to-meadow', warp: [-1.0, 0, -5.5], az: 0, polar: 1.26, dist: 7.5 },
   { name: '06-path-climb', warp: [0.5, 0, -34.0], az: 0, polar: 1.24, dist: 8.5 },
@@ -154,6 +158,14 @@ for (const s of list) {
     if (shot.walk) {
       for (let i = 0; i < shot.walk.frames; i++) {
         __sim({ steps: 1, az: shot.az, held: shot.walk.keys });
+      }
+    }
+    // ...or steer through a list of waypoints, for anywhere the route matters
+    for (const [tx, tz] of shot.walkTo || []) {
+      for (let i = 0; i < 420; i++) {
+        const h = __sim({ steps: 0 }).heroPos;
+        if (Math.hypot(tx - h[0], tz - h[2]) < 0.6) break;
+        __sim({ steps: 1, az: Math.atan2(h[0] - tx, h[2] - tz), held: ['KeyW'] });
       }
     }
     return __sim({

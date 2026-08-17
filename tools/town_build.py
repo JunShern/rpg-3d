@@ -114,6 +114,10 @@ def build_ground(t):
     # so naming this "cobble" silently handed back the untextured original and
     # the generated paving never reached the export.
     cob = ground_material("cobble_tex", surface_tex.cobble, (0.52, 0.50, 0.53))
+    # REGISTER IT, for the same reason the flagstone had to be: the kit builds
+    # floors of its own now (the yard, the alley) and a local variable is not
+    # something `arch_lib` can reach.
+    M["cobble_tex"] = cob
     # FOUR SLABS ROUND A HOLE, not one slab.
     #
     # The cellar needs a stairwell, and a stairwell needs an actual opening: a
@@ -233,6 +237,14 @@ def build_props(t):
     for x, y in ((-8.5, -6.0), (8.5, -6.0), (-8.5, 7.5), (5.0, 9.0),
                  (-1.0, -8.6), (12.0, 0.2)):
         lights.append(A.lantern(t, x, y, h=3.2))
+
+    # THE YARD, east of the square, behind the east range.
+    #
+    # The two east buildings sit at y = -2 and y = 8.5 and each is 9 m across,
+    # so they leave a 1.5 m slot between them at y = 3.25. From the plaza that
+    # slot reads as a shadow between two facades; it is in fact an alley, and
+    # it goes somewhere.
+    A.yard(t, 26.0, 3.25, 9.0, 9.0, gate_y=3.25, gate_w=1.9)
 
     # THE CELLAR. Its lamp is the only light source down there, so unlike the
     # square's lanterns -- which are an accent on a sunlit facade -- this one

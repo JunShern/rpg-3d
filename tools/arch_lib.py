@@ -263,6 +263,84 @@ def window(t, x, y0, z, w=0.62, h=0.92, shutters=True, sill=True,
     return t.add(*out) and out
 
 
+def yard(t, cx, cy, w, d, gate_y, gate_w=1.8, wall_h=2.9):
+    """A walled working yard, reached down an alley you have to notice.
+
+    THE FOURTH ROOM. The square, the roofs and the cellar are three; this is
+    the one you find by looking at a gap between two buildings and wondering
+    whether it goes anywhere. It is deliberately NOT visible from the plaza --
+    the alley is 1.5 m wide and reads as a shadow between facades -- so the
+    yard is a discovery rather than an extension of the square.
+
+    A working yard rather than a garden: a well, a trough, a notice board, a
+    woodpile. The plaza is where the town sells things; this is where it does
+    them, which gives the two spaces different jobs rather than different
+    furniture.
+
+    `gate_y` is where the alley meets the west wall.
+    """
+    M, out = t.M, []
+    x0, x1 = cx - w / 2, cx + w / 2
+    y0, y1 = cy - d / 2, cy + d / 2
+    W = 0.42
+
+    # the ground. The plaza slab stops at x = 22, so this brings its own.
+    t.walk(box("floor_yard", (cx, cy, -0.25), (w / 2 + 0.3, d / 2 + 0.3, 0.25),
+               M["cobble_tex"], bevel=0.10, seg=1))
+
+    def wall(nm, ax, ay, bx, by):
+        mx, my = (ax + bx) / 2, (ay + by) / 2
+        ex, ey = abs(bx - ax) / 2 + W / 2, abs(by - ay) / 2 + W / 2
+        out.append(box(nm, (mx, my, wall_h / 2), (ex, ey, wall_h / 2),
+                       M["stone"], bevel=0.05, seg=1))
+        t.solid(mx, my, ex, ey, top=wall_h)
+        # a coping course, so the top is a line and not a cut
+        out.append(box(nm + "_cap", (mx, my, wall_h + 0.07),
+                       (ex + 0.06, ey + 0.06, 0.07), M["stone"], bevel=0.03, seg=1))
+
+    wall("yard_n", x0, y1, x1, y1)
+    wall("yard_s", x0, y0, x1, y0)
+    wall("yard_e", x1, y0, x1, y1)
+    # the west wall is in two pieces, with the alley between them
+    wall("yard_w1", x0, y0, x0, gate_y - gate_w / 2)
+    wall("yard_w2", x0, gate_y + gate_w / 2, x0, y1)
+
+    # THE ALLEY FLOOR, running west to meet the plaza between the two buildings
+    t.walk(box("floor_alley", ((x0 - 1.6) / 1.0 * 0 + (x0 + 20.6) / 2, gate_y, -0.25),
+               (abs(x0 - 20.6) / 2 + 0.3, gate_w / 2 + 0.4, 0.25),
+               M["cobble_tex"], bevel=0.08, seg=1))
+
+    well(t, cx + 1.4, cy + 1.2)
+    trough(t, cx - 2.2, cy - 2.4, yaw=8)
+    noticeboard(t, cx - 2.6, cy + 2.4, yaw=-24)
+    # a woodpile: split logs stacked against the east wall, which is the one
+    # thing in the build that says somebody here does work with their hands
+    rnd = _lcg_local(4231)
+    for row in range(4):
+        for k in range(7):
+            lx = x1 - 0.9 + (rnd() - 0.5) * 0.10
+            ly = y0 + 1.4 + k * 0.30
+            lz = 0.14 + row * 0.26
+            o = K.tube(f"logpile{row}_{k}", K.dome([
+                {"p": Vector((lx - 0.42, ly, lz)), "r": (0.125, 0.125), "n": 2.6},
+                {"p": Vector((lx + 0.42, ly, lz)), "r": (0.115, 0.115), "n": 2.6},
+            ], at="both", steps=2, height=0.04), seg=7, mat=M["timber"], squircle=2.6)
+            out.append(o)
+    t.solid(x1 - 0.9, y0 + 2.4, 0.55, 1.2, top=1.25)
+    embercap(t, cx + 2.4, cy - 2.6)
+    t.add(*out)
+
+
+def _lcg_local(seed):
+    """A tiny deterministic RNG, so the kit does not depend on a region's."""
+    st = [seed & 0x7fffffff]
+
+    def nxt():
+        st[0] = (st[0] * 1103515245 + 12345) & 0x7fffffff
+        return st[0] / 0x7fffffff
+    return nxt
+
+
 def cellar(t, hx0, hx1, hy0, hy1, floor_z=-3.0, ceil_z=-0.62):
     """A vaulted room under the square, reached by a stair down a wellhole.
 
