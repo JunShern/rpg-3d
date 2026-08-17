@@ -50,7 +50,11 @@ export function makeTerrain(cfg) {
     const d = Math.abs(y - streamLine(x));
     if (d > streamHalf + 0.8) return 0;
     // a channel, not a dish -- see meadow_build._stream_cut
-    const cut = streamDepth * (1 - ramp(d, 1.1, streamHalf + 0.8));
+    // ...and deeper in the ravine. MUST MATCH meadow_build._stream_cut.
+    const [rvX, rvHalf, rvK] = cfg.ravine || [0, 1, 1];
+    const deep = streamDepth * (1 + (rvK - 1)
+                 * (1 - ramp(Math.abs(x - rvX), rvHalf * 0.35, rvHalf)));
+    const cut = deep * (1 - ramp(d, 1.1, streamHalf + 0.8));
     const ford = 1 - ramp(Math.abs(x - pathAt(y)), 2.2, 5.6);
     return cut * (1 - 0.55 * ford) * ends;
   }

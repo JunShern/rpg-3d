@@ -284,11 +284,22 @@ def build_props(t):
     # short of the first one. Probed by walking at it for seven seconds and
     # never leaving 3.64 m.
     A.ladder(t, 12.5, 8.5, 3.62, ROOF_Z + 0.10, yaw=90)
-    A.rooftop(t, 17.0, 8.5, 1.7, 7.0, ROOF_Z, name="roof_e")
-    A.plank(t, 16.4, 12.1, 11.6, 14.4, ROOF_Z)
-    A.rooftop(t, 7.0, 15.0, 8.4, 1.7, ROOF_Z, name="roof_s")
-    A.plank(t, 2.4, 15.0, -3.8, 15.0, ROOF_Z)
-    A.rooftop(t, -9.0, 15.0, 8.4, 1.7, ROOF_Z, name="roof_sw")
+    # A LANDING AT THE TOP OF THE LADDER, and it is the whole reason the route
+    # did not work. The ladder had to move to x = 12.5 to clear the east
+    # range's collision box, and the ridge lead starts at x = 16.15 -- so the
+    # climb ended in three and a half metres of nothing. My own check said
+    # "reached 8.33 m" and passed, because it measured the LADDER rather than
+    # whether there was anywhere to step off it.
+    A.rooftop(t, 14.75, 8.5, 5.4, 2.0, ROOF_Z, rail=False, name="roof_land")
+    A.rooftop(t, 17.6, 8.5, 2.4, 7.0, ROOF_Z, name="roof_e")
+    A.plank(t, 16.6, 12.0, 11.4, 14.6, ROOF_Z, w=1.25)
+    A.rooftop(t, 7.0, 15.0, 8.4, 2.4, ROOF_Z, name="roof_s")
+    # ENDS AT -5.4, NOT -3.8. The south-west lead starts at x = -4.8, so a
+    # plank stopping at -3.8 left a metre of sky between them -- the traverse
+    # got seven waypoints in and dropped to the square. Boards overlap the leads
+    # they land on; a bridge that merely reaches is a bridge you fall off.
+    A.plank(t, 2.4, 15.0, -5.4, 15.0, ROOF_Z, w=1.25)
+    A.rooftop(t, -9.0, 15.0, 8.4, 2.4, ROOF_Z, name="roof_sw")
     # what the climb is FOR: the only place you can look down into the square,
     # and a find that is not visible from the ground at all
     A.embercap(t, -11.4, 15.0, z=ROOF_Z + 0.06)

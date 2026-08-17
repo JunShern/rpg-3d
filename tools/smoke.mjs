@@ -1062,6 +1062,50 @@ async function run() {
                    + `${skill.dead ? ' DIED' : ''}${skill.alive ? ` ${skill.alive} alive` : ''}` };
   });
 
+  // THE ROOFTOP ROUTE MUST BE WALKABLE END TO END.
+  //
+  // The first version of this route shipped broken, and the check I wrote for
+  // it passed: it measured that the player reached 8.33 m on the ladder and
+  // stopped there. There was nothing to step onto at the top -- a 3.65 m gap
+  // between the ladder and the nearest lead -- so the answer was right and the
+  // question was wrong. It took a player saying "I can't get onto them".
+  //
+  // This walks the whole thing, by waypoints, and fails if the player ever
+  // drops. Three separate faults it would have caught: the missing landing;
+  // the buildings' own collision boxes running to the RIDGE rather than the
+  // eaves, so the roofs were fenced off by the buildings they sit on; and a
+  // plank ending a metre short of the lead it lands on.
+  await check('the rooftop route can be walked from the deck to the far find', () => {
+    const WAY = [
+      ['ladder', 12.5, -8.5], ['landing', 15.5, -8.5], ['ridge', 17.6, -8.5],
+      ['ridge north', 17.6, -11.6], ['plank', 11.4, -14.6],
+      ['south lead', 7.0, -15.0], ['south west', 2.6, -15.0],
+      ['plank west', -3.8, -15.0], ['sw lead', -9.0, -15.0],
+      ['the find', -11.4, -15.0],
+    ];
+    // y = 0 so `groundAt` finds the gallery DECK: with a higher warp it
+    // searches down from above and lands on the ladder's top rung instead.
+    __sim({ warp: [12.6, 0, -8.5], az: 0, steps: 25 });
+    const start = __sim({ steps: 0 }).heroPos[1];
+    let minY = 99, reached = 0;
+    for (const [, tx, tz] of WAY) {
+      for (let i = 0; i < 400; i++) {
+        const h = __sim({ steps: 0 }).heroPos;
+        if (Math.hypot(tx - h[0], tz - h[2]) < 0.45) break;
+        __sim({ steps: 1, az: Math.atan2(h[0] - tx, h[2] - tz), held: ['KeyW'] });
+        const y = __sim({ steps: 0 }).heroPos[1];
+        if (reached > 0 && y < minY) minY = y;
+      }
+      const h = __sim({ steps: 0 }).heroPos;
+      if (Math.hypot(tx - h[0], tz - h[2]) < 0.9) reached++;
+    }
+    const end = __sim({ steps: 0 }).heroPos;
+    return { ok: reached >= WAY.length - 1 && end[1] > 7.5,
+             detail: `deck ${start.toFixed(2)} -> ${reached}/${WAY.length} waypoints, `
+                   + `ended at ${end[1].toFixed(2)} m (leads are 8.46), `
+                   + `lowest after the climb ${minY.toFixed(2)}` };
+  });
+
   group('The camera');
 
   // NOTHING TOUCHED THE CAMERA. It is the most intricate code in the project --

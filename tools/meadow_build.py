@@ -184,6 +184,18 @@ STREAM_HALF = 3.2          # half width of the cut at full depth
 # inside where `_ramp` starts lifting the edges.
 STREAM_X0, STREAM_X1 = -23.0, 23.0
 
+# THE RAVINE. A stretch of the same watercourse cut three times as deep.
+#
+# The stream is a two-metre channel you step across, which is a nice event and
+# not a place. Deepening one section turns the SAME feature into a second one:
+# from the rim you look down into it, from the bed you are enclosed with four
+# metres of rock either side and a strip of sky, and the crossing you already
+# know is thirty metres away and still shallow. One number, two spaces.
+#
+# West of the ford, which sits at x = 7.7 -- a gorge across the crossing would
+# make the road impassable, which is the one thing the stream must not do.
+RAVINE_X, RAVINE_HALF, RAVINE_K = -14.0, 7.0, 2.6
+
 
 def _stream_y(x):
     """The bank line. It meanders, because a straight watercourse reads as a
@@ -212,7 +224,13 @@ def _stream_cut(x, y):
     # ribbon of water read as blue tape stuck to a lawn. Flat bottom out to
     # 1.1 m, then banks that climb 1.6 m over 2.9 m, which is a shore you can
     # walk down and still see as a bank from across the field.
-    cut = STREAM_DEPTH * (1.0 - _ramp(d, 1.1, STREAM_HALF + 0.8))
+    # ...and deeper still where the ravine is. Scaling the DEPTH and not the
+    # width is what makes it a gorge: the banks climb the same 2.9 m of
+    # horizontal, so at 2.6x they go from a shore you stroll down to a wall.
+    deep = STREAM_DEPTH * (1.0 + (RAVINE_K - 1.0)
+                           * (1.0 - _ramp(abs(x - RAVINE_X),
+                                          RAVINE_HALF * 0.35, RAVINE_HALF)))
+    cut = deep * (1.0 - _ramp(d, 1.1, STREAM_HALF + 0.8))
     # the ford: the path crosses on a shelf two thirds of the way up the bank
     ford = 1.0 - _ramp(abs(x - _path_x(y)), 2.2, 5.6)
     # 0.55, not 0.72: the ford still has to sit BELOW the road either side of
@@ -958,6 +976,25 @@ def stream(M, t):
                      (sc, sc * 0.82, sc * 0.55), None, M["rock"],
                      seg=8, rings=6, squircle=2.5))
 
+    # THE RAVINE'S FURNITURE. Boulders on the lip, so the drop is announced
+    # before you are in it, and a find on the bed -- which is the only reason
+    # to climb down rather than look.
+    rr = _lcg(9151)
+    for i in range(14):
+        side = 1.0 if i % 2 else -1.0
+        rx = RAVINE_X - RAVINE_HALF * 0.8 + RAVINE_HALF * 1.6 * (i / 14.0)
+        ry = _stream_y(rx) + side * (STREAM_HALF + 1.2 + rr() * 0.9)
+        sc = 0.42 + rr() * 0.5
+        zmin = min(height(rx + dx * sc, ry + dy * sc)
+                   for dx in (-1, 0, 1) for dy in (-1, 0, 1))
+        t.add(K.blob(f"ravine_rock{i}", (rx, ry, zmin + sc * 0.26),
+                     (sc, sc * 0.8, sc * 0.55), None, M["rock"],
+                     seg=9, rings=6, squircle=2.9))
+        t.solid(rx, ry, sc * 0.9, sc * 0.75, top=zmin + sc * 0.8)
+    bedx = RAVINE_X + 1.6
+    bedy = _stream_y(bedx) + STREAM_HALF * 0.95
+    A.embercap(t, bedx, bedy, z=height(bedx, bedy), scale=1.25)
+
     # stepping stones at the ford, so the crossing reads as a crossing
     fy = _stream_y(_path_x(STREAM_Y))
     for k, off in enumerate((-2.0, -0.7, 0.7, 2.0)):
@@ -1255,6 +1292,7 @@ def main():
         "x0": MEADOW["x0"], "x1": MEADOW["x1"], "y1": MEADOW["y1"],
         "streamY": STREAM_Y, "streamDepth": STREAM_DEPTH, "streamHalf": STREAM_HALF,
         "streamX0": STREAM_X0, "streamX1": STREAM_X1,
+        "ravine": [RAVINE_X, RAVINE_HALF, RAVINE_K],
         # the GRID the mesh was built on. The runtime interpolates the same
         # triangles the player is looking at rather than the smooth function --
         # a 1.6 m quad chords up to 21 cm below the true surface on the hill,

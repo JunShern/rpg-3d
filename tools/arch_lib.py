@@ -399,13 +399,20 @@ def ladder(t, x, y, z0, z1, yaw=0.0, name="ladder"):
     for sx in (-1, 1):
         out.append(box(f"{name}_rail", (x + sx * 0.22, y, z0 + h / 2),
                        (0.045, 0.045, h / 2), M["timber"], bevel=0.015, seg=1))
-    n = max(2, int(h / 0.34))
+    # THE PLATFORMS ARE MUCH BIGGER THAN THE RUNGS, and centred on the ladder.
+    #
+    # The first version put a 0.6 x 0.4 m platform behind each rung, which is a
+    # foothold you slip off: walking into the ladder from the gallery deck got
+    # about two thirds of the way up and then dropped. You climb this by walking
+    # INTO it, so the standable area has to be forgiving enough that a player
+    # who is also turning the camera stays on it -- the rung is the picture, the
+    # platform is the promise.
+    n = max(2, int(h / 0.30))
     for i in range(n):
         rz = z0 + h * (i + 0.5) / n
         out.append(box(f"{name}_rung", (x, y, rz), (0.22, 0.035, 0.025),
                        M["timber"], bevel=0.01, seg=1))
-        # one platform per rung, each inside the step limit of the one below
-        t.platform(x, y - 0.16, 0.30, 0.20, rz)
+        t.platform(x, y, 0.60, 0.55, rz)
     for o in out:
         if yaw:
             K.transform(o, rotate=(0, 0, yaw), around=(x, y, 0))
@@ -427,8 +434,12 @@ def plank(t, x0, y0, x1, y1, z, w=0.72, name="plank"):
     # the platform is axis-aligned and a little generous, because a plank you
     # fall off because the collision is a rotated box you cannot see is a plank
     # nobody crosses twice
-    t.platform(mx, my, max(abs(x1 - x0) / 2, w / 2) + 0.12,
-               max(abs(y1 - y0) / 2, w / 2) + 0.12, z + 0.05)
+    # 0.45 of margin, not 0.12. The platform is axis-aligned and the plank is
+    # rotated, so a diagonal board's walkable box is inscribed rather than
+    # matching -- and a bridge you fall off because the collision is a shape you
+    # cannot see is a bridge nobody crosses twice.
+    t.platform(mx, my, max(abs(x1 - x0) / 2, w / 2) + 0.45,
+               max(abs(y1 - y0) / 2, w / 2) + 0.45, z + 0.05)
     return [o]
 
 
@@ -1284,7 +1295,16 @@ def building(t, cx, cy, w, d, storeys=2, yaw=0.0, plaster="plaster_a",
         K.transform(o, translate=(cx, cy, 0))
 
     t.add(*out)
-    t.solid(cx, cy, w / 2 + 0.10, d / 2 + 0.10, yaw, top=h + 0.27 + roof_h)
+    # THE BOX STOPS AT THE EAVES, NOT AT THE RIDGE.
+    #
+    # It used to run all the way to `h + 0.27 + roof_h`, which is the top of the
+    # roof prism -- so the roof route was fenced off by the very buildings it
+    # runs across: the player reached the landing at 8.46 m and could not walk
+    # a step further, because a solid whose top is 8.50 blocks you at 8.46.
+    # A collision box's job is to stop you walking INTO a building; the roof
+    # above it is a separate surface with its own platforms, and it should be
+    # possible to stand on one.
+    t.solid(cx, cy, w / 2 + 0.10, d / 2 + 0.10, yaw, top=h + 0.20)
     return out
 
 
