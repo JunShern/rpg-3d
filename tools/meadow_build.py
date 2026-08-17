@@ -1197,8 +1197,20 @@ def spine(M, t):
         # the whole length fenced off the toe, and the toe is the only way up:
         # measured, she reached one waypoint of eight and stopped 2.7 m short of
         # the second, at 3.08 m against a crest that peaks at 9.29.
-        if _spine_lift(y) >= 1.0:
-            t.solid(cx, y, hw * 0.94, step * 0.62, top=top - 0.42)
+        if _spine_lift(y) >= SPINE_SINK + 0.38:
+            # STRICTLY INSIDE THE PLATFORM, and this is the whole trick. It was
+            # 0.94 against the platform's 0.70 -- deliberately wider, so the
+            # rock would fence you off before you reached the edge -- and that
+            # leaves a 0.4 m annulus where you are blocked by the solid and NOT
+            # supported by the platform. Walk into it and you wedge, which is
+            # exactly what happened: she got two waypoints of eight and stopped
+            # dead at 5.16 m on the west flank.
+            #
+            # Narrower is safe because the platform already does the blocking:
+            # `tryMove` refuses any step over 0.45 m, so the crest fences itself
+            # from below. The solid is only here for the camera and for not
+            # walking through the rock at head height.
+            t.solid(cx, y, hw * 0.62, step * 0.62, top=top - SPINE_SINK)
         if top > peak_z:
             peak_y, peak_z = y, top
 
@@ -1264,6 +1276,24 @@ def spine(M, t):
 # a smaller crown leaves 2.3 m of air, which is also just what an orchard is.
 ORCHARD = (19.0, 30.5, 4.2, 5)      # cx, cy, spacing, rows/cols
 ORCHARD_YAW = math.radians(9.0)     # off-axis, because nothing else here is
+
+# HOW FAR THE SPINE'S FLANK SOLIDS SIT BELOW ITS CREST, and the number is
+# forced, not chosen. `pushOut` ignores a box only once you are more than 0.2 m
+# ABOVE its top -- so walking uphill along the crest you arrive at each segment
+# from the one before it, one step lower, and that step has to fit inside the
+# sink with the 0.2 m tolerance to spare:
+#
+#     sink  >  (largest step between adjacent crest platforms) + 0.2
+#
+# The largest step is 0.30 by construction (see `_spine_lift`), so anything at
+# or under 0.50 fences the ridge off from itself. It was 0.42, and she stopped
+# dead at 5.16 m on a crest that peaks at 9.29 -- with the solid whose top was
+# 5.03 refusing her at 5.16 because 5.16 is not more than 5.23.
+#
+# The other side of the constraint: a flank is only blocked while the ground
+# beside it is at or below sink + 0.2 under the crest, which is why the solids
+# start where the lift passes SPINE_SINK + 0.38 rather than at the toe.
+SPINE_SINK = 0.72
 
 
 def _orchard_xy(i, j, jitter=None):

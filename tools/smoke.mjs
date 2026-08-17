@@ -1185,11 +1185,14 @@ async function run() {
   // Same shape as the rooftop and belltower checks, for the same reason. The
   // fault is never in the piece, it is in the joint between two of them.
   await check('the rock spine can be walked over the top', () => {
+    // ON THE ACTUAL CREST LINE, read out of `_spine_x` rather than eyeballed.
+    // The crest wanders 2 m in x over its length and the first list was up to
+    // 0.4 m off it, which put her on the flank instead of the top.
     const WAY = [
-      ['the north toe', -10.4, -58.5], ['the rise', -10.0, -62.0],
-      ['half way up', -8.96, -66.0], ['the crest', -8.4, -70.0],
-      ['the peak', -8.44, -73.0], ['past the peak', -8.6, -76.0],
-      ['the south toe', -9.04, -80.0], ['off the end', -9.1, -83.5],
+      ['the north toe', -10.42, -58.5], ['the rise', -9.45, -62.0],
+      ['half way up', -8.59, -66.0], ['the crest', -8.30, -70.0],
+      ['the peak', -8.44, -73.0], ['past the peak', -8.72, -76.0],
+      ['the south toe', -9.04, -80.0], ['off the end', -9.09, -83.5],
     ];
     __sim({ warp: [-10.6, 4, -56.0], az: 0, steps: 25 });
     let reached = 0, peak = -99, stalled = null;
