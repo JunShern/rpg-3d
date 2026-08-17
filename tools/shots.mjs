@@ -68,6 +68,11 @@ const SHOTS = [
   // THE SHOP. Its door is at (7, -11) and the room behind it runs back to
   // z = -18.7; the counter is across it at z = -14.1.
   // the door is at the facade's own door bay, local x +1.25, so world x 8.25
+  // THE SMITHY, east range. Its door is at (13, 3.13) facing the plaza; the
+  // forge is against the back wall at (19.71, 2.00) and the anvil at (17.56,
+  // 0.75). All three derived from `door_x` and the yaw, not eyeballed.
+  { name: '04k-smithy-door', warp: [11.2, 0, 3.13], az: -1.571, polar: 1.26, dist: 6.5 },
+  { name: '04l-smithy', warp: [16.4, 0.5, 1.6], az: -1.571, polar: 1.22, dist: 5.5 },
   { name: '04i-shop-door', warp: [8.25, 0, -8.8], az: 0, polar: 1.26, dist: 6.5 },
   // looking AWAY from the door: framed toward it the boom goes straight out
   // through the opening and you end up in the square looking back in

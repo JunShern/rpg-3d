@@ -1318,6 +1318,36 @@ async function run() {
   // The property is simple and does not restate the implementation: from where
   // the camera ends up, the first thing along the view direction should be the
   // player.
+  // THE SMITHY IS THE SECOND HOLLOW BUILDING, and the first one that is not
+  // the one `room` was written for. Its yaw is -90, so every interior
+  // coordinate goes through the rotation -- which is exactly the sort of thing
+  // that works for the case it was developed on and quietly fails for the next.
+  await check('the smithy can be walked into and crossed', () => {
+    const WAY = [
+      ['outside the door', 11.4, 3.13], ['the step', 12.7, 3.13],
+      ['inside', 14.6, 3.13], ['the anvil', 17.56, 0.75],
+      ['the forge', 18.9, 2.0],
+    ];
+    __sim({ warp: [10.6, 1, 3.13], az: -1.571, steps: 25 });
+    let reached = 0, stalled = null;
+    for (const [name, tx, tz] of WAY) {
+      for (let i = 0; i < 400; i++) {
+        const h = __sim({ steps: 0 }).heroPos;
+        if (Math.hypot(tx - h[0], tz - h[2]) < 0.45) break;
+        __sim({ steps: 1, az: Math.atan2(h[0] - tx, h[2] - tz), held: ['KeyW'] });
+      }
+      const h = __sim({ steps: 0 }).heroPos;
+      if (Math.hypot(tx - h[0], tz - h[2]) < 0.95) reached++;
+      else if (!stalled) stalled = `${name}: ${Math.hypot(tx - h[0], tz - h[2]).toFixed(2)} m `
+        + `short at y=${h[1].toFixed(2)}`;
+    }
+    const end = __sim({ steps: 0 }).heroPos;
+    return { ok: reached === WAY.length && Math.abs(end[1] - 0.32) < 0.06,
+             detail: `${reached}/${WAY.length} waypoints, standing at `
+                   + `y=${end[1].toFixed(2)} (the floor is 0.32)`
+                   + `${stalled ? ' | ' + stalled : ''}` };
+  });
+
   // THE CAMERA MUST NOT LURCH INDOORS, which is a different property from
   // "can it see the player" and was the one that was broken.
   //
@@ -1535,7 +1565,13 @@ async function run() {
       const living = new Set();
       for (const e of combat.enemies)
         if (e.group) e.group.traverse((o) => living.add(o));
-      if (window.cur) for (const m of (cur.meshes || [])) living.add(m);
+      // `cur.group`, not `cur.meshes` -- the latter does not exist, so the
+      // PLAYER's own 42k-triangle mesh was being counted as environment. The
+      // diagnostic named it (`tripo_mesh_...` in the heaviest-in-frame list),
+      // which is the whole reason the diagnostic exists.
+      if (window.cur && cur.group) cur.group.traverse((o) => living.add(o));
+      for (const c of Object.values(window.chars || {}))
+        if (c && c.group) c.group.traverse((o) => living.add(o));
       let tris = 0, meshes = 0;
       const big = [];
       scene.traverse((o) => {

@@ -202,14 +202,22 @@ def build_buildings(t):
     # plaza, and stands beside the gate, so the door is on the path everybody
     # already walks. The other eight are unchanged.
     SHOP = (7.0, 15.0)
+    # AND THE SMITHY, on the east range facing the plaza. A second interior has
+    # to be a different KIND of room or opening it says nothing -- two shops is
+    # one shop twice. This one has no shopfront, which is right: a smithy shows
+    # you a door and a chimney, not a window full of goods.
+    SMITHY = (17.0, -2.0)
     # roof height varies with the seed too: nine identical pitches is most of
     # what made nine buildings read as one building
     for cx, cy, w, d, st, yaw, pl, rf, shop, seed, gf in plan:
         A.building(t, cx, cy, w, d, storeys=st, yaw=yaw, plaster=pl, roof=rf,
                    shop=shop, seed=seed, gable_front=gf,
-                   roof_h=1.25 + 0.16 * (seed % 4), room=(cx, cy) == SHOP)
+                   roof_h=1.25 + 0.16 * (seed % 4),
+                   room=(cx, cy) in (SHOP, SMITHY))
         if (cx, cy) == SHOP:
             A.shop_fit(t, cx, cy, w, d, yaw=yaw, seed=seed)
+        elif (cx, cy) == SMITHY:
+            A.smithy_fit(t, cx, cy, w, d, yaw=yaw, seed=seed)
 
     # the south gateway, in the gap between the two south buildings
     A.arch(t, -1.0, 11.0, span=4.4, height=5.6, depth=1.7, thick=0.46)

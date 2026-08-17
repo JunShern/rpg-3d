@@ -88,6 +88,17 @@ def palette():
         # it has to be spotted on -- and emissive so it carries at the range you
         # would notice it from, which is the whole job.
         "pod":       (1.00, 0.82, 0.34),
+        # THE FORGE BED. Emissive, and the only orange in the town palette --
+        # it is the light source for a room with no window worth the name, and
+        # a hearth that is merely a dark red box reads as rubble. Deep red,
+        # not orange, because emission washes a colour toward white: at the
+        # lantern's 2.2 an orange bed came out pale cream and read as a slab
+        # of light rather than as fire.
+        "forge":     (0.94, 0.22, 0.05),
+        # IRON, for the things a smith actually works with. These were `brass`
+        # -- the only metal in the palette -- and an anvil the colour of a
+        # doorknob is the single most obviously wrong thing in the room.
+        "iron":      (0.30, 0.31, 0.35),
     }
     mats = {}
     for name, color in spec.items():
@@ -95,7 +106,8 @@ def palette():
             name, color,
             roughness=0.35 if name in ("glass", "water", "brass") else 0.75,
             metallic=0.7 if name == "brass" else 0.0,
-            emission=2.2 if name in ("lamp", "pod") else 0.0)
+            emission=1.15 if name == "forge"
+            else (2.2 if name in ("lamp", "pod") else 0.0))
     return mats
 
 
@@ -1539,8 +1551,16 @@ def building(t, cx, cy, w, d, storeys=2, yaw=0.0, plaster="plaster_a",
         # and the room is where the camera lives while you are in it: 3.53 m of
         # single-frame lurch without this, because rotating toward the doorway
         # let the boom out into the square and rotating back snapped it home
-        t.shaft(cx, cy, ix - 0.55, iy - 0.55, ROOM_FLOOR - 0.2, gz1 - 0.30,
-                pad=ROOM_PAD)
+        # THE EXTENTS HAVE TO BE ROTATED, and the shop never caught this because
+        # the shop is yaw 0. The smithy is yaw -90, and the box came out 3.61
+        # wide across a room that is 3.11 wide and 3.11 deep across one that is
+        # 3.61 -- so the camera was clamped half a metre OUTSIDE one pair of
+        # walls and needlessly short of the other. `shaft` has no yaw of its
+        # own, so this is the axis-aligned box of the rotated room, which is
+        # exact for the right angles every building here uses.
+        rx = abs((ix - 0.55) * c_) + abs((iy - 0.55) * s_)
+        ry = abs((ix - 0.55) * s_) + abs((iy - 0.55) * c_)
+        t.shaft(cx, cy, rx, ry, ROOM_FLOOR - 0.2, gz1 - 0.30, pad=ROOM_PAD)
         t.platform(cx + door_x * c_ + (d / 2 + 0.34) * s_,
                    cy + door_x * s_ - (d / 2 + 0.34) * c_,
                    ROOM_DOOR + 0.22, 0.24, 0.16)
@@ -1612,6 +1632,18 @@ TOWER_TAPER  = 0.040    # per storey. It was 0.055, which over five storeys
                         # on a hollow one it thins the top storey's wall to
                         # three centimetres, because the inside does not taper.
 TOWER_TREADS = 5        # treads per flight, four flights to a storey
+BELFRY_H = 1.60         # HALF the belfry chamber's height, and it is 1.60 and
+                        # not 1.15 because of the camera. At 2.3 m of clear
+                        # height with a bell hanging in the middle of it there
+                        # is nowhere for a boom to be: measured, the chamber
+                        # had 1.23 m under the bell, the player's own look-at
+                        # point sat 5 cm below the bell's crown, and no box
+                        # that contained her missed both the bell and the beam
+                        # it hangs from. Removing the volume instead was worse
+                        # -- 1 of 8 azimuths could see her, because the camera
+                        # then sits outside the tower with the cap in the way.
+                        # 3.2 m of chamber with the bell hung at the top of it
+                        # leaves 2.1 m of clear air, which is a room.
 
 
 def _sill(t, out, cx, cy, inner, px, py, hx, ztop, k, j):
@@ -1787,13 +1819,16 @@ def belltower(t, cx, cy, base=2.35, storeys=4, yaw=0.0, hollow=True):
     for sx in (-1, 1):
         for sy in (-1, 1):
             out.append(box("tower_pier", (cx + sx * (bw - 0.22), cy + sy * (bw - 0.22),
-                                          top + 1.15),
-                           (0.22, 0.22, 1.15), M["stone"], bevel=0.04, seg=2))
+                                          top + BELFRY_H),
+                           (0.22, 0.22, BELFRY_H), M["stone"], bevel=0.04, seg=2))
     # THE BELFRY FLOOR HAS A HOLE IN IT, because the stair arrives through it.
     # Four slabs around the opening, the same way the plaza is four slabs around
     # the cellar mouth -- a floor you cannot come up through is a floor that
     # makes the whole climb end in a ceiling.
     belfry_top = top + 0.21
+    # where the bell's crown hangs. Defined here because the beam, the bell and
+    # the belfry's CAMERA CEILING are all measured from it.
+    bell_z = top + 2 * BELFRY_H - 0.28
     if hollow:
         # The opening is the LAST FLIGHT'S CORRIDOR -- the strip of floor the
         # stair comes up through -- so you emerge onto the belfry by stepping
@@ -1819,23 +1854,24 @@ def belltower(t, cx, cy, base=2.35, storeys=4, yaw=0.0, hollow=True):
     else:
         out.append(box("tower_belfry_floor", (cx, cy, top + 0.08), (bw, bw, 0.13),
                        M["stone"], bevel=0.04, seg=1))
-    out.append(box("tower_belfry_lintel", (cx, cy, top + 2.38), (bw + 0.10, bw + 0.10, 0.16),
-                   M["stone"], bevel=0.04, seg=1))
+    out.append(box("tower_belfry_lintel", (cx, cy, top + 2 * BELFRY_H + 0.08),
+                   (bw + 0.10, bw + 0.10, 0.16), M["stone"], bevel=0.04, seg=1))
 
     # the bell itself, hung on a beam
-    out.append(box("tower_beam", (cx, cy, top + 2.10), (bw - 0.30, 0.09, 0.09),
+    # the bell hangs from the TOP of the chamber, not the middle of it
+    out.append(box("tower_beam", (cx, cy, bell_z + 0.08), (bw - 0.30, 0.09, 0.09),
                    M["timber"], bevel=0.02, seg=1))
     out.append(K.tube("tower_bell", [
-        {"p": Vector((cx, cy, top + 2.02)), "r": (0.10, 0.10), "n": 2.4},
-        {"p": Vector((cx, cy, top + 1.72)), "r": (0.30, 0.30), "n": 2.6},
-        {"p": Vector((cx, cy, top + 1.52)), "r": (0.44, 0.44), "n": 3.0},
-        {"p": Vector((cx, cy, top + 1.46)), "r": (0.45, 0.45), "n": 3.0},
-        {"p": Vector((cx, cy, top + 1.44)), "r": 0.0, "n": 3.0},
+        {"p": Vector((cx, cy, bell_z + (0.00))), "r": (0.10, 0.10), "n": 2.4},
+        {"p": Vector((cx, cy, bell_z + (-0.30))), "r": (0.30, 0.30), "n": 2.6},
+        {"p": Vector((cx, cy, bell_z + (-0.50))), "r": (0.44, 0.44), "n": 3.0},
+        {"p": Vector((cx, cy, bell_z + (-0.56))), "r": (0.45, 0.45), "n": 3.0},
+        {"p": Vector((cx, cy, bell_z + (-0.58))), "r": 0.0, "n": 3.0},
     ], seg=16, mat=M["brass"], squircle=2.6, up=(0, 1, 0)))
 
     # hipped cap: a pyramid, not a gable, so the tower reads the same from every
     # approach -- a ridge would give it a "front" it does not have
-    capz = top + 2.54
+    capz = top + 2 * BELFRY_H + 0.24
     hw = bw + 0.34
     v = [(-hw, -hw, 0), (hw, -hw, 0), (hw, hw, 0), (-hw, hw, 0), (0, 0, 2.5)]
     out.append(K._new_obj("tower_cap",
@@ -1878,15 +1914,24 @@ def belltower(t, cx, cy, base=2.35, storeys=4, yaw=0.0, hollow=True):
         # had a volume all along, was the best indoor spot in the build at 0.43.
         t.shaft(cx, cy, inner - 0.45, inner - 0.45, floor_z - 0.2, floor_z + 3.3,
                 pad=ROOM_PAD)
-        # THE BELFRY'S CLEAR VOLUME IS SMALLER THAN IT LOOKS, in both axes, and
-        # I got it wrong twice by eye before measuring. Horizontally it stops
-        # inside the corner PIERS (bw - 0.22, half-width 0.22), not at the
-        # parapet. Vertically it stops under the LINTEL that rings the pier
-        # tops at top + 2.38 with a 0.16 half-height -- so the ceiling is
-        # top + 2.22, not the cap at top + 2.54. A camera pinned at the old
-        # y1 sat inside that beam and every frame came back flat outline colour.
+        # THE BELFRY, under the bell and inside the piers -- and both of those
+        # bounds are read off the geometry rather than guessed, because I got
+        # this wrong three times by eye.
+        #
+        # First I capped it at the parapet and the camera sat inside a corner
+        # PIER; then under the pier tops and it sat inside the BEAM the bell
+        # hangs from. Then I removed the volume altogether on the theory that a
+        # belfry is a loggia and the boom should be free to leave it -- and that
+        # measured WORSE than either: 1 of 8 azimuths could see the player,
+        # because outside the chamber the cap and the parapet are in the way,
+        # and the lurch went straight back to 5.87 m.
+        #
+        # The chamber was simply too small for a camera and a hanging bell at
+        # once. It is 3.2 m tall now rather than 2.3 (see BELFRY_H) with the
+        # bell hung at the top of it, which leaves 2.13 m of clear air -- and
+        # the ceiling here is the bell's lip less a hand's width.
         t.shaft(cx, cy, bw - 0.78, bw - 0.78,
-                belfry_top - 0.3, top + 2.10, pad=ROOM_PAD)
+                belfry_top - 0.3, bell_z - 0.70, pad=ROOM_PAD)
 
         # THE BELL ROPE, and it is the best thing in the tower for its cost.
         #
@@ -2065,6 +2110,105 @@ def belltower(t, cx, cy, base=2.35, storeys=4, yaw=0.0, hollow=True):
     else:
         t.solid(cx, cy, base + 0.34, base + 0.34, yaw, top=shaft_h)
     return [L for L in lamps if L]
+
+
+def smithy_fit(t, cx, cy, w, d, yaw=0.0, seed=0):
+    """Furnish a hollowed ground storey as a smithy.
+
+    THE SECOND INTERIOR HAS TO BE A DIFFERENT KIND OF ROOM, or opening it says
+    nothing -- two shops is one shop twice. A forge is the strongest contrast
+    available: it is the only warm light source in the build that is not a
+    lantern, the only orange in the palette, and the only room whose contents
+    are obviously TOOLS rather than goods.
+
+    It also gives the town a reason for the woodstack, the cart and the yard to
+    exist, which are all about work and had nowhere to point.
+    """
+    M, out = t.M, []
+    rnd = _lcg_local(7700 + seed)
+    z = ROOM_FLOOR
+    ix, iy = w / 2 - ROOM_WALL, d / 2 - ROOM_WALL
+    c_, s_ = math.cos(math.radians(yaw)), math.sin(math.radians(yaw))
+
+    def world(dx, dy):
+        return cx + dx * c_ - dy * s_, cy + dx * s_ + dy * c_
+
+    # THE FORGE, against the back wall: a stone mass, a glowing bed, and a hood
+    fx, fy = 0.0, iy - 0.95
+    out.append(box("forge_body", (fx, fy, z + 0.42), (1.25, 0.85, 0.42),
+                   M["stone"], bevel=0.05, seg=2))
+    out.append(box("forge_bed", (fx, fy - 0.05, z + 0.87), (0.78, 0.52, 0.06),
+                   M["forge"], bevel=0.03, seg=1))
+    # embers heaped on it, so the light has a shape and not just a plane
+    for k in range(7):
+        ex = fx + (rnd() - 0.5) * 1.25
+        ey = fy - 0.05 + (rnd() - 0.5) * 0.80
+        out.append(K.blob(f"forge_ember{k}", (ex, ey, z + 0.91),
+                          (0.10 + rnd() * 0.08, 0.09 + rnd() * 0.07, 0.05),
+                          None, M["forge"], seg=7, rings=5, squircle=2.3))
+    # the hood, which is what makes a heap of hot stone read as a forge
+    out.append(box("forge_hood", (fx, fy + 0.30, z + 1.86), (1.05, 0.55, 0.34),
+                   M["stone"], bevel=0.05, seg=2))
+    out.append(box("forge_flue", (fx, fy + 0.42, z + 2.55), (0.36, 0.36, 0.36),
+                   M["stone"], bevel=0.04, seg=2))
+    wx, wy = world(fx, fy)
+    t.solid(wx, wy, 1.30, 0.90, yaw, top=z + 0.90, base=z - 0.1)
+
+    # THE ANVIL, out in the room where the work happens, on its own block
+    ax, ay = -ix * 0.30, iy - 3.1
+    out.append(K.tube("anvil_block", K.dome([
+        {"p": Vector((ax, ay, z)), "r": (0.34, 0.34), "n": 2.6},
+        {"p": Vector((ax, ay, z + 0.52)), "r": (0.30, 0.30), "n": 2.6},
+    ], at="end", steps=2, height=0.05), seg=9, mat=M["timber"], squircle=2.6,
+        up=(0, 0, 1)))
+    out.append(box("anvil_body", (ax, ay, z + 0.66), (0.42, 0.16, 0.13),
+                   M["iron"], bevel=0.035, seg=1))
+    out.append(box("anvil_waist", (ax, ay, z + 0.56), (0.20, 0.13, 0.09),
+                   M["iron"], bevel=0.03, seg=1))
+    t.solid(cx + ax * c_ - ay * s_, cy + ax * s_ + ay * c_, 0.44, 0.36, yaw,
+            top=z + 0.80, base=z - 0.1)
+
+    # a quench trough, a tool rack, and bar stock leaning in the corner
+    qx, qy = ix * 0.42, iy - 2.4
+    out.append(box("quench", (qx, qy, z + 0.30), (0.72, 0.34, 0.30),
+                   M["timber"], bevel=0.04, seg=1))
+    out.append(box("quench_water", (qx, qy, z + 0.56), (0.64, 0.27, 0.03),
+                   M["water"] if "water" in M else M["stone"], bevel=0.01, seg=1))
+    t.solid(cx + qx * c_ - qy * s_, cy + qx * s_ + qy * c_, 0.74, 0.36, yaw,
+            top=z + 0.62, base=z - 0.1)
+
+    out.append(box("tool_rail", (-ix + 0.22, 0.4, z + 1.62), (0.06, 1.15, 0.05),
+                   M["timber"], bevel=0.02, seg=1))
+    for k in range(6):
+        ty = 0.4 - 0.95 + 1.9 * (k + 0.5) / 6
+        ln = 0.30 + rnd() * 0.26
+        out.append(box(f"tool{k}", (-ix + 0.26, ty, z + 1.62 - ln / 2),
+                       (0.035, 0.035, ln / 2), M["iron"], bevel=0.012, seg=1))
+    for k in range(5):
+        bx2 = ix - 0.30 - k * 0.10
+        out.append(K.tube(f"barstock{k}", [
+            {"p": Vector((bx2, -iy + 0.34, z)), "r": (0.035, 0.035), "n": 2.4},
+            {"p": Vector((bx2 - 0.32, -iy + 0.20, z + 1.75)), "r": (0.030, 0.030), "n": 2.4},
+        ], seg=6, mat=M["iron"], squircle=2.4))
+
+    for o in out:
+        if yaw:
+            K.transform(o, rotate=(0, 0, yaw), around=(0, 0, 0))
+        K.transform(o, translate=(cx, cy, 0))
+    t.add(*out)
+
+    # THE FORGE IS THE LAMP. It sits 0.9 m off the floor in the middle of the
+    # back wall, so nothing in the room is more than about three metres from it
+    # -- which the belltower proved is the distance that matters under a toon
+    # ramp, not the intensity.
+    lx, ly = world(fx, fy - 0.1)
+    t.lights.append((lx, ly, z + 1.05, 'interior'))
+
+    bxw, byw = world(-ix + 0.75, -iy + 0.85)
+    barrel(t, bxw, byw, r=0.33, h=0.80, z0=z)
+    exw, eyw = world(ix - 0.85, iy - 0.70)
+    embercap(t, exw, eyw, z=z, scale=1.0)
+    return []
 
 
 def shop_fit(t, cx, cy, w, d, yaw=0.0, seed=0):

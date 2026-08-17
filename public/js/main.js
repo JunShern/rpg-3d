@@ -158,7 +158,9 @@ const surfaceOf = (matName) => (matName || '')
 // builder, and `applyTownLook` replaces every material with a toon one that
 // knows nothing about emission -- so a glowing find would have arrived as a
 // slightly yellow mushroom.
-const TOWN_FLAT = new Set(['lamp', 'glass', 'pod', 'ridge_a', 'ridge_b']);
+// `forge` joins them: it is the smithy's fire, and a hearth that takes the
+// shadow band is a hearth made of cold rubble.
+const TOWN_FLAT = new Set(['lamp', 'glass', 'pod', 'forge', 'ridge_a', 'ridge_b']);
 // ...and out of the fog. The fog reaches 130 m; the rings are at 185 and 245,
 // so leaving them in would fade them to exactly the sky and there would be no
 // backdrop at all.
