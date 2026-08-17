@@ -1136,6 +1136,13 @@ async function run() {
           C = [-2.81, 17.31], D = [-2.81, 13.69];
     const WAY = [['the door', -1.0, 11.9], ['the ground room', -1.0, 14.2]];
     for (let s = 0; s < 5; s++) WAY.push(['A', ...A], ['B', ...B], ['C', ...C], ['D', ...D]);
+    // TWENTY-ONE CORNERS FOR TWENTY FLIGHTS -- a flight is the gap BETWEEN two
+    // corners, so five laps of four is nineteen climbs and one short. I found
+    // this exact off-by-one in the model and fixed it in the builder, which
+    // grew an arrival landing, and then left the same error standing here: the
+    // check walked to D at 19.16 m and struck out across the well for a belfry
+    // floor a metre above its head.
+    WAY.push(['the arrival landing', ...A]);
     WAY.push(['the belfry floor', -1.0, 16.0]);
     __sim({ warp: [-1.0, 0.4, 10.4], az: 0, steps: 20 });
     let reached = 0, stalled = null;
@@ -1157,6 +1164,72 @@ async function run() {
     return { ok: reached >= WAY.length - 1 && end[1] > 19.0,
              detail: `${reached}/${WAY.length} landings, ended at ${end[1].toFixed(2)} m `
                    + `(the belfry floor is 20.15)${stalled ? ' | stalled: ' + stalled : ''}` };
+  });
+
+  // THE ROCK SPINE MUST BE WALKABLE OVER THE TOP.
+  //
+  // Its crest is a row of 45 flat-topped platforms, so the height difference
+  // between two ADJACENT ones is a step the player has to take -- and at the
+  // spacing the ridge was first authored with, that step reached 1.3 m against
+  // a 0.45 m limit. The whole feature would have been scenery you bounce off,
+  // and nothing about the model or the captures would have said so: it looks
+  // identical either way.
+  //
+  // Same shape as the rooftop and belltower checks, for the same reason. The
+  // fault is never in the piece, it is in the joint between two of them.
+  await check('the rock spine can be walked over the top', () => {
+    const WAY = [
+      ['the north toe', -10.4, -58.5], ['the rise', -10.0, -62.0],
+      ['half way up', -8.96, -66.0], ['the crest', -8.4, -70.0],
+      ['the peak', -8.44, -73.0], ['past the peak', -8.6, -76.0],
+      ['the south toe', -9.04, -80.0], ['off the end', -9.1, -83.5],
+    ];
+    __sim({ warp: [-10.6, 4, -56.0], az: 0, steps: 25 });
+    let reached = 0, peak = -99, stalled = null;
+    for (const [name, tx, tz] of WAY) {
+      for (let i = 0; i < 500; i++) {
+        const h = __sim({ steps: 0 }).heroPos;
+        if (Math.hypot(tx - h[0], tz - h[2]) < 0.5) break;
+        __sim({ steps: 1, az: Math.atan2(h[0] - tx, h[2] - tz), held: ['KeyW'] });
+        peak = Math.max(peak, __sim({ steps: 0 }).heroPos[1]);
+      }
+      const h = __sim({ steps: 0 }).heroPos;
+      if (Math.hypot(tx - h[0], tz - h[2]) < 1.0) reached++;
+      else if (!stalled) stalled = `${name}: stuck at ${h[1].toFixed(2)} m, `
+        + `${Math.hypot(tx - h[0], tz - h[2]).toFixed(2)} m short`;
+    }
+    // the crest peaks at 9.29 m and the meadow under it is about 5.8, so
+    // anything under 8.5 means she walked around it rather than over it
+    return { ok: reached === WAY.length && peak > 8.5,
+             detail: `${reached}/${WAY.length} waypoints, highest ${peak.toFixed(2)} m `
+                   + `(the crest peaks at 9.29)${stalled ? ' | ' + stalled : ''}` };
+  });
+
+  // NOTHING RENDERS BLACK BECAUSE IT LOST ITS VERTEX COLOURS.
+  //
+  // The meadow floor carries the grass/path blend as a per-vertex colour, and
+  // anything joined INTO that object without a colour layer gets filled with
+  // (0,0,0), which the toon material then multiplies by. The outcrop's five
+  // rock shelves were joined into the floor by `t.walk` and rendered pure
+  // black -- a mesa of shadow with standing stones on it -- and no check here
+  // had an opinion, because every count, budget and walk test passed.
+  //
+  // The property is exact and cheap: within one mesh, colours are either
+  // absent or meaningful, and a primitive that is entirely black is neither.
+  await check('no mesh is blacked out by a missing vertex colour', () => {
+    const bad = [];
+    scene.traverse((o) => {
+      const col = o.isMesh && o.geometry?.attributes?.color;
+      if (!col || col.count < 8) return;
+      let black = 0;
+      for (let i = 0; i < col.count; i++)
+        if (col.getX(i) + col.getY(i) + col.getZ(i) < 0.02) black++;
+      if (black === col.count)
+        bad.push(`${o.name || '?'} (${col.count} verts, `
+               + `${o.userData.matName || o.material?.name || '?'})`);
+    });
+    return { ok: !bad.length,
+             detail: bad.length ? bad.join(', ') : 'every coloured mesh carries real colour' };
   });
 
   group('The camera');

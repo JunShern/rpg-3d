@@ -73,6 +73,11 @@ const SHOTS = [
   { name: '09f-dell-rim', warp: [-12.5, 6, -31.0], az: 1.571, polar: 1.22, dist: 11.0 },
   { name: '09b-stone-circle', warp: [27.0, 16, -82.0], az: 2.55, polar: 1.44, dist: 9.0 },
   { name: '09c-ruin', warp: [-14.0, 6, -50.0], az: 0.0, polar: 1.28, dist: 9.5 },
+  // THE SPINE: the face from below, the walk along the crest, and what the
+  // crest is for. Its peak is at (-8.44, -73) and stands 9.29 m up.
+  { name: '09g-spine-face', warp: [-15.0, 6, -70.0], az: -1.571, polar: 1.24, dist: 11.0 },
+  { name: '09h-spine-crest', warp: [-8.44, 11, -73.0], az: 0.0, polar: 1.18, dist: 8.0 },
+  { name: '09i-spine-view', warp: [-8.44, 11, -73.0], az: 2.2, polar: 1.06, dist: 9.0 },
   { name: '09d-fieldwall', warp: [5.7, 6, -35.0], az: 0.0, polar: 1.26, dist: 9.0 },
   { name: '10-town-from-meadow', warp: [0, 0, -30.0], az: Math.PI, polar: 1.30, dist: 9.0 },
 

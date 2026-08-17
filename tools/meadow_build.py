@@ -305,6 +305,12 @@ def build_terrain(M, step=TERRAIN_STEP):
     GRASS = (0.36, 0.55, 0.25)
     VERGE = (0.47, 0.53, 0.32)
     DIRT = (0.58, 0.49, 0.37)
+    # GRASS DOES NOT GROW ON A CLIFF. The ravine was cut four metres deep into
+    # the same green as the field it runs through, so from the rim it read as a
+    # crease in a lawn rather than as rock -- and the same was true of the
+    # landmark hill's steep flank and of anything else the height function cut
+    # hard. Slope is already known at every vertex; this just believes it.
+    ROCK = (0.46, 0.43, 0.39)
 
     def mix(a, b, k):
         return tuple(a[i] + (b[i] - a[i]) * k for i in range(3))
@@ -336,6 +342,18 @@ def build_terrain(M, step=TERRAIN_STEP):
                 c = DIRT
             else:
                 c = mix(mix(GRASS, VERGE, 0.45), DIRT, (w - 0.34) / 0.52)
+            # ...then rock wherever it is too steep to hold soil. Sampled at
+            # half the grid spacing so the reading is the slope of the SURFACE
+            # rather than of the triangle, which matters right at the lip of a
+            # cut where one is near zero and the other is near vertical.
+            e = step * 0.5
+            gx = (height(x + e, y) - height(x - e, y)) / (2 * e)
+            gy = (height(x, y + e) - height(x, y - e)) / (2 * e)
+            # 0.80 is 39 degrees and 1.45 is 55. The meadow's flanking hills run
+            # about 0.58, so the horizon stays green; a ravine wall is over 2.
+            rk = _ramp(math.hypot(gx, gy), 0.80, 1.45)
+            if rk > 0:
+                c = mix(c, ROCK, rk * (0.55 + 0.45 * rk))
             cols.append(c)
     for j in range(ny - 1):
         for i in range(nx - 1):
@@ -433,6 +451,13 @@ def _clear_of_landmarks(x, y, pad=0.0):
     # the dell plants its own wood, at its own spacing; a stray scattered tree
     # inside the clearing is the one thing that would stop it reading as one
     if math.hypot(x - DELL[0], y - DELL[1]) < DELL[2] + 1.5 + pad:
+        return False
+    # THE SPINE'S CORRIDOR. The copse centred at (-14, 86) has an 11 m radius
+    # and reaches the ridge's southern end, so without this a tree grows out of
+    # the middle of the route -- and a tree standing on rock it does not know
+    # about is a tree standing in mid-air.
+    if SPINE["y0"] - 3.0 < y < SPINE["y1"] + 3.0 \
+       and abs(x - _spine_x(y)) < 4.4 + pad:
         return False
     return True
 
@@ -1038,13 +1063,38 @@ def outcrop(M, t):
     ]
     for i, (cx, cy, rx, ry, rise) in enumerate(shelves):
         top = z0 + rise
+        # EACH SHELF REACHES ITS OWN GROUND. `z0` is the hill's CENTRE height
+        # and the hill falls away under every one of these, so a slab authored
+        # 1.6 m deep from `top` hung between 1.7 and 3.7 m in the air -- five
+        # tables in the sky, with correct collision, for as long as they existed.
+        # It is the same fault `landmark` fixed for the standing stones, and it
+        # went unnoticed here only because a degenerate sweep frame was drawing
+        # these as nothing at all. Two bugs, each hiding the other.
+        g = min(height(cx + dx * rx, cy + dy * ry)
+                for dx in (-1, 0, 1) for dy in (-1, 0, 1))
+        base = min(g - 0.35, top - 1.6)
         # a slab with a slightly smaller base, so it reads as stacked rock
         # rather than as a stack of boxes
-        t.walk(K.tube(f"shelf{i}", [
-            {"p": Vector((cx, cy, top - 1.6)), "r": (rx * 0.86, ry * 0.86), "n": 3.4},
-            {"p": Vector((cx, cy, top - 0.30)), "r": (rx, ry), "n": 3.6},
-            {"p": Vector((cx, cy, top)), "r": (rx * 0.97, ry * 0.97), "n": 3.8},
-        ], seg=12, mat=M["rock"], squircle=3.6, up=(0, 0, 1)))
+        # `add`, NOT `walk`. `walk` puts a mesh in the FLOOR object, and the
+        # floor carries the grass/path blend as a per-vertex colour -- so
+        # joining a shelf into it gave the shelf's vertices no COLOR_0, which
+        # Blender fills with (0,0,0), which the toon material multiplies by.
+        # Five rock shelves rendered pure black. They do not need to be in the
+        # floor at all: the ground raycast never runs here, because the meadow
+        # answers "where is the floor" from the terrain function and the
+        # PLATFORM these already declare.
+        # CAPPED. A `tube` only closes an end where a ring has radius 0, so an
+        # uncapped one is an open pipe -- and standing on top of it you look
+        # straight down its inside, which is backfaces, which are unlit, which
+        # is a black hole where the rock should be. A shallow dome reads as a
+        # weathered top and closes the mesh.
+        t.add(K.tube(f"shelf{i}", K.dome([
+            {"p": Vector((cx, cy, base)), "r": (rx * 0.70, ry * 0.70), "n": 3.2},
+            {"p": Vector((cx, cy, top - 1.05)), "r": (rx * 0.88, ry * 0.88), "n": 3.4},
+            {"p": Vector((cx, cy, top - 0.40)), "r": (rx, ry), "n": 3.6},
+            {"p": Vector((cx, cy, top - 0.10)), "r": (rx * 0.97, ry * 0.97), "n": 3.8},
+        ], at="end", steps=2, height=0.10),
+            seg=12, mat=M["rock"], squircle=3.6, up=(0, 0, 1)))
         t.platform(cx, cy, rx * 0.94, ry * 0.94, top)
 
     # a lip of loose stones round the top shelf: something to read the edge by
@@ -1056,6 +1106,116 @@ def outcrop(M, t):
                       z0 + rise + 0.16),
                      (0.30, 0.30, 0.22), None, M["rock"], seg=9, rings=7,
                      squircle=2.4))
+
+
+# THE SPINE: a rock ridge you walk over, west of the road.
+#
+# The meadow's verticality is all one surface -- the land rolls, the road
+# climbs, and at no point are you ABOVE anything. The outcrop is the exception
+# and it is five shelves at the very end of the walk. This is a second one,
+# sited in the western half where the map is otherwise a field: twenty-two
+# metres of rock rising three and a half above the grass, with faces too steep
+# to climb on both flanks, so the only way across is over the ends.
+#
+# It EMERGES AND SUBMERGES rather than ending in a cliff at each end. A ridge
+# that stops dead is a wall with a 3.8 m drop off the back, and walking off a
+# drop in this engine is an instant snap to the ground below rather than a fall
+# -- so the one exit would look broken. Ramping the lift in over the first
+# eight metres and out over the last seven makes it a route: you walk up onto
+# it, along it, and down off it, and the drops are the SIDES, which is where
+# they belong.
+#
+# It is 22 m west of the road, in the same westward country as the ruin, so the
+# two read as one detour rather than two -- a hut in the lee of a rock.
+# half 1.45, not 1.9: at 3.8 m tall and 3.8 m wide the thing is as broad as it
+# is high, which is a barrow. Narrower than it is tall is what makes a rock
+# spine read as one.
+SPINE = dict(x=-10.0, y0=60.0, y1=82.0, h=3.8, half=1.45)
+
+
+def _spine_x(y):
+    """The crest wanders, so it is a landform and not an extruded rectangle."""
+    return (SPINE["x"] + 1.6 * math.sin((y - SPINE["y0"]) * 0.090)
+            + 0.6 * math.sin((y - SPINE["y0"]) * 0.230))
+
+
+def _spine_lift(y):
+    # RAMPED OVER TWELVE METRES, NOT EIGHT, and the segments are 0.6 m rather
+    # than 1.5. Both numbers are set by the runtime's 45 cm step limit and
+    # nothing else: the crest is a row of flat-topped platforms, so the height
+    # difference between two ADJACENT ones is a step the player has to take.
+    # At the first figures that step reached 1.3 m and the ridge was scenery.
+    return (SPINE["h"] * _ramp(y, SPINE["y0"], SPINE["y0"] + 14.0)
+            * (1.0 - _ramp(y, SPINE["y1"] - 10.0, SPINE["y1"])))
+
+
+def spine(M, t):
+    rnd = _lcg(5531)
+    step = 0.5
+    n = int((SPINE["y1"] - SPINE["y0"]) / step) + 1
+    peak_y, peak_z = 0.0, -99.0
+    sections = []
+    for i in range(n):
+        y = SPINE["y0"] + i * step
+        cx = _spine_x(y)
+        top = height(cx, y) + _spine_lift(y)
+        base = height(cx, y) - 1.5
+        # JITTERED HARD. Swept from a smooth profile the ridge came out as a
+        # perfect lens -- a whale, or a long barrow, but not rock. What makes
+        # stone read as stone here is facets at varying angles, so the width
+        # wanders on three frequencies and the crest is knocked about with it.
+        hw = (SPINE["half"] + 0.38 * math.sin(y * 0.31)
+              + 0.30 * math.sin(y * 0.87 + 1.3) + 0.22 * math.sin(y * 1.9 + 0.4)
+              + 0.16 * (rnd() - 0.5))
+        # WIDER THAN THE PLATFORM, AND STOPPING 30 CM SHORT OF THE CREST.
+        # `pushOut` ignores a box once you are more than 0.2 m above its top, so
+        # a solid flush with the crest would shove you off your own footing;
+        # one that stops below it still fences the faces, which is the job.
+        t.platform(cx, y, hw * 0.70, step * 0.62, top)
+        t.solid(cx, y, hw * 0.94, step * 0.62, top=top - 0.30)
+        if top > peak_z:
+            peak_y, peak_z = y, top
+
+    # FLAT SHADED, and this is the difference between rock and a dune. The toon
+    # ramp is a hard two-step, so on a large SMOOTH surface the unlit band comes
+    # out as one continuous black shape the size of the whole hillside. Faceting
+    # gives every plane its own band, which is both what low-poly rock is
+    # supposed to look like and the only thing that breaks that black up.
+    # THE SHAPE IS CHUNKS; THE COLLISION IS A CURVE. Swept as one smooth tube
+    # this came out a perfect lens -- a whale, or a long barrow -- and jittering
+    # the profile did not save it, because the fault was the continuity and not
+    # the noise. Rock in this world is made of blobs: the boulders are, the dell
+    # stones are, and they read correctly. So the ridge is fourteen overlapping
+    # masses, and the 45 fine platforms underneath are free to stay on the clean
+    # curve because nothing requires the two to be the same object.
+    rk = _lcg(8823)
+    for k in range(14):
+        y = SPINE["y0"] + 0.6 + k * (SPINE["y1"] - SPINE["y0"] - 1.2) / 13.0
+        cx = _spine_x(y) + (rk() - 0.5) * 0.55
+        top = height(_spine_x(y), y) + _spine_lift(y)
+        base = height(_spine_x(y), y) - 1.5
+        w = SPINE["half"] * (1.02 + 0.30 * rk())
+        t.add(K.blob(f"spine{k}",
+                     (cx, y + (rk() - 0.5) * 0.5, (top + base) / 2 + (rk() - 0.5) * 0.22),
+                     (w, 1.15 + 0.5 * rk(), (top - base) / 2 * (1.0 + 0.10 * rk())),
+                     None, M["rock"], seg=8, rings=6, squircle=2.5 + 0.9 * rk()))
+
+    # A DEAD TREE OUT OF THE ROCK at the high point, because a bare rock spine
+    # has no silhouette against the sky -- and this is the thing you see from
+    # the road that tells you the ridge is there at all.
+    sx = _spine_x(peak_y - 1.2)
+    _tree_snag(M, t, sx + 0.9, peak_y - 1.2, 0.85, _lcg(991))
+    # and the reason to walk it
+    A.embercap(t, _spine_x(peak_y) - 0.5, peak_y, z=peak_z, scale=1.15)
+    # loose stones along the crest, the same lip the outcrop's top shelf has
+    for k in range(9):
+        yy = SPINE["y0"] + 2.0 + k * 2.3
+        px = _spine_x(yy) + (0.9 if k % 2 else -0.9)
+        pz = height(_spine_x(yy), yy) + _spine_lift(yy)
+        sc = 0.20 + rnd() * 0.15
+        t.add(K.blob(f"spine_lip{k}", (px, yy, pz + sc * 0.25),
+                     (sc, sc * 0.9, sc * 0.6), None, M["rock"], seg=8, rings=6,
+                     squircle=2.6))
 
 
 def backdrop(M, t):
@@ -1208,12 +1368,16 @@ def main():
     t.walk(build_terrain(M))
     landmark(M, t)
     outcrop(M, t)
+    spine(M, t)
 
     # FIELDS, so the meadow is country rather than ground. Two boundaries the
     # road passes through -- each one is a small event on the walk, and they
     # give the eye a line to follow all the way to the flanking hills.
     drywall(M, t, -22.0, 40.0, 30.0, 40.0, on_road=True)
-    drywall(M, t, -6.0, 68.0, 34.0, 68.0, on_road=True)
+    # this one starts AT the rock spine rather than three metres short of
+    # it, so the boundary reads as running up to the outcrop and stopping,
+    # which is what a field wall does when it meets one
+    drywall(M, t, -9.0, 68.0, 34.0, 68.0, on_road=True)
     # a pen on the east side, which is where a herd of Woolts already grazes
     drywall(M, t, 14.0, 52.0, 30.0, 52.0)
     drywall(M, t, 30.0, 52.0, 30.0, 64.0)

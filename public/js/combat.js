@@ -365,10 +365,18 @@ export function createCombat(ctx) {
              current: null, detail: true };
   }
 
-  function spawn(name, x, z) {
+  /**
+   * @param y  where to LOOK for the ground, not where to put it. `groundAt`
+   *           searches downward and ignores anything more than 0.45 m above
+   *           the height it is asked from, so the hard-coded 2 that used to be
+   *           here meant nothing could be placed on a roof, in a belfry or on
+   *           a ledge -- every such spawn silently landed on the paving
+   *           underneath, which is a bird standing in the street.
+   */
+  function spawn(name, x, z, y = 2) {
     if (!protos[name]) return null;
     const e = instantiate(name);
-    const g = ctx.groundAt(x, z, 2) ?? 0;
+    const g = ctx.groundAt(x, z, y) ?? 0;
     e.pos = new THREE.Vector3(x, g, z);
     e.vel = new THREE.Vector3();
     e.facing = Math.random() * Math.PI * 2;

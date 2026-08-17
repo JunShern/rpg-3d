@@ -131,17 +131,43 @@ def _frames(points, up=None):
         tangents.append(t.normalized())
 
     t0 = tangents[0]
+    # seed frame: whichever world axis is least parallel to the first tangent
+    seed = min((Vector((1, 0, 0)), Vector((0, 1, 0)), Vector((0, 0, 1))),
+               key=lambda a: abs(a.dot(t0)))
+    u = (seed - t0 * seed.dot(t0)).normalized()
     if up is not None:
         # v starts along `up`; u is whatever completes the frame.  t0 x u == v.
         v0 = Vector(up)
         v0 = (v0 - t0 * v0.dot(t0))
-        v0 = v0.normalized() if v0.length > 1e-9 else Vector((0, 0, 1))
-        u = v0.cross(t0).normalized()
-    else:
-        # seed frame: whichever world axis is least parallel to the first tangent
-        seed = min((Vector((1, 0, 0)), Vector((0, 1, 0)), Vector((0, 0, 1))),
-                   key=lambda a: abs(a.dot(t0)))
-        u = (seed - t0 * seed.dot(t0)).normalized()
+        # ...UNLESS `up` IS THE SWEEP DIRECTION, in which case it cannot seed
+        # anything and the answer is the unseeded frame above.
+        #
+        # The old fallback here was `Vector((0, 0, 1))`, and the case this
+        # actually arises in is a VERTICAL sweep passed up=(0,0,1) -- the single
+        # most natural thing to write, and the same vector again. `u` came out
+        # (0,0,0) because mathutils normalizes a zero vector to itself rather
+        # than raising, `v` with it, and every ring collapsed onto the spine:
+        # 30 vertices and 20 faces of exactly zero area. Such an object still
+        # exists, still joins, still exports, and draws NOTHING. It cost a rock
+        # ridge, the outcrop's five shelves and part of the stone circle, all
+        # of which had correct collision the whole time -- which is the worst
+        # possible failure mode, because you can stand on them.
+        # 1e-3, NOT 1e-9. `v0.length` here is the sine of the angle between
+        # `up` and the sweep, and the tangent is normalized in float32 -- so a
+        # perfectly parallel `up` leaves a residue of about 1.2e-7, which sails
+        # past a 1e-9 test and then normalizes to the parallel direction again.
+        # That is the first fix for this bug, and it did not work; the assert
+        # below is what caught it.
+        if v0.length > 1e-3:
+            u = v0.normalized().cross(t0).normalized()
+    # A DEGENERATE FRAME IS A BUILD FAILURE, NOT A SHRUG. Everything about the
+    # collapsed-ring bug was silent: the object was created, joined, exported,
+    # counted in the part total and drawn as nothing, while its collision --
+    # authored separately from the same numbers -- worked perfectly. Nobody
+    # finds that by looking at a build log. `normalized()` on a zero vector
+    # returns a zero vector here, so this is the one place it can be caught.
+    if u.length < 0.9:
+        raise ValueError(f"degenerate sweep frame: tangent {tuple(t0)}, up {up}")
     frames = [(t0, u, t0.cross(u).normalized())]
 
     for i in range(1, n):

@@ -1191,6 +1191,10 @@ const HERDS = [
   { x: -9,  z: -38, n: 2 },
   { x: 21,  z: -58, n: 3 },
   { x: 34,  z: -92, n: 2 },
+  // TWO IN THE WALLED YARD, which is what a walled yard is for. The yard has a
+  // well, a trough and a woodpile and read as a room nobody uses; the animals
+  // are the difference between a set and a place, and they are already built.
+  { x: 26,  z: -3.25, n: 2, y: 1.2 },
 ];
 
 // Flocks sit ON the route, unlike the herds -- you are meant to walk into them.
@@ -1205,13 +1209,19 @@ const FLOCKS = [
   { x: -2,  z: -24, n: 3 },
   { x: 6,   z: -44, n: 3 },
   { x: 16,  z: -86, n: 4 },
+  // ROOSTING IN THE BELFRY, 20 m up. You climb the whole tower and something
+  // is already living at the top of it -- and because a flock scatters when a
+  // fight starts, the birds that leave the belfry are visible from the square.
+  { x: -1,  z: 15.5, n: 3, y: 20.8 },
+  // and on the roof route, so the leads have something on them
+  { x: 7,   z: -15.0, n: 2, y: 9.0 },
 ];
 
 function seedHerds() {
   for (const h of HERDS) {
     for (let i = 0; i < h.n; i++) {
       const a = (i / h.n) * Math.PI * 2 + h.x;
-      combat.spawn('woolt', h.x + Math.cos(a) * 2.6, h.z + Math.sin(a) * 2.6);
+      combat.spawn('woolt', h.x + Math.cos(a) * 2.6, h.z + Math.sin(a) * 2.6, h.y);
     }
   }
   for (const f of FLOCKS) {
@@ -1219,7 +1229,7 @@ function seedHerds() {
       // scattered, not ringed: a ring of birds reads as a summoning circle
       const a = i * 2.39962;                       // golden angle
       const r = 0.9 + 1.9 * Math.sqrt(i / f.n);
-      combat.spawn('flitter', f.x + Math.cos(a) * r, f.z + Math.sin(a) * r);
+      combat.spawn('flitter', f.x + Math.cos(a) * r, f.z + Math.sin(a) * r, f.y);
     }
   }
 }
