@@ -168,6 +168,12 @@ const NO_FOG_ENV = new Set(['ridge_a', 'ridge_b']);
 // silhouette carries meaning.
 const NO_OUTLINE_ENV = new Set([
   'grass_hi', 'bloom_a', 'bloom_b', 'leaf_lo',
+  // REEDS, for exactly the reason the grass blades are here. A stem is 2.3 cm
+  // at the base and tapers to nothing; the inverted hull is a fixed width in
+  // SCREEN space, so on something that thin the shell is most of what you see
+  // and three hundred of them came out as a thicket of black wire. The heads
+  // keep theirs -- they are 6 cm across and want the line.
+  'reed',
   // GROUND is not outlined either, and this one is about cost, not taste: an
   // inverted hull round a surface that fills the screen is a second full-screen
   // fill for an outline you only ever see at the silhouette.
@@ -225,6 +231,13 @@ const TOWN_LOOK = {
   // meadow
   grass:    { gradient: RAMP_SOFT, rimStrength: 0.06 },
   grass_hi: { gradient: RAMP_SOFT, rimStrength: 0.34, sway: 0.035 },
+  // REEDS SWAY THREE TIMES AS MUCH AS GRASS, which is the point of them.
+  // Everything outdoors moves in the same wind and almost nothing shows it: a
+  // 3 cm blade at one per fifteen square metres cannot, and a canopy forty
+  // metres off moves too little to read. A reed is 1.5 m of near-vertical line
+  // with a heavy head on it, and there are three hundred in one place.
+  reed:      { gradient: RAMP_SOFT, rimStrength: 0.40, sway: 0.10 },
+  reed_head: { rimStrength: 0.30, sway: 0.10 },
   dirt:     { gradient: RAMP_SOFT, rimStrength: 0.06 },
   bark:     { rimStrength: 0.40 },
   // WIND. Amplitudes in metres of horizontal drift at the gust's peak. A canopy
@@ -2211,6 +2224,11 @@ globalThis.__cycle = cycleCharacter;
  * and let lock-on be tested by the lock-on test.
  */
 globalThis.__groundAt = groundAt;
+// A GETTER, not a copy: `breakables` is null until `startCombat` runs, and
+// `Object.assign` would have snapshotted that null at module-evaluation time --
+// the same trap the `cur` accessor above exists for.
+Object.defineProperty(globalThis, '__breakables',
+                      { get: () => breakables, configurable: true });
 globalThis.__face = (x, z) => {
   facing = Math.atan2(x - pos.x, z - pos.z);
   return facing;

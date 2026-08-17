@@ -1242,6 +1242,33 @@ async function run() {
              detail: bad.length ? bad.join(', ') : 'every coloured mesh carries real colour' };
   });
 
+  // SMASHING A STALL'S GOODS MUST NOT DELETE THE STALL.
+  //
+  // `freeSolid` takes the collision box out from under a prop that has just
+  // come apart, and it used to do that by proximity alone -- which was correct
+  // for barrels and crates, each of which declares a solid at its own position
+  // and close to its own size. The market's goods are the first breakable that
+  // sits ON something: the display is 0.69 x 0.34 and the trestle it stands on
+  // is 1.10 x 0.65, centred on the same spot. By proximity the fruit takes the
+  // furniture with it and leaves a canopy and a table you walk through.
+  await check("smashing a stall's goods leaves the stall standing", () => {
+    const before = window.SOLIDS.length;
+    const stall = window.SOLIDS.find((s) => Math.abs(s.x + 5.2) < 0.6
+                                         && Math.abs(s.z + 1.4) < 0.6 && s.hx > 0.9);
+    // stand just east of the middle stall and swing west into it
+    __sim({ warp: [-3.6, 0, -1.4], az: 1.571, steps: 20 });
+    __face(-5.2, -1.4);
+    const broke0 = window.__breakables ? __breakables.broken : 0;
+    for (let i = 0; i < 6 && (window.__breakables ? __breakables.broken : 0) === broke0; i++)
+      __sim({ attack: true, steps: 26 });
+    const broke = window.__breakables ? __breakables.broken : 0;
+    const stillThere = stall && window.SOLIDS.includes(stall);
+    return { ok: broke > broke0 && !!stillThere,
+             detail: `broke ${broke - broke0} prop(s); solids ${before} -> `
+                   + `${window.SOLIDS.length}; the trestle is `
+                   + `${stillThere ? 'still there' : 'GONE'}` };
+  });
+
   group('The camera');
 
   // NOTHING TOUCHED THE CAMERA. It is the most intricate code in the project --
@@ -1405,7 +1432,7 @@ async function run() {
   // on its own and was invisible while this was measuring animals.
   for (const [label, x, z, az, maxMeshes, maxTris] of [
     ['plaza', 0.5, 6.2, 0, 185, 840],
-    ['path', 3, -32, 0, 70, 545],
+    ['path', 3, -32, 0, 85, 560],   // the gate furniture took this to 70/70
     ['flock', 6, -44, 0, 40, 300],
     ['meadow', 6, -54, 0, 40, 300],
     ['ridge', 13, -74, 0, 35, 300],

@@ -782,16 +782,29 @@ def stall(t, cx, cy, yaw=0.0, kind=0, w=2.4, d=1.5):
         ("door", 0.125, 2), ("stone", 0.130, 3),
     ][kind % 4]
     mat, rr, rows = goods
+    # ...AND THE GOODS COME APART. The town's only interactive things were four
+    # barrels and a crate, all of them tucked against walls, so the square you
+    # spend the most time in was the least responsive place in the build. A
+    # stall you can knock the fruit off is the same swing you already have,
+    # aimed at the one object in the plaza that is obviously loose.
+    #
+    # ONE breakable per stall, not one per item: `breakable` keeps a prop out of
+    # the big join so the runtime can remove it, and nine loose blobs a stall
+    # would be twenty-seven extra draw calls in the heaviest view in the game.
+    # Hitting the display scatters the display, which is what you would expect
+    # anyway.
+    gd = []
     for i in range(rows * 3):
         gx = cx - w / 2 + 0.34 + (w - 0.68) * ((i % 3) + 0.5) / 3
         gy = cy - d / 2 + 0.42 + (d - 0.84) * ((i // 3) + 0.5) / max(1, rows)
-        out.append(K.blob("stall_goods", (gx, gy, top_h + rr * 0.8),
-                          (rr, rr, rr * 0.85), None, M[mat], seg=10, rings=7,
-                          squircle=2.4))
-    for o in out:
+        gd.append(K.blob("stall_goods", (gx, gy, top_h + rr * 0.8),
+                         (rr, rr, rr * 0.85), None, M[mat], seg=10, rings=7,
+                         squircle=2.4))
+    for o in out + gd:
         if yaw:
             K.transform(o, rotate=(0, 0, yaw), around=(cx, cy, 0))
     t.add(*out)
+    t.breakable(*gd)
     # walk AROUND it, not through it -- the trestle is the obstacle, not the canopy
     t.solid(cx, cy, w / 2 - 0.1, d / 2 - 0.1, yaw, top=top_h + 0.1)
     return out

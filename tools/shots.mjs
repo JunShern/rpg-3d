@@ -61,6 +61,10 @@ const SHOTS = [
   { name: '04g-tower-room', warp: [-1.0, 0.6, 15.6], az: Math.PI, polar: 1.24, dist: 5.5 },
   { name: '04e-belfry', warp: [-1.0, 20.5, 16.6], az: 0.2, polar: 1.30, dist: 6.5 },
   { name: '04f-tower-from-the-air', warp: [-1.0, 20.5, 16.6], az: 0.0, polar: 0.80, dist: 9.5 },
+  // the market, framed on the stalls -- whose goods now come apart
+  // camera on the +x side so the view looks WEST at the stall fronts; az -1.2
+  // put it behind them and filled the frame with the tops of the canopies
+  { name: '04h-market', warp: [-2.9, 0, -1.4], az: 1.571, polar: 1.30, dist: 6.5 },
   { name: '05-gate-to-meadow', warp: [-1.0, 0, -5.5], az: 0, polar: 1.26, dist: 7.5 },
   { name: '06-path-climb', warp: [0.5, 0, -34.0], az: 0, polar: 1.24, dist: 8.5 },
   { name: '07-stream-ford', warp: [-1.0, 0, -41.0], az: -0.55, polar: 1.30, dist: 9.0 },
@@ -74,6 +78,12 @@ const SHOTS = [
   // where x=-14 and the shots were pointed at y=41 and y=47.5, four metres out
   // on either side. 07b came back as a full frame of water with no player in
   // it, which read as a camera bug and was a map-reading error.
+  // THE REED BED, along the stream's east reach. `_stream_y(18)` puts the
+  // channel at y=49.5 there, so the bank is z=-49.5 in three.js space.
+  { name: '07d-reedbed', warp: [17.5, 2, -47.2], az: -1.0, polar: 1.24, dist: 8.0 },
+  // IN the bed, looking west down the channel. The first framing stood her
+  // 0.6 m off the y=52 field wall, so the boom was inside it.
+  { name: '07e-reeds-close', warp: [21.5, 2, -49.0], az: 1.571, polar: 1.26, dist: 7.5 },
   { name: '07b-ravine', warp: [-14.0, 5, -38.6], az: 0.35, polar: 1.30, dist: 11.0 },
   // LOOKING THE OTHER WAY ALONG THE CHANNEL. The water surface follows its own
   // bed, and the bed climbs, so from down in the gorge the ribbon seen edge-on

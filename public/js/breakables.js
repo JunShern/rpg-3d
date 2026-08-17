@@ -67,6 +67,9 @@ export function makeBreakables(scene, solids) {
         mesh: o,
         x: mid.x, z: mid.z, y: bb.min.y,
         r: Math.max(size.x, size.z) * 0.5 + 0.35,   // a generous swing radius
+        // the prop's OWN footprint, which is how `freeSolid` tells the collider
+        // that belongs to it from one it is merely standing on
+        hx: size.x * 0.5, hz: size.z * 0.5,
         h: size.y,
         // A TREASURE OR A BARREL, told apart by name. The builder names the
         // pods `BREAK_pod_*`, and they burst brighter, further and upward --
@@ -79,11 +82,26 @@ export function makeBreakables(scene, solids) {
     return props.length - before;
   }
 
-  /** Take the collision box out from under a smashed prop. */
+  /** Take the collision box out from under a smashed prop.
+   *
+   * IT HAS TO BE THE PROP'S OWN BOX, not merely a nearby one. A barrel and a
+   * crate each declare a solid at their own position and close to their own
+   * size, so proximity alone was enough -- until the market stalls' goods
+   * became breakable. Those sit ON a trestle whose solid is 1.10 x 0.65 against
+   * the display's 0.69 x 0.34, centred on the same spot: knocking the fruit off
+   * would have deleted the stall's collision and left a canopy and a table you
+   * can walk straight through.
+   *
+   * A solid materially LARGER than the prop is something the prop is standing
+   * on. The 0.25 m of slack covers the crate, whose box is deliberately 1.25x
+   * its own width so you cannot clip its corners.
+   */
   function freeSolid(p) {
     for (let i = solids.length - 1; i >= 0; i--) {
       const s = solids[i];
-      if (Math.abs(s.x - p.x) < 0.6 && Math.abs(s.z - p.z) < 0.6) solids.splice(i, 1);
+      if (Math.abs(s.x - p.x) > 0.6 || Math.abs(s.z - p.z) > 0.6) continue;
+      if (s.hx > p.hx + 0.25 || s.hz > p.hz + 0.25) continue;
+      solids.splice(i, 1);
     }
   }
 

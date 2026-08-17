@@ -1414,6 +1414,76 @@ def backdrop(M, t):
     t.add(*out)
 
 
+def reedbed(M, t):
+    """A reed bed along the stream's eastern reach.
+
+    Two jobs, and the second one is the reason it is reeds and not another
+    copse. The first is a place: the channel east of the ford is a two-metre
+    cut through open field that you cross and forget, and standing in a reed bed
+    the horizon is a metre of stems in every direction -- the same enclosure the
+    dell gets from terrain, got here from planting, on ground that already dips.
+
+    The second is THE WIND. Everything in the meadow sways, and almost nothing
+    shows it: the tufts are three-centimetre blades at one per fifteen square
+    metres, and a canopy forty metres off moves too little to read. A reed is
+    1.5 m of nearly vertical line with a heavy head on it, which is the shape
+    wind is most visible on -- and there are three hundred of them in one place.
+    """
+    M_, out = t.M, []
+    rnd = _lcg(6613)
+    for i in range(34):
+        u = i / 33.0
+        x = 11.0 + 14.0 * u + (rnd() - 0.5) * 1.1
+        side = 1.0 if i % 2 else -1.0
+        y = _stream_y(x) + side * (1.7 + rnd() * 2.6)
+        if on_path(x, y, 2.2) or not _inside(x, y):
+            continue
+        z = height(x, y)
+        for k in range(7 + int(rnd() * 5)):
+            a = rnd() * math.tau
+            r = (0.10 + rnd() * 0.34)
+            px, py = x + math.cos(a) * r, y + math.sin(a) * r
+            hh = 1.05 + rnd() * 0.85
+            lean = (rnd() - 0.5) * 0.30
+            la = rnd() * math.tau
+            tipx, tipy = px + math.cos(la) * lean, py + math.sin(la) * lean
+            out.append(K.tube(f"reed{len(t.parts)}_{k}", [
+                {"p": Vector((px, py, z - 0.05)), "r": (0.023, 0.012), "n": 2.2},
+                {"p": Vector((px + (tipx - px) * 0.45, py + (tipy - py) * 0.45,
+                              z + hh * 0.58)), "r": (0.015, 0.008), "n": 2.2},
+                {"p": Vector((tipx, tipy, z + hh)), "r": 0.0, "n": 2.2},
+            ], seg=4, mat=M_["reed"], squircle=2.2, up=(0, 0, 1)))
+            # a seed head on the taller ones: the heavy tip is what makes the
+            # sway read as sway rather than as a shimmer
+            if hh > 1.45:
+                out.append(K.blob(f"reedhead{len(t.parts)}_{k}",
+                                  (tipx, tipy, z + hh - 0.13),
+                                  (0.030, 0.030, 0.115), None, M_["reed_head"],
+                                  seg=6, rings=5, squircle=2.2))
+
+    # TUSSOCKS: something to stand on, so the bed is walkable rather than a
+    # thicket you skirt. Low, broad, and each one bedded on its own ground.
+    for k in range(5):
+        x = 12.5 + k * 2.9 + (rnd() - 0.5) * 1.2
+        y = _stream_y(x) + (1.0 if k % 2 else -1.0) * (2.0 + rnd() * 1.2)
+        if not _inside(x, y):
+            continue
+        z = height(x, y)
+        # `leaf_lo`, not `grass_hi`. The pale highlight green is right for a
+        # 3 cm blade catching the sun and reads as bleached foam on a
+        # half-metre mound -- five of them sat in the channel looking like
+        # spilled milk.
+        out.append(K.blob(f"tussock{k}", (x, y, z + 0.10),
+                          (0.62 + rnd() * 0.3, 0.54 + rnd() * 0.3, 0.22),
+                          None, M_["leaf_lo"], seg=9, rings=6, squircle=2.8))
+        t.platform(x, y, 0.42, 0.36, z + 0.28)
+
+    t.add(*out)
+    # the find, deep in the stems where you would only go if you went in
+    ex, ey = 18.4, _stream_y(18.4) + 3.0
+    A.embercap(t, ex, ey, z=height(ex, ey), scale=1.05)
+
+
 def approach(M, t):
     """The first twenty metres of road outside the gate.
 
@@ -1536,6 +1606,10 @@ def main():
         # living tree whose leaves failed to load
         "bark_dead": K.material("bark_dead", (0.44, 0.41, 0.36), roughness=0.95),
         "rock":     K.material("rock", (0.52, 0.50, 0.48), roughness=0.9),
+        # REEDS: straw-olive, deliberately yellower than any grass here, so a
+        # bed of them reads as a different plant and not as tall lawn.
+        "reed":     K.material("reed", (0.60, 0.64, 0.31), roughness=0.9),
+        "reed_head": K.material("reed_head", (0.50, 0.40, 0.24), roughness=0.9),
         "bloom_a":  K.material("bloom_a", (0.94, 0.86, 0.42), roughness=0.7),
         # ORCHARD FRUIT: warm red-orange, which is the only warm accent in the
         # whole outdoor palette and therefore the thing that will read from the
@@ -1609,6 +1683,7 @@ def main():
     A.embercap(t, -33.0, 62.0, z=height(-33.0, 62.0))
     A.embercap(t, -9.0, STREAM_Y - 3.1, z=height(-9.0, STREAM_Y - 3.1))
     stream(M, t)
+    reedbed(M, t)
     approach(M, t)
     waymarks(M, t)
     backdrop(M, t)
