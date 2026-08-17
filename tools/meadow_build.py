@@ -62,6 +62,24 @@ PATH_X = -1.0                      # the path runs out of the gate on this line
 HILL = (27.0, 82.0, 7.2, 16.0)     # x, y, height, radius -- the destination
 RUIN = (-14.0, 55.0)               # the roofless hut, twenty metres off the road
 
+# THE DELL: a bowl of ground with a wood round its rim.
+#
+# The outdoor half is one open field, so "explore the meadow" means walking
+# across the same space for ninety metres. A hollow is the cheapest enclosure
+# available in a height field -- you cannot see into it until you are at the
+# lip, the trees round the rim close the sky, and standing in the bottom the
+# horizon is four metres of grass in every direction. That is a different
+# SPACE, in the same square footage, made out of terrain the map already has.
+#
+# Sited in the emptiest stretch of the walk, which an audit timed as the first
+# of two sags.
+# (-22, 31), not (20, 44). The first siting put the hollow straight across the
+# stream at y=47 AND the field wall at y=40 -- so the bowl cut the channel, the
+# water plane ran through the clearing at an angle, and a dry-stone wall came
+# over the rim. A hollow has to be somewhere the map is otherwise empty, which
+# is the whole reason it is worth digging.
+DELL = (-22.0, 31.0, 8.0, 2.6)     # x, y, radius, depth
+
 
 def _natural(x, y):
     """The ground BEFORE the road and the water touch it.
@@ -83,6 +101,12 @@ def _natural(x, y):
     h += _ramp(y, MEADOW["y1"] - 26.0, MEADOW["y1"]) * 15.0
     h += _ramp(-x, -MEADOW["x0"] - 22.0, -MEADOW["x0"]) * 12.0
     h += _ramp(x, MEADOW["x1"] - 22.0, MEADOW["x1"]) * 12.0
+
+    # the hollow, cut before the road and the water so both can still override it
+    dx_, dy_, dr_, dd_ = DELL
+    dd = math.hypot(x - dx_, y - dy_) / dr_
+    if dd < 1.0:
+        h -= dd_ * (math.cos(dd * math.pi) * 0.5 + 0.5) ** 1.25
 
     # THE WHOLE MEADOW CLIMBS, not just the road across it. The rise used to
     # belong to `_path_height`, an absolute height the road was blended to
@@ -319,6 +343,61 @@ def build_terrain(M, step=TERRAIN_STEP):
 
 # --------------------------------------------------------------------- props
 
+def copse(M, t, rnd):
+    """A close wood round the dell's rim, and a clearing inside it.
+
+    THE TREES ARE THE WALLS. Scattered trees are scenery you walk past; trees
+    at two-metre spacing are a room you walk into, and the difference is
+    entirely the spacing. Two rings -- an outer of tall broadleaves whose
+    canopies close overhead, an inner of conifers at the lip -- with the middle
+    left empty, because a clearing is the point and a wood with no clearing is
+    just dense scenery.
+    """
+    dx_, dy_, dr_, _ = DELL
+    # 18, not 26. At 26 the ring was 1.9 m between trunks, which is a palisade
+    # rather than a wood -- and the camera boom has nowhere to go in it, so
+    # standing in the clearing pulled the view inside a tree. Wider spacing with
+    # more radial jitter reads as denser, not thinner, because the trunks stop
+    # lining up.
+    outer = 18
+    for i in range(outer):
+        a = 2 * math.pi * i / outer + 0.11
+        r = dr_ * (0.88 + 0.26 * rnd())
+        x, y = dx_ + math.cos(a) * r, dy_ + math.sin(a) * r
+        if on_path(x, y, 3.0) or not _inside(x, y):
+            continue
+        tree(M, t, x, y, 1.15 + rnd() * 0.55, kind="broadleaf")
+    inner = 8
+    for i in range(inner):
+        a = 2 * math.pi * i / inner + 0.7
+        r = dr_ * (0.55 + 0.22 * rnd())
+        x, y = dx_ + math.cos(a) * r, dy_ + math.sin(a) * r
+        if on_path(x, y, 3.0) or not _inside(x, y):
+            continue
+        tree(M, t, x, y, 0.85 + rnd() * 0.45, kind="conifer")
+
+    # WHAT IS IN THE CLEARING. A fallen trunk to break the floor, a ring of
+    # stones that is not a fire (this one is nobody's camp), and a find -- the
+    # dell is a detour and a detour has to pay.
+    z0 = height(dx_, dy_)
+    a = 0.9
+    t.add(K.tube("dell_log", K.dome([
+        {"p": Vector((dx_ - math.cos(a) * 2.2, dy_ - math.sin(a) * 2.2, z0 + 0.34)),
+         "r": (0.34, 0.34), "n": 2.8},
+        {"p": Vector((dx_ + math.cos(a) * 2.4, dy_ + math.sin(a) * 2.4, z0 + 0.26)),
+         "r": (0.24, 0.24), "n": 2.8},
+    ], at="both", steps=2, height=0.1), seg=8, mat=M["bark_dead"], squircle=2.8))
+    t.solid(dx_, dy_, 2.4, 1.0, top=z0 + 0.6)
+    for k in range(7):
+        aa = 2 * math.pi * k / 7 + 0.3
+        px, py = dx_ + math.cos(aa) * 3.4, dy_ + math.sin(aa) * 3.4
+        sc = 0.22 + rnd() * 0.16
+        t.add(K.blob(f"dell_stone{k}", (px, py, height(px, py) + sc * 0.3),
+                     (sc, sc * 0.85, sc * 0.6), None, M["rock"], seg=8, rings=6,
+                     squircle=2.6))
+    A.embercap(t, dx_ + 1.4, dy_ - 2.6, z=height(dx_ + 1.4, dy_ - 2.6), scale=1.2)
+
+
 def _clear_of_landmarks(x, y, pad=0.0):
     """True where scenery is allowed to grow.
 
@@ -332,6 +411,10 @@ def _clear_of_landmarks(x, y, pad=0.0):
     if math.hypot(x - hx, y - hy) < 11.0 + pad:
         return False
     if math.hypot(x - RUIN[0], y - RUIN[1]) < 6.5 + pad:
+        return False
+    # the dell plants its own wood, at its own spacing; a stray scattered tree
+    # inside the clearing is the one thing that would stop it reading as one
+    if math.hypot(x - DELL[0], y - DELL[1]) < DELL[2] + 1.5 + pad:
         return False
     return True
 
@@ -1076,7 +1159,7 @@ def main():
     # town's ground textures hit.
     for key, fn, tint in (("rock", surface_tex.stone_rough, (0.52, 0.50, 0.48)),
                           ("stone", surface_tex.stone_rough, (0.74, 0.72, 0.68)),
-                          ("bark", surface_tex.bark_rough, (0.34, 0.25, 0.19)),
+                          ("bark", surface_tex.bark_rough, (0.44, 0.34, 0.25)),
                           ("bark_dead", surface_tex.bark_rough, (0.44, 0.41, 0.36))):
         path = os.path.abspath(f"public/assets/tex/m_{key}.png")
         surface_tex.write_png(path, np.clip(fn() * np.array(tint, np.float32), 0, 1))
@@ -1102,6 +1185,7 @@ def main():
     # metres west of it, at the point where the walk would otherwise be its
     # emptiest.
     ruin(M, t, RUIN[0], RUIN[1], yaw=18)
+    copse(M, t, _lcg(60413))
 
     # EMBERCAPS, at the places the road does not take you. Each one is the
     # payoff for a detour that until now paid nothing: inside the ruin, at the
@@ -1167,7 +1251,7 @@ def main():
     # instead -- and the probes below let it PROVE the port still agrees with
     # the mesh it is standing on, rather than assuming.
     man["terrain"] = {
-        "gateY": GATE_Y, "pathX": PATH_X, "hill": list(HILL),
+        "gateY": GATE_Y, "pathX": PATH_X, "hill": list(HILL), "dell": list(DELL),
         "x0": MEADOW["x0"], "x1": MEADOW["x1"], "y1": MEADOW["y1"],
         "streamY": STREAM_Y, "streamDepth": STREAM_DEPTH, "streamHalf": STREAM_HALF,
         "streamX0": STREAM_X0, "streamX1": STREAM_X1,

@@ -52,6 +52,8 @@ const SHOTS = [
   { name: '08-outcrop-vantage', warp: [29.9, 14, -85.1], az: 2.715, polar: 1.36, dist: 9.0 },
   { name: '08b-outcrop-climb', warp: [22.0, 6, -76.0], az: -0.55, polar: 1.24, dist: 10.0 },
   { name: '09-landmark-hill', warp: [12.0, 0, -62.0], az: -0.644, polar: 1.16, dist: 11.0 },
+  { name: '09e-dell', warp: [-9.5, 6, -31.0], az: 1.571, polar: 1.16, dist: 12.0 },
+  { name: '09f-dell-rim', warp: [-12.5, 6, -31.0], az: 1.571, polar: 1.22, dist: 11.0 },
   { name: '09b-stone-circle', warp: [27.0, 16, -82.0], az: 2.55, polar: 1.44, dist: 9.0 },
   { name: '09c-ruin', warp: [-14.0, 6, -50.0], az: 0.0, polar: 1.28, dist: 9.5 },
   { name: '09d-fieldwall', warp: [5.7, 6, -35.0], az: 0.0, polar: 1.26, dist: 9.0 },

@@ -25,8 +25,10 @@ function ramp(v, a, b) {
 }
 
 export function makeTerrain(cfg) {
-  const { gateY, pathX, hill, x0, x1, y1 } = cfg;
+  const { gateY, pathX, hill, dell, x0, x1, y1 } = cfg;
   const [hx, hy, hh, hr] = hill;
+  // The wooded hollow. MUST MATCH meadow_build.DELL and the term in `_natural`.
+  const [dx, dy, dr, dd] = dell || [0, 0, 0, 0];
 
   const pathAt = (y) =>
     pathX + 11.0 * Math.sin((y - gateY) * 0.026) + 5.0 * Math.sin((y - gateY) * 0.011);
@@ -61,6 +63,12 @@ export function makeTerrain(cfg) {
 
     const d = Math.hypot(x - hx, y - hy) / hr;
     if (d < 1) h += hh * Math.pow(Math.cos(d * Math.PI) * 0.5 + 0.5, 1.5);
+
+    // the hollow, cut before the road and the water so both still override it
+    if (dr > 0) {
+      const k = Math.hypot(x - dx, y - dy) / dr;
+      if (k < 1) h -= dd * Math.pow(Math.cos(k * Math.PI) * 0.5 + 0.5, 1.25);
+    }
 
     h += ramp(y, y1 - 26.0, y1) * 15.0;
     h += ramp(-x, -x0 - 22.0, -x0) * 12.0;
