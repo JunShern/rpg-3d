@@ -1932,6 +1932,81 @@ def belltower(t, cx, cy, base=2.35, storeys=4, yaw=0.0, hollow=True):
     return [L for L in lamps if L]
 
 
+def cart(t, x, y, yaw=0.0, load=True, z0=0.0):
+    """A two-wheeled cart, tipped forward onto its shafts.
+
+    THE TOWN HAS NO TRAFFIC. It has stalls, washing, a woodstack and a market,
+    all of which say people are here, and not one thing that says anything ever
+    ARRIVES. A cart is the object that implies the road -- it is the only prop in
+    the kit that belongs to both places, and standing on the gate approach it
+    tells you the track you are about to walk is used for something.
+
+    Parked with the shafts down, which is how a cart without a horse in it
+    actually sits, and which is also the reading that does not require a horse.
+    """
+    M, out = t.M, []
+    R = 0.52                      # wheel radius
+    bed_z = z0 + R + 0.28
+
+    for sy in (-1, 1):
+        # felloe: a swept ring, so the rim has thickness from every angle
+        out.append(K.tube(f"cart_rim{sy}", [
+            {"p": Vector((x, y + sy * 0.62, bed_z - 0.30)), "r": (R, R), "n": 2.0},
+            {"p": Vector((x, y + sy * 0.70, bed_z - 0.30)), "r": (R, R), "n": 2.0},
+        ], seg=16, mat=M["timber"], squircle=2.0, up=(0, 0, 1)))
+        out.append(K.tube(f"cart_tyre{sy}", [
+            {"p": Vector((x, y + sy * 0.63, bed_z - 0.30)), "r": (R * 1.06, R * 1.06), "n": 2.0},
+            {"p": Vector((x, y + sy * 0.69, bed_z - 0.30)), "r": (R * 1.06, R * 1.06), "n": 2.0},
+        ], seg=16, mat=M["brass"], squircle=2.0, up=(0, 0, 1)))
+        # six spokes: a bar along x, rotated about the wheel's own axis (y)
+        for k in range(6):
+            a = math.pi * k / 6
+            out.append(box(f"cart_spoke{sy}_{k}", (x, y + sy * 0.66, bed_z - 0.30),
+                           (R * 0.94, 0.030, 0.030), M["timber"], bevel=0.01, seg=1))
+            K.transform(out[-1], rotate=(0, math.degrees(a), 0),
+                        around=(x, y + sy * 0.66, bed_z - 0.30))
+        out.append(box(f"cart_hub{sy}", (x, y + sy * 0.66, bed_z - 0.30),
+                       (0.10, 0.075, 0.10), M["timber"], bevel=0.03, seg=1))
+
+    # the bed, tipped nose-down onto the shafts
+    out.append(box("cart_bed", (x, y, bed_z), (0.86, 0.62, 0.055),
+                   M["timber"], bevel=0.02, seg=1))
+    for sy in (-1, 1):
+        out.append(box("cart_side", (x, y + sy * 0.60, bed_z + 0.20),
+                       (0.86, 0.045, 0.20), M["timber"], bevel=0.02, seg=1))
+    out.append(box("cart_head", (x - 0.82, y, bed_z + 0.20),
+                   (0.045, 0.60, 0.20), M["timber"], bevel=0.02, seg=1))
+    # shafts, running forward and down to the ground
+    for sy in (-1, 1):
+        out.append(K.tube(f"cart_shaft{sy}", [
+            {"p": Vector((x + 0.80, y + sy * 0.48, bed_z - 0.02)), "r": (0.05, 0.05), "n": 2.4},
+            {"p": Vector((x + 2.05, y + sy * 0.40, z0 + 0.06)), "r": (0.042, 0.042), "n": 2.4},
+        ], seg=7, mat=M["timber"], squircle=2.4))
+
+    for o in out:
+        if yaw:
+            K.transform(o, rotate=(0, 0, yaw), around=(x, y, 0))
+    t.add(*out)
+    t.solid(x, y, 1.0, 0.78, yaw, top=bed_z + 0.42)
+
+    # THE LOAD IS THE BREAKABLE, not the cart. A cart you can destroy is a cart
+    # that leaves a hole in the street; sacks you can burst are the same swing
+    # with none of that.
+    if load:
+        sacks = []
+        for k, (dx, dy, r) in enumerate(((-0.34, -0.20, 0.27), (0.10, 0.16, 0.30),
+                                         (0.46, -0.14, 0.25))):
+            sacks.append(K.blob(f"cart_sack{k}",
+                                (x + dx, y + dy, bed_z + 0.055 + r * 0.82),
+                                (r, r * 0.86, r * 0.80), None, M["awning"],
+                                seg=9, rings=6, squircle=2.3))
+        for o in sacks:
+            if yaw:
+                K.transform(o, rotate=(0, 0, yaw), around=(x, y, 0))
+        t.breakable(*sacks)
+    return out
+
+
 def outer_face(t, x0, x1, y, seed=0, shed_at=None):
     """Dress the BACK of a range -- the elevation the town shows the country.
 

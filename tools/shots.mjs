@@ -66,6 +66,8 @@ const SHOTS = [
   // put it behind them and filled the frame with the tops of the canopies
   { name: '04h-market', warp: [-2.9, 0, -1.4], az: 1.571, polar: 1.30, dist: 6.5 },
   { name: '05-gate-to-meadow', warp: [-1.0, 0, -5.5], az: 0, polar: 1.26, dist: 7.5 },
+  // the cart on the verge, close enough to judge the wheels
+  { name: '05b-cart', warp: [1.4, 1, -30.0], az: 1.571, polar: 1.30, dist: 6.0 },
   { name: '06-path-climb', warp: [0.5, 0, -34.0], az: 0, polar: 1.24, dist: 8.5 },
   { name: '07-stream-ford', warp: [-1.0, 0, -41.0], az: -0.55, polar: 1.30, dist: 9.0 },
   // warp y is 14, not 0: the outcrop's top shelf is a PLATFORM three metres

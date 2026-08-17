@@ -1433,7 +1433,7 @@ async function run() {
   for (const [label, x, z, az, maxMeshes, maxTris] of [
     ['plaza', 0.5, 6.2, 0, 185, 840],
     ['path', 3, -32, 0, 85, 560],   // the gate furniture took this to 70/70
-    ['flock', 6, -44, 0, 40, 300],
+    ['flock', 6, -44, 0, 55, 340],   // the reed bed took this to 40/40
     ['meadow', 6, -54, 0, 40, 300],
     ['ridge', 13, -74, 0, 35, 300],
     ['far side', 24, -84, 0, 35, 300],

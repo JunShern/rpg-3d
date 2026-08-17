@@ -1529,6 +1529,11 @@ def approach(M, t):
         out.append(o)
     t.solid(fx, fy, 0.16, 0.16, top=fz + 2.1)
 
+    # a cart drawn up on the verge, which is the object that says the track is
+    # a road that things travel on rather than a worn line across a field
+    cx0 = _path_x(GATE_Y + 10.5) - 4.2
+    A.cart(t, cx0, GATE_Y + 10.5, yaw=-72, z0=height(cx0, GATE_Y + 10.5))
+
     # MOUNTING BLOCKS flanking the road at the paving edge: two steps of cut
     # stone, the thing you would actually find at a town gate
     for sgn in (-1, 1):

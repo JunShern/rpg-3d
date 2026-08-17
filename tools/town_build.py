@@ -278,6 +278,11 @@ def build_props(t):
                               (-5.0, -2.2, 14, 3)):
         A.stall(t, cx, cy, yaw=yaw, kind=kind)
 
+    # A CART BEHIND THE MARKET, shafts down. The square says people live here in
+    # a dozen ways and never once said that anything ARRIVES; a cart is the only
+    # prop in the kit that belongs to the road as much as to the town.
+    A.cart(t, -9.6, 2.6, yaw=104)
+
     # Lines strung across the two alleys, which were vertical surfaces and empty
     # air. The cloth is `awning`, so it moves with the wind.
     A.washing(t, -13.0, 5.0, -13.0, 11.0, 5.4, n=4)
