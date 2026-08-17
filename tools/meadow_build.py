@@ -1414,6 +1414,76 @@ def backdrop(M, t):
     t.add(*out)
 
 
+def approach(M, t):
+    """The first twenty metres of road outside the gate.
+
+    This is the most-looked-at ground in the demo and it had nothing on it. You
+    cross it leaving town, you cross it coming back, and coming back it is
+    framed dead centre by the gateway arch -- so it is the foreground of the one
+    composition the player sees more than any other, and it was bare grass with
+    two bollards.
+
+    A milestone, a fingerpost and a pair of mounting blocks. None of it is a
+    route or a reward; it is the furniture that says a road is a ROAD and not a
+    worn line across a field, and it gives that foreground something to be.
+    """
+    M_, out = t.M, []
+    rnd = _lcg(5507)
+
+    # THE MILESTONE, on the verge where the paving ends
+    mx, my = _path_x(GATE_Y + 3.2) + 3.1, GATE_Y + 3.2
+    mz = height(mx, my)
+    out.append(K.tube("milestone", K.dome([
+        {"p": Vector((mx, my, mz - 0.20)), "r": (0.30, 0.22), "n": 3.0},
+        {"p": Vector((mx, my, mz + 0.62)), "r": (0.26, 0.19), "n": 3.2},
+        {"p": Vector((mx, my, mz + 0.86)), "r": (0.24, 0.17), "n": 3.4},
+    ], at="end", steps=2, height=0.16), seg=10, mat=M_["stone"], squircle=3.2,
+        up=(0, 0, 1)))
+    t.solid(mx, my, 0.34, 0.26, top=mz + 1.0)
+
+    # THE FINGERPOST, on the other side so the two frame the road
+    fx, fy = _path_x(GATE_Y + 6.0) - 3.3, GATE_Y + 6.0
+    fz = height(fx, fy)
+    out.append(K.tube("signpost", K.dome([
+        {"p": Vector((fx, fy, fz - 0.15)), "r": (0.085, 0.085), "n": 2.6},
+        {"p": Vector((fx, fy, fz + 2.05)), "r": (0.068, 0.068), "n": 2.6},
+    ], at="end", steps=2, height=0.08), seg=8, mat=M_["bark"], squircle=2.6,
+        up=(0, 0, 1)))
+    # two arms, pointing opposite ways, at different heights -- a fingerpost
+    # with one arm reads as a broken post
+    for k, (sgn, hz, ln) in enumerate(((1, 1.86, 0.62), (-1, 1.52, 0.52))):
+        ax = fx + sgn * (ln / 2 + 0.07)
+        o = A.box(f"signarm{k}", (ax, fy, fz + hz), (ln / 2, 0.035, 0.11),
+                  M_["timber"], bevel=0.02, seg=1)
+        K.transform(o, rotate=(0, 0, 11 * sgn), around=(fx, fy, 0))
+        out.append(o)
+    t.solid(fx, fy, 0.16, 0.16, top=fz + 2.1)
+
+    # MOUNTING BLOCKS flanking the road at the paving edge: two steps of cut
+    # stone, the thing you would actually find at a town gate
+    for sgn in (-1, 1):
+        bx = _path_x(GATE_Y + 1.4) + sgn * 4.4
+        by = GATE_Y + 1.4
+        bz = height(bx, by)
+        for k, (w, h) in enumerate(((0.62, 0.24), (0.44, 0.46))):
+            out.append(A.box(f"block{sgn}_{k}", (bx, by, bz + h / 2),
+                             (w, 0.46 - 0.10 * k, h / 2), M_["stone"],
+                             bevel=0.04, seg=1))
+        t.solid(bx, by, 0.66, 0.50, top=bz + 0.50)
+
+    # and a scatter of blooms along the verge, which is the one place the eye
+    # rests on the ground for any length of time
+    for k in range(26):
+        yy = GATE_Y + 1.5 + rnd() * 17.0
+        side = 1.0 if k % 2 else -1.0
+        xx = _path_x(yy) + side * (2.9 + rnd() * 3.4)
+        if not _inside(xx, yy):
+            continue
+        tuft(M, t, xx, yy, rnd)
+
+    t.add(*out)
+
+
 def waymarks(M, t):
     """Posts along the path. They do the job a corridor wall does in a town --
     tell you where the road goes -- without enclosing anything."""
@@ -1539,6 +1609,7 @@ def main():
     A.embercap(t, -33.0, 62.0, z=height(-33.0, 62.0))
     A.embercap(t, -9.0, STREAM_Y - 3.1, z=height(-9.0, STREAM_Y - 3.1))
     stream(M, t)
+    approach(M, t)
     waymarks(M, t)
     backdrop(M, t)
     scatter(M, t)

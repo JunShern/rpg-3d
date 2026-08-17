@@ -1375,61 +1375,73 @@ async function run() {
   // These ceilings sit ~15% above the measured numbers, so what trips them is a
   // change in kind and not noise. Measured in a real browser at the same spots:
   // 167 fps in the plaza down to 78 on the ridge.
-  // THE AZIMUTH IS PINNED, and until now it was not -- which made every number
-  // in this group a measurement of the previous forty-five checks rather than
-  // of the scene.
+  // WHAT THIS MEASURES IS THE ENVIRONMENT, and it took three redesigns to
+  // work out that that is the only thing it CAN measure.
   //
-  // `__sim`'s warp does not touch `cam.az`, so each vantage was rendered facing
-  // wherever the suite happened to have left the camera. Measured at one spot,
-  // the plaza, over eight azimuths: 160 draws / 613k tris at the cheapest and
-  // 243 / 811k at the dearest. The ceilings had been calibrated at one inherited
-  // angle and were being tested at another, so the plaza failed at 193/190 while
-  // a probe replicating the vantage, viewport and roster exactly measured 178.
-  // Two runs failed on identical numbers, which is what finally said "this is
-  // deterministic, just not about what I think".
+  // It began as "render a frame here and count what the renderer reports". Two
+  // faults, found in that order:
   //
-  // az 0 puts the camera on the +z side, so the view looks -z: out of the gate
-  // and on down the road, which is the direction of travel at all six spots and
-  // the expensive one everywhere. Ceilings are ~15% over the measured draws and
-  // ~12% over the triangles, recalibrated against the pinned angle.
-  for (const [label, x, z, az, maxDraws, maxTris] of [
-    ['plaza', 0.5, 6.2, 0, 290, 920],
-    ['path', 3, -32, 0, 230, 890],
-    ['flock', 6, -44, 0, 175, 650],
-    ['meadow', 6, -54, 0, 200, 500],
-    ['ridge', 13, -74, 0, 195, 490],
-    ['far side', 24, -84, 0, 190, 500],
+  //  1. `__sim`'s warp does not touch `cam.az`, so each vantage was rendered
+  //     facing wherever the previous forty-five checks had left the camera.
+  //     Measured at the plaza over eight azimuths: 160 draws / 613k tris at the
+  //     cheapest angle, 243 / 811k at the dearest. Pinning az fixed five of six.
+  //
+  //  2. The sixth kept moving anyway, and so did the others once I looked --
+  //     the ridge read 447k on one pass and 808k on the next, in the same
+  //     browser, seconds apart. Creature meshes here are 42k triangles EACH,
+  //     `spawn` seeds facing from `Math.random()`, and the wander is not
+  //     deterministic either. So a rendered triangle count at a vantage is
+  //     mostly a measurement of how many animals happened to walk into frame.
+  //
+  // So it counts the STATIC scene instead: every non-creature mesh whose
+  // bounding sphere is in the frustum, summed by hand. No renderer, no AI, no
+  // RNG -- the same number every time, and the number that actually answers
+  // "did a content change blow up this view". The roster has its own checks
+  // (`distant enemies cost nothing to draw`, and the ambient-life group), which
+  // is where creature cost belongs.
+  // Ceilings ~15% over two identical measured passes. The plaza is far and away
+  // the heaviest view in the build -- 158 meshes and 728k static triangles
+  // against about 30 and 258k anywhere in the meadow -- which is worth knowing
+  // on its own and was invisible while this was measuring animals.
+  for (const [label, x, z, az, maxMeshes, maxTris] of [
+    ['plaza', 0.5, 6.2, 0, 185, 840],
+    ['path', 3, -32, 0, 70, 545],
+    ['flock', 6, -44, 0, 40, 300],
+    ['meadow', 6, -54, 0, 40, 300],
+    ['ridge', 13, -74, 0, 35, 300],
+    ['far side', 24, -84, 0, 35, 300],
   ]) {
-    await check(`${label} stays inside its draw budget`, (a) => {
-      __sim({ warp: [a.x, 6, a.z], az: a.az, steps: 60, dt: 1 / 20 });
-      const s = __sim({ steps: 1 });
-      const tris = s.tris / 1000;
-      const ok = s.draws <= a.maxDraws && tris <= a.maxTris;
-      let why = '';
-      if (!ok) {
-        // A BUDGET THAT ONLY REPORTS THE TOTAL CANNOT BE ACTED ON. The plaza
-        // went 13 draws over and I could not reproduce it outside the suite --
-        // a probe replicating the same vantage, viewport and setup measured 178
-        // and 623k against the suite's 193 and 761k. Two hours of hypotheses
-        // about state left by earlier checks would have been one line of
-        // measurement. When this trips it now says WHAT is in frame.
-        const live = combat.enemies.filter((e) => !e.dead);
-        const tally = {};
-        for (const e of live) tally[e.name] = (tally[e.name] || 0) + 1;
-        why = ` | ${live.length} live: `
-            + Object.entries(tally).map(([k, v]) => `${k}x${v}`).join(' ');
-        const big = [];
-        scene.traverse((o) => {
-          if (!o.isMesh || !o.visible || !o.geometry?.attributes?.position) return;
-          const n = (o.geometry.index ? o.geometry.index.count
-                                      : o.geometry.attributes.position.count) / 3;
-          if (n > 4000) big.push(`${o.name || o.userData.matName || '?'}:${(n / 1000).toFixed(0)}k`);
-        });
-        why += ` | heavy meshes: ${big.slice(0, 8).join(' ') || 'none over 4k'}`;
-      }
+    await check(`${label} keeps its environment inside budget`, (a) => {
+      __sim({ warp: [a.x, 6, a.z], az: a.az, steps: 40, dt: 1 / 20 });
+      camera.updateMatrixWorld();
+      const fr = new THREE.Frustum().setFromProjectionMatrix(
+        new THREE.Matrix4().multiplyMatrices(
+          camera.projectionMatrix, camera.matrixWorldInverse));
+      // every mesh that belongs to a creature, so they can be left out
+      const living = new Set();
+      for (const e of combat.enemies)
+        if (e.group) e.group.traverse((o) => living.add(o));
+      if (window.cur) for (const m of (cur.meshes || [])) living.add(m);
+      let tris = 0, meshes = 0;
+      const big = [];
+      scene.traverse((o) => {
+        if (!o.isMesh || !o.visible || living.has(o)) return;
+        if (!o.geometry?.attributes?.position) return;
+        if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
+        const sp = o.geometry.boundingSphere.clone().applyMatrix4(o.matrixWorld);
+        if (!fr.intersectsSphere(sp)) return;
+        const n = (o.geometry.index ? o.geometry.index.count
+                                    : o.geometry.attributes.position.count) / 3;
+        tris += n; meshes++;
+        if (n > 3000) big.push(`${o.name || o.userData.matName || '?'}:${(n / 1000).toFixed(0)}k`);
+      });
+      const k = tris / 1000;
+      const ok = meshes <= a.maxMeshes && k <= a.maxTris;
+      big.sort((u, v) => parseFloat(v.split(':')[1]) - parseFloat(u.split(':')[1]));
       return { ok,
-               detail: `${s.draws}/${a.maxDraws} draws · ${tris.toFixed(0)}k/${a.maxTris}k tris${why}` };
-    }, { x, z, az, maxDraws, maxTris });
+               detail: `${meshes}/${a.maxMeshes} meshes · ${k.toFixed(0)}k/${a.maxTris}k static tris`
+                     + (ok ? '' : ` | heaviest in frame: ${big.slice(0, 8).join(' ')}`) };
+    }, { x, z, az, maxMeshes, maxTris });
   }
 
   group('Console');
