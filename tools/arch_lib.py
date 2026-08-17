@@ -25,6 +25,10 @@ from mathutils import Vector
 import geo_lib as K
 
 FLOOR_H = 3.05          # storey height
+ROOM_WALL = 0.34        # wall thickness where a building is hollow
+ROOM_DOOR = 0.85        # half-width of an interior doorway
+ROOM_DOOR_H = 2.45      # its head height above the ground-floor level
+ROOM_FLOOR = 0.32       # interior floor level: the top of the plinth course
 GROUND_H = 3.45         # ground floor is taller -- shopfronts need the room
 
 
@@ -1305,7 +1309,7 @@ def shopsign(t, x, y0, z, kind=0):
 
 def building(t, cx, cy, w, d, storeys=2, yaw=0.0, plaster="plaster_a",
              roof="roof_a", shop=False, bays=None, roof_h=1.5, seed=0,
-             gable_front=False):
+             gable_front=False, room=False):
     """Assemble one building, front facing -Y, then yaw it into place.
 
     Everything is authored in ONE orientation and rotated at the end.  Trying to
@@ -1316,11 +1320,72 @@ def building(t, cx, cy, w, d, storeys=2, yaw=0.0, plaster="plaster_a",
     h = GROUND_H + FLOOR_H * (storeys - 1)
     y0 = -d / 2                                  # the facade plane
     bays = bays if bays is not None else max(1, int(w / 2.1))
+    # WHERE THE FACADE ALREADY PUTS ITS DOOR. The ground-floor loop below sets
+    # this from `bays // 2`, and when the ground storey is hollow the opening
+    # has to be cut at exactly that x -- the first version cut it at the centre
+    # of the wall instead, which for a four-bay building is 1.25 m off, so the
+    # building came out with a real hole nobody had drawn a door round and a
+    # painted door leaf standing in the wall beside it.
+    door_x = -w / 2 + w * (bays // 2 + 0.5) / bays
 
     out.append(box("bld_plinth", (0, 0, 0.16), (w / 2 + 0.10, d / 2 + 0.10, 0.16),
                    M["stone"], bevel=0.05, seg=2))
-    out.append(box("bld_body", (0, 0, h / 2 + 0.16), (w / 2, d / 2, h / 2),
-                   M[plaster], bevel=0.06, seg=2))
+    if not room:
+        out.append(box("bld_body", (0, 0, h / 2 + 0.16), (w / 2, d / 2, h / 2),
+                       M[plaster], bevel=0.06, seg=2))
+    else:
+        # THE GROUND STOREY IS HOLLOW, and only the ground storey. Everything
+        # above it stays one solid block, which is most of the mass and all of
+        # the silhouette -- nine facades do not change because one of them has
+        # a room behind its door.
+        #
+        # The belltower is the template for all of this: four walls with a gap
+        # in one of them, a floor declared as a platform, wall solids instead of
+        # one footprint box, and a lamp near enough to matter. What is different
+        # here is the size. The tower's shaft is 4.9 m across and the camera had
+        # to be confined to a well; this room is 9.4 x 7.4, which is wider than
+        # the boom is long, so the ordinary solve works.
+        gz0, gz1 = 0.16, 0.16 + GROUND_H
+        th = ROOM_WALL
+        ix, iy = w / 2 - th, d / 2 - th          # the interior, in local space
+        out.append(box("bld_body", (0, 0, (gz1 + h + 0.16) / 2),
+                       (w / 2, d / 2, (h + 0.16 - gz1) / 2),
+                       M[plaster], bevel=0.06, seg=2))
+        for sx in (-1, 1):                        # the two side walls
+            out.append(box("bld_wall_x", (sx * (ix + w / 2) / 2, 0, (gz0 + gz1) / 2),
+                           (th / 2, d / 2, (gz1 - gz0) / 2), M[plaster],
+                           bevel=0.05, seg=2))
+        out.append(box("bld_wall_back", (0, (iy + d / 2) / 2, (gz0 + gz1) / 2),
+                       (ix, th / 2, (gz1 - gz0) / 2), M[plaster], bevel=0.05, seg=2))
+        # the front wall, split around the doorway
+        for sgn in (-1, 1):
+            edge = sgn * ix                      # the wall's own end
+            near = door_x + sgn * ROOM_DOOR      # the near side of the opening
+            out.append(box("bld_wall_front", ((edge + near) / 2, -(iy + d / 2) / 2,
+                                              (gz0 + gz1) / 2),
+                           (abs(edge - near) / 2, th / 2, (gz1 - gz0) / 2),
+                           M[plaster], bevel=0.05, seg=2))
+        lz = ROOM_FLOOR + ROOM_DOOR_H
+        out.append(box("bld_lintel", (door_x, -(iy + d / 2) / 2, (lz + gz1) / 2),
+                       (ROOM_DOOR, th / 2, (gz1 - lz) / 2), M[plaster],
+                       bevel=0.05, seg=2))
+        for sxx in (-1, 1):                       # a cut-stone surround
+            out.append(box("bld_jamb", (door_x + sxx * (ROOM_DOOR + 0.09),
+                                        -d / 2 + 0.02, (ROOM_FLOOR + lz) / 2),
+                           (0.09, 0.07, (lz - ROOM_FLOOR) / 2), M["stone"],
+                           bevel=0.03, seg=1))
+        out.append(box("bld_jamb", (door_x, -d / 2 + 0.02, lz + 0.11),
+                       (ROOM_DOOR + 0.18, 0.07, 0.14), M["stone"], bevel=0.03, seg=1))
+        # THE FLOOR SITS ON THE PLINTH, at 0.32, not at the wall foot at 0.16 --
+        # the plinth is a solid course 32 cm deep under the whole footprint, so
+        # a floor at 0.16 would be buried in it. One step outside brings the
+        # plaza up in two 16 cm rises instead of one 32 cm one, which the
+        # runtime would allow and nobody would have authored.
+        out.append(box("bld_floor", (0, 0, ROOM_FLOOR - 0.035), (ix, iy, 0.035),
+                       M["flagstone_tex"] if "flagstone_tex" in M else M["stone"],
+                       bevel=0.02, seg=1))
+        out.append(box("bld_step", (door_x, -(d / 2 + 0.34), 0.08),
+                       (ROOM_DOOR + 0.22, 0.24, 0.08), M["stone"], bevel=0.03, seg=1))
 
     # storey bands: a shadow line every floor keeps a tall facade from reading
     # as one undifferentiated slab under flat toon shading
@@ -1354,7 +1419,9 @@ def building(t, cx, cy, w, d, storeys=2, yaw=0.0, plaster="plaster_a",
     for b in range(bays):
         bx = -w / 2 + w * (b + 0.5) / bays
         if b == door_bay:
-            out += doorway(t, bx, y0, 0.16)
+            # a hollow building has a real opening here, not a painted leaf
+            if not room:
+                out += doorway(t, bx, y0, 0.16)
             if shop:
                 out += awning(t, bx, y0, 0.16 + 2.35, w=min(1.9, w / bays * 0.95))
                 out += shopsign(t, bx + min(1.5, w / bays * 0.8), y0,
@@ -1425,7 +1492,34 @@ def building(t, cx, cy, w, d, storeys=2, yaw=0.0, plaster="plaster_a",
     # A collision box's job is to stop you walking INTO a building; the roof
     # above it is a separate surface with its own platforms, and it should be
     # possible to stand on one.
-    t.solid(cx, cy, w / 2 + 0.10, d / 2 + 0.10, yaw, top=h + 0.20)
+    if not room:
+        t.solid(cx, cy, w / 2 + 0.10, d / 2 + 0.10, yaw, top=h + 0.20)
+    else:
+        # the block above the shop is solid from the ceiling up; the ground
+        # storey gets four wall boxes with a gap where the door is
+        gz1 = 0.16 + GROUND_H
+        th, ix, iy = ROOM_WALL, w / 2 - ROOM_WALL, d / 2 - ROOM_WALL
+        c_, s_ = math.cos(math.radians(yaw)), math.sin(math.radians(yaw))
+
+        def put(dx, dy, hx, hy, top, base):
+            t.solid(cx + dx * c_ - dy * s_, cy + dx * s_ + dy * c_,
+                    hx, hy, yaw, top=top, base=base)
+
+        put(0, 0, w / 2 + 0.10, d / 2 + 0.10, h + 0.20, gz1)
+        for sx in (-1, 1):
+            put(sx * (ix + w / 2) / 2, 0, th / 2 + 0.06, d / 2, gz1, -0.5)
+        put(0, (iy + d / 2) / 2, ix, th / 2 + 0.06, gz1, -0.5)
+        for sgn in (-1, 1):
+            edge, near = sgn * ix, door_x + sgn * ROOM_DOOR
+            put((edge + near) / 2, -(iy + d / 2) / 2,
+                abs(edge - near) / 2, th / 2 + 0.06, gz1, -0.5)
+        # closed again above the lintel, so the doorway is a doorway
+        put(door_x, -(iy + d / 2) / 2, ROOM_DOOR, th / 2 + 0.06, gz1,
+            ROOM_FLOOR + ROOM_DOOR_H)
+        t.platform(cx, cy, ix - 0.05, iy - 0.05, ROOM_FLOOR)
+        t.platform(cx + door_x * c_ + (d / 2 + 0.34) * s_,
+                   cy + door_x * s_ - (d / 2 + 0.34) * c_,
+                   ROOM_DOOR + 0.22, 0.24, 0.16)
     return out
 
 
@@ -1930,6 +2024,78 @@ def belltower(t, cx, cy, base=2.35, storeys=4, yaw=0.0, hollow=True):
     else:
         t.solid(cx, cy, base + 0.34, base + 0.34, yaw, top=shaft_h)
     return [L for L in lamps if L]
+
+
+def shop_fit(t, cx, cy, w, d, yaw=0.0, seed=0):
+    """Furnish a hollowed ground storey: counter, shelves, stock, a lamp.
+
+    An empty room is worse than no room -- it reads as a modelling error rather
+    than as a place, and the belltower's ground floor proved that twice over.
+    What makes this one a SHOP and not a box is the counter: it divides the
+    space into where the customer stands and where they do not, which is the
+    only thing in here that says what the room is for.
+    """
+    M, out = t.M, []
+    rnd = _lcg_local(3300 + seed)
+    z = ROOM_FLOOR
+    ix, iy = w / 2 - ROOM_WALL, d / 2 - ROOM_WALL
+    c_, s_ = math.cos(math.radians(yaw)), math.sin(math.radians(yaw))
+
+    def world(dx, dy):
+        return cx + dx * c_ - dy * s_, cy + dx * s_ + dy * c_
+
+    # THE COUNTER, across the room a third of the way back, with a gap at one
+    # end so the shopkeeper's side is reachable and the room is not two rooms.
+    cy_local = -iy + d * 0.34
+    # two segments with a gap between them: the long run and a short return
+    for bx, hw in ((-(ix - ix * 0.62), ix * 0.62), (ix - ix * 0.20, ix * 0.20)):
+        out.append(box("shop_counter", (bx, cy_local, z + 0.47),
+                       (hw, 0.30, 0.47), M["timber"], bevel=0.03, seg=1))
+        out.append(box("shop_countertop", (bx, cy_local, z + 0.96),
+                       (hw + 0.05, 0.36, 0.035), M["door"], bevel=0.02, seg=1))
+        wx, wy = world(bx, cy_local)
+        t.solid(wx, wy, hw + 0.05, 0.36, yaw, top=z + 1.0, base=z - 0.1)
+
+    # SHELVES on the back wall, stocked. Three boards and their brackets.
+    for k in range(3):
+        sz = z + 0.72 + k * 0.62
+        out.append(box("shop_shelf", (0, iy - 0.22, sz), (ix * 0.86, 0.20, 0.035),
+                       M["timber"], bevel=0.015, seg=1))
+        for b in range(4):
+            bx = -ix * 0.72 + ix * 1.44 * b / 3
+            out.append(box("shop_bracket", (bx, iy - 0.12, sz - 0.10),
+                           (0.03, 0.10, 0.09), M["timber"], bevel=0.01, seg=1))
+        # the stock: jars and bolts, in the four materials the stalls use, so a
+        # shop reads as the indoor version of the market rather than a new idea
+        for j in range(5):
+            gx = -ix * 0.74 + ix * 1.48 * (j + 0.5) / 5 + (rnd() - 0.5) * 0.12
+            r = 0.085 + rnd() * 0.05
+            out.append(K.blob("shop_stock", (gx, iy - 0.22, sz + 0.035 + r),
+                              (r, r * 0.9, r * 1.25), None,
+                              M[("awning", "door", "stone", "brass")[(j + k) % 4]],
+                              seg=8, rings=6, squircle=2.3))
+
+    # A LAMP ON THE COUNTER, which is where the light is wanted and -- more to
+    # the point -- within a metre of every timber surface in the room. The toon
+    # ramp is a hard step: the belltower's stores stayed pure black under a lamp
+    # three metres away, and moving it to 1.5 m fixed them entirely.
+    lx, ly = world(-ix * 0.45, cy_local)
+    lamps = [lantern(t, lx, ly, z0=z + 0.96, h=0.72, wall=True, kind='interior')]
+
+    for o in out:
+        if yaw:
+            K.transform(o, rotate=(0, 0, yaw), around=(0, 0, 0))
+        K.transform(o, translate=(cx, cy, 0))
+    t.add(*out)
+
+    # stock on the customer's side, and it comes apart
+    bxw, byw = world(ix * 0.55, -iy + 0.85)
+    barrel(t, bxw, byw, r=0.32, h=0.78, z0=z)
+    cxw, cyw = world(-ix * 0.62, -iy + 0.72)
+    crate(t, cxw, cyw, s=0.34, yaw=yaw + 12, z0=z)
+    exw, eyw = world(ix * 0.30, iy - 0.75)
+    embercap(t, exw, eyw, z=z, scale=1.0)
+    return lamps
 
 
 def cart(t, x, y, yaw=0.0, load=True, z0=0.0):

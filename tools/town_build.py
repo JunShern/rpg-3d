@@ -197,12 +197,19 @@ def build_buildings(t):
         ( -9.0,  15.0, 10.0, 8.0, 2,   0, "plaster_d", "roof_a", False, 7, False),
         (  7.0,  15.0, 10.0, 8.0, 2,   0, "plaster_a", "roof_c", True,  8, True),
     ]
+    # THE ONE YOU CAN GO INTO. Its ground storey is hollow -- see `building`'s
+    # `room` -- and it is this one because it already has a shopfront, faces the
+    # plaza, and stands beside the gate, so the door is on the path everybody
+    # already walks. The other eight are unchanged.
+    SHOP = (7.0, 15.0)
     # roof height varies with the seed too: nine identical pitches is most of
     # what made nine buildings read as one building
     for cx, cy, w, d, st, yaw, pl, rf, shop, seed, gf in plan:
         A.building(t, cx, cy, w, d, storeys=st, yaw=yaw, plaster=pl, roof=rf,
                    shop=shop, seed=seed, gable_front=gf,
-                   roof_h=1.25 + 0.16 * (seed % 4))
+                   roof_h=1.25 + 0.16 * (seed % 4), room=(cx, cy) == SHOP)
+        if (cx, cy) == SHOP:
+            A.shop_fit(t, cx, cy, w, d, yaw=yaw, seed=seed)
 
     # the south gateway, in the gap between the two south buildings
     A.arch(t, -1.0, 11.0, span=4.4, height=5.6, depth=1.7, thick=0.46)

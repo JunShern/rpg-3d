@@ -65,6 +65,13 @@ const SHOTS = [
   // camera on the +x side so the view looks WEST at the stall fronts; az -1.2
   // put it behind them and filled the frame with the tops of the canopies
   { name: '04h-market', warp: [-2.9, 0, -1.4], az: 1.571, polar: 1.30, dist: 6.5 },
+  // THE SHOP. Its door is at (7, -11) and the room behind it runs back to
+  // z = -18.7; the counter is across it at z = -14.1.
+  // the door is at the facade's own door bay, local x +1.25, so world x 8.25
+  { name: '04i-shop-door', warp: [8.25, 0, -8.8], az: 0, polar: 1.26, dist: 6.5 },
+  // looking AWAY from the door: framed toward it the boom goes straight out
+  // through the opening and you end up in the square looking back in
+  { name: '04j-shop-inside', warp: [8.25, 0.5, -12.8], az: Math.PI, polar: 1.22, dist: 5.5 },
   { name: '05-gate-to-meadow', warp: [-1.0, 0, -5.5], az: 0, polar: 1.26, dist: 7.5 },
   // the cart on the verge, close enough to judge the wheels
   { name: '05b-cart', warp: [1.4, 1, -30.0], az: 1.571, polar: 1.30, dist: 6.0 },

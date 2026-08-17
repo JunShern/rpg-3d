@@ -1269,6 +1269,42 @@ async function run() {
                    + `${stillThere ? 'still there' : 'GONE'}` };
   });
 
+  // THE SHOP MUST BE ENTERABLE, and the floor must be where the builder says.
+  //
+  // Its ground storey is the first `building` in the town that is hollow, which
+  // means the one solid that used to describe the whole footprint is now five
+  // boxes with a gap between two of them, and the floor is a platform at the
+  // plinth top rather than the paving. Every one of those is a joint, and the
+  // belltower spent three rounds proving that joints are where this breaks.
+  await check('the shop can be walked into from the square', () => {
+    const WAY = [
+      // the doorway sits at the facade's own door bay: local x +1.25 of a
+      // building centred on x=7, so world x 8.25
+      ['outside the door', 8.25, -9.6], ['the step', 8.25, -11.2],
+      ['inside', 8.25, -12.9], ['at the counter', 8.25, -13.5],
+      ['along the counter', 5.6, -13.1],
+    ];
+    __sim({ warp: [8.25, 1, -8.0], az: 0, steps: 25 });
+    let reached = 0, stalled = null;
+    for (const [name, tx, tz] of WAY) {
+      for (let i = 0; i < 400; i++) {
+        const h = __sim({ steps: 0 }).heroPos;
+        if (Math.hypot(tx - h[0], tz - h[2]) < 0.4) break;
+        __sim({ steps: 1, az: Math.atan2(h[0] - tx, h[2] - tz), held: ['KeyW'] });
+      }
+      const h = __sim({ steps: 0 }).heroPos;
+      if (Math.hypot(tx - h[0], tz - h[2]) < 0.85) reached++;
+      else if (!stalled) stalled = `${name}: ${Math.hypot(tx - h[0], tz - h[2]).toFixed(2)} m short `
+        + `at y=${h[1].toFixed(2)}`;
+    }
+    const end = __sim({ steps: 0 }).heroPos;
+    // ROOM_FLOOR is 0.32 -- the top of the plinth course, not the paving
+    return { ok: reached === WAY.length && Math.abs(end[1] - 0.32) < 0.06,
+             detail: `${reached}/${WAY.length} waypoints, standing at `
+                   + `y=${end[1].toFixed(2)} (the shop floor is 0.32)`
+                   + `${stalled ? ' | ' + stalled : ''}` };
+  });
+
   group('The camera');
 
   // NOTHING TOUCHED THE CAMERA. It is the most intricate code in the project --
