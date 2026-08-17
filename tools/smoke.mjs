@@ -1375,21 +1375,61 @@ async function run() {
   // These ceilings sit ~15% above the measured numbers, so what trips them is a
   // change in kind and not noise. Measured in a real browser at the same spots:
   // 167 fps in the plaza down to 78 on the ridge.
-  for (const [label, x, z, maxDraws, maxTris] of [
-    ['plaza', 0.5, 6.2, 190, 680],
-    ['path', 3, -32, 380, 860],
-    ['flock', 6, -44, 380, 860],
-    ['meadow', 6, -54, 400, 880],
-    ['ridge', 13, -74, 380, 800],
-    ['far side', 24, -84, 380, 780],
+  // THE AZIMUTH IS PINNED, and until now it was not -- which made every number
+  // in this group a measurement of the previous forty-five checks rather than
+  // of the scene.
+  //
+  // `__sim`'s warp does not touch `cam.az`, so each vantage was rendered facing
+  // wherever the suite happened to have left the camera. Measured at one spot,
+  // the plaza, over eight azimuths: 160 draws / 613k tris at the cheapest and
+  // 243 / 811k at the dearest. The ceilings had been calibrated at one inherited
+  // angle and were being tested at another, so the plaza failed at 193/190 while
+  // a probe replicating the vantage, viewport and roster exactly measured 178.
+  // Two runs failed on identical numbers, which is what finally said "this is
+  // deterministic, just not about what I think".
+  //
+  // az 0 puts the camera on the +z side, so the view looks -z: out of the gate
+  // and on down the road, which is the direction of travel at all six spots and
+  // the expensive one everywhere. Ceilings are ~15% over the measured draws and
+  // ~12% over the triangles, recalibrated against the pinned angle.
+  for (const [label, x, z, az, maxDraws, maxTris] of [
+    ['plaza', 0.5, 6.2, 0, 290, 920],
+    ['path', 3, -32, 0, 230, 890],
+    ['flock', 6, -44, 0, 175, 650],
+    ['meadow', 6, -54, 0, 200, 500],
+    ['ridge', 13, -74, 0, 195, 490],
+    ['far side', 24, -84, 0, 190, 500],
   ]) {
     await check(`${label} stays inside its draw budget`, (a) => {
-      __sim({ warp: [a.x, 6, a.z], steps: 60, dt: 1 / 20 });
+      __sim({ warp: [a.x, 6, a.z], az: a.az, steps: 60, dt: 1 / 20 });
       const s = __sim({ steps: 1 });
       const tris = s.tris / 1000;
-      return { ok: s.draws <= a.maxDraws && tris <= a.maxTris,
-               detail: `${s.draws}/${a.maxDraws} draws · ${tris.toFixed(0)}k/${a.maxTris}k tris` };
-    }, { x, z, maxDraws, maxTris });
+      const ok = s.draws <= a.maxDraws && tris <= a.maxTris;
+      let why = '';
+      if (!ok) {
+        // A BUDGET THAT ONLY REPORTS THE TOTAL CANNOT BE ACTED ON. The plaza
+        // went 13 draws over and I could not reproduce it outside the suite --
+        // a probe replicating the same vantage, viewport and setup measured 178
+        // and 623k against the suite's 193 and 761k. Two hours of hypotheses
+        // about state left by earlier checks would have been one line of
+        // measurement. When this trips it now says WHAT is in frame.
+        const live = combat.enemies.filter((e) => !e.dead);
+        const tally = {};
+        for (const e of live) tally[e.name] = (tally[e.name] || 0) + 1;
+        why = ` | ${live.length} live: `
+            + Object.entries(tally).map(([k, v]) => `${k}x${v}`).join(' ');
+        const big = [];
+        scene.traverse((o) => {
+          if (!o.isMesh || !o.visible || !o.geometry?.attributes?.position) return;
+          const n = (o.geometry.index ? o.geometry.index.count
+                                      : o.geometry.attributes.position.count) / 3;
+          if (n > 4000) big.push(`${o.name || o.userData.matName || '?'}:${(n / 1000).toFixed(0)}k`);
+        });
+        why += ` | heavy meshes: ${big.slice(0, 8).join(' ') || 'none over 4k'}`;
+      }
+      return { ok,
+               detail: `${s.draws}/${a.maxDraws} draws · ${tris.toFixed(0)}k/${a.maxTris}k tris${why}` };
+    }, { x, z, az, maxDraws, maxTris });
   }
 
   group('Console');

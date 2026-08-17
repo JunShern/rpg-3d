@@ -1919,6 +1919,71 @@ def belltower(t, cx, cy, base=2.35, storeys=4, yaw=0.0, hollow=True):
     return [L for L in lamps if L]
 
 
+def outer_face(t, x0, x1, y, seed=0, shed_at=None):
+    """Dress the BACK of a range -- the elevation the town shows the country.
+
+    An audit called the town's meadow side "two blank walls", and it is the view
+    the player sees more than any other after the plaza: it is what you walk
+    back to, every time, framed by the gateway arch. Windows and a string course
+    have since gone on, and what is still wrong is the bottom four metres, which
+    is one flat slab of plaster per building.
+
+    Nothing here is a room or a route. It is a plinth, buttresses, a lean-to and
+    a woodstack -- the things that accumulate against the back of a building
+    that faces a field, and enough of a silhouette that the wall stops reading
+    as a plane.
+    """
+    M, out = t.M, []
+    rnd = _lcg_local(9100 + seed)
+    span = x1 - x0
+
+    # a stone plinth: the one horizontal that ties the range to the ground
+    out.append(box("face_plinth", ((x0 + x1) / 2, y + 0.11, 0.30),
+                   (span / 2, 0.13, 0.30), M["stone"], bevel=0.04, seg=1))
+    out.append(box("face_plinthcap", ((x0 + x1) / 2, y + 0.15, 0.62),
+                   (span / 2, 0.17, 0.05), M["stone"], bevel=0.02, seg=1))
+
+    # buttresses, battered so they read as structure and not as pilasters
+    n = max(2, int(span / 4.2))
+    for i in range(n):
+        bx = x0 + span * (i + 0.5) / n + (rnd() - 0.5) * 0.4
+        for k, (hz, hy, w2) in enumerate(((1.15, 0.46, 0.42), (1.05, 0.34, 0.36))):
+            out.append(box(f"face_butt{i}_{k}", (bx, y + hy / 2, 0.30 + hz * (0.5 + k)),
+                           (w2, hy / 2, hz / 2), M["stone"], bevel=0.05, seg=1))
+        t.solid(bx, y + 0.24, 0.42, 0.26, top=2.6)
+
+    # a lean-to against one bay: a roof on two posts, and the reason for the
+    # woodstack under it
+    if shed_at is not None:
+        sx = shed_at
+        for sgn in (-1, 1):
+            out.append(box("shed_post", (sx + sgn * 1.35, y + 1.42, 1.05),
+                           (0.075, 0.075, 1.05), M["timber"], bevel=0.02, seg=1))
+        # the roof slopes AWAY from the wall, which is the only thing that makes
+        # a lean-to read as one rather than as an awning
+        v = [(-1.6, 0.06, 2.55), (1.6, 0.06, 2.55), (1.6, 1.75, 1.95), (-1.6, 1.75, 1.95)]
+        out.append(K._new_obj("shed_roof",
+                              [Vector((sx + a, y + b, c)) for a, b, c in v],
+                              [(0, 1, 2, 3)], mat=M["roof_c"], smooth=False))
+        out.append(box("shed_fascia", (sx, y + 1.75, 1.90),
+                       (1.62, 0.06, 0.09), M["timber"], bevel=0.02, seg=1))
+        t.solid(sx, y + 0.95, 1.6, 0.95, top=2.4)
+        # split logs stacked under it, the same stack the yard has
+        for row in range(3):
+            for k in range(6):
+                lx = sx - 1.1 + k * 0.36 + (rnd() - 0.5) * 0.06
+                lz = 0.16 + row * 0.26
+                out.append(K.tube(f"face_log{row}_{k}", K.dome([
+                    {"p": Vector((lx, y + 0.42, lz)), "r": (0.115, 0.115), "n": 2.6},
+                    {"p": Vector((lx, y + 1.24, lz)), "r": (0.105, 0.105), "n": 2.6},
+                ], at="both", steps=2, height=0.04), seg=7, mat=M["timber"], squircle=2.6))
+        barrel(t, sx + 1.9, y + 0.62, r=0.32, h=0.78)
+        crate(t, sx - 1.95, y + 0.55, s=0.34, yaw=13)
+
+    t.add(*out)
+    return out
+
+
 def gallery(t, cx, cy, w=7.0, d=2.2, deck=3.55, yaw=0.0, stair_side=1):
     """An exterior stair to a first-floor gallery: the town's upper level.
 

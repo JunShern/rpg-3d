@@ -207,6 +207,13 @@ def build_buildings(t):
     # the south gateway, in the gap between the two south buildings
     A.arch(t, -1.0, 11.0, span=4.4, height=5.6, depth=1.7, thick=0.46)
 
+    # THE ELEVATION THE TOWN SHOWS THE COUNTRY. The two south buildings present
+    # their backs to the meadow, and that is the wall you walk toward every time
+    # you come home -- framed by the arch, so it is unavoidable. It was four
+    # metres of flat plaster per building under a band of windows.
+    A.outer_face(t, -14.0, -4.0, 19.0, seed=1, shed_at=-11.4)
+    A.outer_face(t, 2.0, 12.0, 19.0, seed=2)
+
     # THE LANDMARK, and it stands IN the north range rather than behind it.
     #
     # It used to sit at y=-22.5, seven metres back, with a two-storey house on
