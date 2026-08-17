@@ -1876,15 +1876,24 @@ const LOCK_POLAR = 1.06;
   for (let i = 1; i <= 8; i++) {
     const t = (hitD * i) / 8;
     if (t < 0.2) continue;
-    const g = groundAt(camTarget.x + camWant.x * t, camTarget.z + camWant.z * t,
-                       camTarget.y + camWant.y * t + 3.0);
+    const sx = camTarget.x + camWant.x * t, sz = camTarget.z + camWant.z * t;
+    const g = groundAt(sx, sz, camTarget.y + camWant.y * t + 3.0);
     if (g === null) continue;
     // A CEILING IS NOT A HILL. Underground -- in the cellar, under the gallery
     // -- the nearest "ground" above a boom sample is the paving over your head,
     // and lifting toward it drives the camera into the underside of the square.
     // Anything above the player's own head is something you are INSIDE, and the
     // answer there is to pull in, which the blocker sweep below already does.
-    if (g > camTarget.y + 0.6) continue;
+    //
+    // ...BUT A HEIGHTFIELD IS NEVER A CEILING. The meadow's ground is a
+    // function of x and z with exactly one value, so it cannot be over your
+    // head -- and this test was disabling the lift entirely in any pit deeper
+    // than 0.6 m, which is every pit there is. Standing in the ravine bed the
+    // walls rise 4.9 m and were all being read as ceiling, so the boom never
+    // rose, and the near wall filled a third of the frame with the unlit inside
+    // of the hillside. The dell had it too. The rule was written for the cellar
+    // and the cellar is not terrain.
+    if (g > camTarget.y + 0.6 && !(terrain && terrain.owns(sx, sz))) continue;
     // the y-component this boom would need for THIS sample to clear the ground
     lift = Math.max(lift, (g + 0.45 - camTarget.y) / t);
   }
@@ -1908,9 +1917,9 @@ const LOCK_POLAR = 1.06;
   for (let i = 1; i <= 8; i++) {
     const t = (hitD * i) / 8;
     if (t < 0.2) continue;
-    const g = groundAt(camTarget.x + camWant.x * t, camTarget.z + camWant.z * t,
-                       camTarget.y + camWant.y * t + 3.0);
-    if (g !== null && g <= camTarget.y + 0.6
+    const sx = camTarget.x + camWant.x * t, sz = camTarget.z + camWant.z * t;
+    const g = groundAt(sx, sz, camTarget.y + camWant.y * t + 3.0);
+    if (g !== null && (g <= camTarget.y + 0.6 || (terrain && terrain.owns(sx, sz)))
         && camTarget.y + camWant.y * t < g + 0.35) {
       groundD = Math.max(2.2, (hitD * (i - 1)) / 8);
       break;

@@ -1254,6 +1254,13 @@ async function run() {
       [2, -58, 0], [12, -62, -0.64], [-16, -70, 0.9],
       [0.6, 5.6, 0], [-11.5, 9.2, Math.PI], [7.6, -8.5, -Math.PI / 2],
       [-1, -5.5, 0], [29.9, -85.1, 2.7],
+      // IN THE PITS, which is where this check had nothing to say and the
+      // camera was broken. The boom's terrain-clearing lift skipped any ground
+      // above camTarget.y + 0.6 as "ceiling" -- a rule for the cellar's paving
+      // -- so in the ravine bed, with 4.9 m walls, it never rose at all and the
+      // near wall filled the frame with the unlit inside of the hillside.
+      [-14, -43.7, -Math.PI / 2], [-14, -43.7, Math.PI / 2], [-14, -43.7, 0],
+      [-22, -31, 0], [-22, -31, Math.PI],
     ];
     for (const [x, z, az] of spots) {
       __sim({ warp: [x, 14, z], az, polar: 1.24, dist: 7.5, steps: 40 });

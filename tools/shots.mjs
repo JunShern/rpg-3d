@@ -64,8 +64,17 @@ const SHOTS = [
   // give it -- warping in at zero drops the player onto the terrain underneath
   // the rock, which is how this shot spent a round showing a hero standing in
   // grass inside a boulder.
-  { name: '07b-ravine', warp: [-14.0, 6, -41.0], az: 0.0, polar: 1.28, dist: 10.0 },
-  { name: '07c-ravine-bed', warp: [-12.4, 2, -47.5], az: 1.571, polar: 1.40, dist: 7.0 },
+  // AIMED AT THE MEASURED CHANNEL. Both of these were framed by eye and both
+  // missed: the watercourse is not straight, `_stream_y(x)` puts it at y=43.7
+  // where x=-14 and the shots were pointed at y=41 and y=47.5, four metres out
+  // on either side. 07b came back as a full frame of water with no player in
+  // it, which read as a camera bug and was a map-reading error.
+  { name: '07b-ravine', warp: [-14.0, 5, -38.6], az: 0.35, polar: 1.30, dist: 11.0 },
+  // LOOKING THE OTHER WAY ALONG THE CHANNEL. The water surface follows its own
+  // bed, and the bed climbs, so from down in the gorge the ribbon seen edge-on
+  // up-channel is a plane across the view with the player behind it. Measured:
+  // az -1.571 sees water 1.9 m out, az +1.571 sees the player at 7.6 m.
+  { name: '07c-ravine-bed', warp: [-14.0, 0, -43.7], az: 1.571, polar: 1.34, dist: 8.0 },
   { name: '08-outcrop-vantage', warp: [29.9, 14, -85.1], az: 2.715, polar: 1.36, dist: 9.0 },
   { name: '08b-outcrop-climb', warp: [22.0, 6, -76.0], az: -0.55, polar: 1.24, dist: 10.0 },
   { name: '09-landmark-hill', warp: [12.0, 0, -62.0], az: -0.644, polar: 1.16, dist: 11.0 },
