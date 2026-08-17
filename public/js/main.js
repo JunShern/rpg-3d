@@ -1033,17 +1033,29 @@ function groundAt(x, z, fromY) {
   return hit ? hit.point.y : null;
 }
 
-/** The open shaft the point is inside, or null. */
-function shaftAt(x, y, z) {
+/** The interior volume the point is inside, with how far in it is (0..1).
+ *
+ * The blend used to be VERTICAL ONLY, which suited a twenty-metre stairwell and
+ * nothing else: a room is 3 m tall and 9 m wide, so its transition happens as
+ * you walk THROUGH THE DOOR -- sideways. Blending on the nearest face in any
+ * axis handles both.
+ *
+ * `pad` is per-volume because a stairwell wants the player counted while she is
+ * on the stair AROUND the well, and a room does not: there, the box is exactly
+ * where she is.
+ */
+function volumeAt(x, y, z) {
+  let best = null;
   for (const s of SHAFTS) {
-    // the blend band reaches a metre past each end, so the test has to as well
-    if (y < s.y0 - 0.05 || y > s.y1 + 1.05) continue;
-    // generous horizontally: she stands on the stair AROUND the well, not in
-    // it, so the test is "is she in this shaft's tower", not "in its void"
-    if (Math.abs(x - s.x) > s.hx + 2.6 || Math.abs(z - s.z) > s.hz + 2.6) continue;
-    return s;
+    const pad = s.pad ?? 0;
+    const m = Math.min(y - s.y0, s.y1 - y,
+                       s.hx + pad - Math.abs(x - s.x),
+                       s.hz + pad - Math.abs(z - s.z));
+    if (m <= 0) continue;
+    const k = Math.min(1, m / 0.8);        // about a stride to cross fully in
+    if (!best || k > best.k) best = { s, k };
   }
-  return null;
+  return best;
 }
 
 /** Try to move by (dx, dz).  Returns true if the hero actually moved. */
@@ -1066,6 +1078,11 @@ function tryMove(dx, dz) {
 // ------------------------------------------------------------------ camera
 
 const cam = { az: Math.PI, polar: 1.22, dist: 5.4, autoDelay: 0 };
+// THE BOOM'S ACTUAL LENGTH, smoothed. See the note where it is applied.
+let camBoom = 5.4;
+// last frame's camera position, for the indoor ease. See where it is used.
+const camPrev = new THREE.Vector3();
+let camPrevOk = false;
 const camTarget = new THREE.Vector3(0, 1.18, 7);
 const camWant = new THREE.Vector3();
 let dragging = false;
@@ -1941,7 +1958,26 @@ const LOCK_POLAR = 1.06;
   // The floor has to be SMALL.  An alley is 1.75 m wide, so a camera shoved
   // sideways has under 0.9 m before it is inside a facade; a 1.1 m minimum put
   // it through the wall and filled the screen with outline colour.
-  const d = Math.max(0.45, Math.min(hitD, groundD) - 0.25);
+  //
+  // SHORTEN AT ONCE, LENGTHEN SLOWLY -- and this is the whole of what made the
+  // camera feel rough indoors.
+  //
+  // The solve above returns a length for THIS frame and it used to be applied
+  // as-is, so the moment a boom stopped hitting something the camera teleported
+  // out to full extension. Measured by dragging the camera through one slow
+  // revolution and recording the largest single-frame change: 0.00 m standing
+  // in the plaza, 2.24 m in the cellar, 3.53 m in the shop, and 6.30 m in the
+  // belfry -- where rotating past a pier hands the ray open sky. Between 4% and
+  // 11% of frames moved the camera more than a quarter of a metre.
+  //
+  // Shortening has to stay instant: a boom that eases INTO its new length is a
+  // boom that spends those frames inside a wall. Lengthening does not -- there
+  // is nothing to collide with on the way out -- so it eases, and the lunge
+  // goes away without the clipping coming back.
+  const want = Math.max(0.45, Math.min(hitD, groundD) - 0.25);
+  camBoom = want < camBoom ? want
+                           : camBoom + (want - camBoom) * Math.min(1, dt * 3.2);
+  const d = camBoom;
   camera.position.copy(camTarget).addScaledVector(camWant, d);
 
   // A STAIRWELL IS THE ONE SHAPE THIS SOLVE CANNOT DO.
@@ -1960,15 +1996,13 @@ const LOCK_POLAR = 1.06;
   // than hunt for air, put the camera in the volume the builder has PROMISED is
   // clear. The boom keeps the length and pitch the player chose; only its
   // horizontal position is confined, so turning the camera still turns it.
-  const shaft = shaftAt(camTarget.x, camTarget.y, camTarget.z);
-  if (shaft) {
-    // BLENDED IN OVER A METRE at each end of the shaft, because the two solves
-    // put the camera in genuinely different places and swapping between them on
-    // one frame is a cut. `k` is how far into the shaft she is.
-    const k = Math.min(1, (camTarget.y - shaft.y0) / 1.0,
-                          (shaft.y1 - camTarget.y) / 1.0);
-    if (k > 0) {
-      _o.copy(camTarget).addScaledVector(camWant, cam.dist);
+  // BLENDED, because the two solves put the camera in genuinely different
+  // places and swapping between them on one frame is a cut.
+  const vol = volumeAt(camTarget.x, camTarget.y, camTarget.z);
+  if (vol) {
+    const shaft = vol.s, k = vol.k;
+    {
+      _o.copy(camTarget).addScaledVector(camWant, Math.max(camBoom, cam.dist * 0.55));
       _o.x = THREE.MathUtils.clamp(_o.x, shaft.x - shaft.hx, shaft.x + shaft.hx);
       _o.z = THREE.MathUtils.clamp(_o.z, shaft.z - shaft.hz, shaft.z + shaft.hz);
       // never below the tread she is standing on, and never so far above it
@@ -1979,7 +2013,21 @@ const LOCK_POLAR = 1.06;
       const horiz = Math.hypot(_o.x - camTarget.x, _o.z - camTarget.z);
       _o.y = THREE.MathUtils.clamp(_o.y, camTarget.y - 0.30,
                                    camTarget.y + 1.15 * horiz + 0.35);
+      // AND UNDER THE VOLUME'S OWN CEILING. `y1` was being used to decide
+      // whether the player is in the volume and then never applied to the
+      // camera, so in the belfry the pitch cap let the boom climb to 23.98 m
+      // against a roof that starts at 22.48 -- the whole frame came back flat
+      // outline colour, twice, and I blamed the corner piers the first time.
+      _o.y = Math.min(_o.y, shaft.y1);
       camera.position.lerp(_o, k);
+      // AND EASE OVER TIME, which is only safe in here. Clamping into a box
+      // makes the camera slide along an edge, and near a CORNER a small turn
+      // moves it fast: measured in the shop's back corner, one frame of
+      // rotation walked it 1.06 m while the middle of the same room managed
+      // 0.42. Outdoors this would be unsafe -- a camera that lags its solve is
+      // a camera inside a wall for those frames -- but the builder has promised
+      // this volume is empty, so there is nothing to lag into.
+      if (camPrevOk) camera.position.lerp(camPrev, Math.exp(-13 * dt) * k);
     }
   }
 
@@ -1996,6 +2044,9 @@ const LOCK_POLAR = 1.06;
   const fade = THREE.MathUtils.clamp(
     (camera.position.distanceTo(camTarget) - 0.75) / 0.85, 0, 1);
   if (cur) for (const m of cur.mats) { m.opacity = fade; m.visible = fade > 0.02; }
+
+  camPrev.copy(camera.position);
+  camPrevOk = true;
 
   const camGround = groundAt(camera.position.x, camera.position.z, camera.position.y);
   if (camGround !== null && camGround <= camTarget.y + 0.6
@@ -2180,6 +2231,8 @@ globalThis.__sim = ({ steps = 60, dt = 1 / 60, held = [], attack: doAttack = fal
   for (const k of held) keys.add(k);
   if (warp) {
     pos.set(warp[0], warp[1], warp[2]);
+    camBoom = cam.dist;          // a teleport is not a camera move: do not ease
+    camPrevOk = false;
     const g = groundAt(pos.x, pos.z, pos.y + 4);
     if (g !== null) pos.y = g;
     vy = 0; grounded = true; landing = false;

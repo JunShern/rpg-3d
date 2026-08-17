@@ -1318,6 +1318,48 @@ async function run() {
   // The property is simple and does not restate the implementation: from where
   // the camera ends up, the first thing along the view direction should be the
   // player.
+  // THE CAMERA MUST NOT LURCH INDOORS, which is a different property from
+  // "can it see the player" and was the one that was broken.
+  //
+  // A player's complaint -- "the camera experience is pretty rough in indoor
+  // spaces" -- and the measurement that found it: drag the camera through one
+  // slow revolution and record the largest single-frame change in boom length.
+  // Standing in the plaza that is 0.00 m. It was 6.30 m in the belfry, 3.53 in
+  // the shop, 2.24 in the cellar and 1.21 in the tower's ground room, with
+  // between 4% and 11% of frames moving the camera more than a quarter of a
+  // metre. None of the checks here had an opinion, because every one of them
+  // samples the camera standing still.
+  await check('the camera does not lurch when you turn it indoors', () => {
+    const SPOTS = [
+      ['tower stair', [0.81, 9, 13.69]], ['tower room', [-1.0, 0.6, 15.0]],
+      ['belfry', [-1.0, 20.5, 16.6]], ['cellar', [-8.7, -1, 4.8]],
+      ['shop', [8.25, 0.5, -14.5]], ['shop corner', [4.2, 0.5, -17.5]],
+      ['plaza', [0.5, 0, 3.0]],
+    ];
+    const bad = [];
+    let worstAll = 0;
+    for (const [nm, warp] of SPOTS) {
+      __sim({ warp, az: 0, polar: 1.24, dist: 7.0, steps: 30 });
+      let prev = null, worst = 0;
+      for (let k = 0; k <= 72; k++) {
+        __sim({ az: -Math.PI + (2 * Math.PI) * k / 72, steps: 1 });
+        const h = __sim({ steps: 0 }).heroPos, c = camera.position;
+        const d = Math.hypot(c.x - h[0], c.y - h[1] - 1.18, c.z - h[2]);
+        // the first few frames are the warp settling, not a camera move
+        if (prev !== null && k > 5) worst = Math.max(worst, Math.abs(d - prev));
+        prev = d;
+      }
+      worstAll = Math.max(worstAll, worst);
+      // 0.60 m in one frame is 36 m/s at 60 fps. Measured worst after the fix
+      // is 0.30; before it, four of these seven were over a metre.
+      if (worst > 0.60) bad.push(`${nm} ${worst.toFixed(2)} m`);
+    }
+    return { ok: !bad.length,
+             detail: bad.length ? bad.join(', ')
+                                : `worst single-frame boom change ${worstAll.toFixed(2)} m `
+                                + `across ${SPOTS.length} spots (limit 0.60)` };
+  });
+
   await check('the camera can always see the player', () => {
     const rc = new THREE.Raycaster();
     const dir = new THREE.Vector3();
@@ -1334,9 +1376,18 @@ async function run() {
       // near wall filled the frame with the unlit inside of the hillside.
       [-14, -43.7, -Math.PI / 2], [-14, -43.7, Math.PI / 2], [-14, -43.7, 0],
       [-22, -31, 0], [-22, -31, Math.PI],
+      // INDOORS. Four rooms, and not one of them was represented here while
+      // the indoor camera was the roughest thing in the build. These carry
+      // their own warp height: the default 14 searches DOWNWARD for ground, so
+      // it would put the cellar probe on the paving and the belfry probe on a
+      // stair tread three storeys below where it is meant to be.
+      [8.25, -14.5, 0, 1], [8.25, -14.5, Math.PI, 1], [4.2, -17.5, 2.2, 1],
+      [-8.7, 4.8, 0, -1], [-8.7, 4.8, Math.PI, -1],
+      [-1.0, 15.0, 0, 0.6], [-1.0, 15.0, Math.PI, 0.6],
+      [-1.0, 16.6, 0.2, 20.5], [-1.0, 16.6, 2.4, 20.5],
     ];
-    for (const [x, z, az] of spots) {
-      __sim({ warp: [x, 14, z], az, polar: 1.24, dist: 7.5, steps: 40 });
+    for (const [x, z, az, wy] of spots) {
+      __sim({ warp: [x, wy ?? 14, z], az, polar: 1.24, dist: 7.5, steps: 40 });
       camera.getWorldDirection(dir);
       rc.set(camera.position.clone(), dir);
       rc.near = 0.02; rc.far = 9;

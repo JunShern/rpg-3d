@@ -29,6 +29,13 @@ ROOM_WALL = 0.34        # wall thickness where a building is hollow
 ROOM_DOOR = 0.85        # half-width of an interior doorway
 ROOM_DOOR_H = 2.45      # its head height above the ground-floor level
 ROOM_FLOOR = 0.32       # interior floor level: the top of the plinth course
+ROOM_PAD = 0.75         # how far outside a room's CAMERA box the player may be
+                        # and still be treated as fully indoors. The box is
+                        # inset from the walls so the camera never touches one,
+                        # which leaves a band where she is in the room and the
+                        # camera is only half-confined -- measured, that band
+                        # cost 1.11 m of single-frame lurch in a shop corner
+                        # while the middle of the same room managed 0.42.
 GROUND_H = 3.45         # ground floor is taller -- shopfronts need the room
 
 
@@ -152,10 +159,16 @@ class Town:
         """
         self.solids.append((cx, cy, hx, hy, math.radians(yaw), top, base))
 
-    def shaft(self, cx, cy, hx, hy, z0, z1):
-        """An open vertical volume the camera can be placed inside. See the
-        note on `self.shafts`."""
-        self.shafts.append((cx, cy, hx, hy, z0, z1))
+    def shaft(self, cx, cy, hx, hy, z0, z1, pad=0.0):
+        """A volume the camera may be placed inside. See the note on
+        `self.shafts`.
+
+        `pad` is how far OUTSIDE the box the player may be and still count as
+        being in this space. A stairwell needs it: the camera belongs in the
+        well down the middle and the player is always on the stair around it.
+        A room does not -- the box IS where the player is.
+        """
+        self.shafts.append((cx, cy, hx, hy, z0, z1, pad))
 
     def platform(self, cx, cy, hx, hy, top):
         """A surface ABOVE the analytic ground that the player can stand on.
@@ -434,6 +447,12 @@ def cellar(t, hx0, hx1, hy0, hy1, floor_z=-3.0, ceil_z=-0.62):
         out.append(box(nm, (cx, cy, 0.26), (ex, ey, 0.30), M["stone"],
                        bevel=0.04, seg=1))
         t.solid(cx, cy, ex, ey, top=0.56)
+
+    # the room is the camera's too: without this the boom snapped 2.24 m in a
+    # single frame as you turned, because the only thing stopping it was a wall
+    t.shaft((rx0 + rx1) / 2, (ry0 + ry1) / 2,
+            (rx1 - rx0) / 2 - 0.5, (ry1 - ry0) / 2 - 0.5,
+            floor_z - 0.2, ceil_z - 0.25, pad=ROOM_PAD)
 
     # what is down here: stores, a lamp, and something worth the trip
     for bx, by in ((rx0 + 0.9, ry0 + 0.9), (rx0 + 1.7, ry0 + 1.0),
@@ -1517,6 +1536,11 @@ def building(t, cx, cy, w, d, storeys=2, yaw=0.0, plaster="plaster_a",
         put(door_x, -(iy + d / 2) / 2, ROOM_DOOR, th / 2 + 0.06, gz1,
             ROOM_FLOOR + ROOM_DOOR_H)
         t.platform(cx, cy, ix - 0.05, iy - 0.05, ROOM_FLOOR)
+        # and the room is where the camera lives while you are in it: 3.53 m of
+        # single-frame lurch without this, because rotating toward the doorway
+        # let the boom out into the square and rotating back snapped it home
+        t.shaft(cx, cy, ix - 0.55, iy - 0.55, ROOM_FLOOR - 0.2, gz1 - 0.30,
+                pad=ROOM_PAD)
         t.platform(cx + door_x * c_ + (d / 2 + 0.34) * s_,
                    cy + door_x * s_ - (d / 2 + 0.34) * c_,
                    ROOM_DOOR + 0.22, 0.24, 0.16)
@@ -1845,7 +1869,24 @@ def belltower(t, cx, cy, base=2.35, storeys=4, yaw=0.0, hollow=True):
         # for the boom to go out of and the belfry is open sky, and confining
         # the camera in either one takes a working 4.8 m shot down to 1.6.
         t.shaft(cx, cy, inner - fw - 0.14, inner - fw - 0.14,
-                floor_z + 0.5, belfry_top - 1.0)
+                floor_z + 0.5, belfry_top - 1.0, pad=2.6)
+        # THE GROUND ROOM AND THE BELFRY ARE ROOMS, not shaft, and they were
+        # getting no help at all. Measured by dragging the camera through one
+        # revolution: the worst single-frame move was 1.21 m in the ground room
+        # and 6.30 m in the belfry, where turning past a pier hands the boom
+        # open sky and it teleports out to full extension. The stair, which has
+        # had a volume all along, was the best indoor spot in the build at 0.43.
+        t.shaft(cx, cy, inner - 0.45, inner - 0.45, floor_z - 0.2, floor_z + 3.3,
+                pad=ROOM_PAD)
+        # THE BELFRY'S CLEAR VOLUME IS SMALLER THAN IT LOOKS, in both axes, and
+        # I got it wrong twice by eye before measuring. Horizontally it stops
+        # inside the corner PIERS (bw - 0.22, half-width 0.22), not at the
+        # parapet. Vertically it stops under the LINTEL that rings the pier
+        # tops at top + 2.38 with a 0.16 half-height -- so the ceiling is
+        # top + 2.22, not the cap at top + 2.54. A camera pinned at the old
+        # y1 sat inside that beam and every frame came back flat outline colour.
+        t.shaft(cx, cy, bw - 0.78, bw - 0.78,
+                belfry_top - 0.3, top + 2.10, pad=ROOM_PAD)
 
         # THE BELL ROPE, and it is the best thing in the tower for its cost.
         #

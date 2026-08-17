@@ -468,8 +468,9 @@ def main():
                      for x, y, z, k in t.lights]
     man["shafts"] = [{"x": round(x, 3), "z": round(-y, 3),
                       "hx": round(hx, 3), "hz": round(hy, 3),
-                      "y0": round(z0, 3), "y1": round(z1, 3)}
-                     for x, y, hx, hy, z0, z1 in t.shafts]
+                      "y0": round(z0, 3), "y1": round(z1, 3),
+                      "pad": round(pad, 3)}
+                     for x, y, hx, hy, z0, z1, pad in t.shafts]
     man["bounds"] = PLAZA
     mpath = os.path.splitext(out)[0] + ".manifest.json"
     with open(mpath, "w") as fh:
