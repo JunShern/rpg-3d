@@ -1040,9 +1040,16 @@ async function run() {
           if (combat.punishWindow() > 0) combat.attack();
           else for (const e of grp) {
             if (e.dead || e.state !== 'telegraph') continue;
-            if (Math.hypot(e.pos.x - pos.x, e.pos.z - pos.z) > 4.2) continue;
-            if (e.t < e.spec.telegraph * 0.45) continue;
-            held = true; combat.dodge(); break;
+            if (Math.hypot(e.pos.x - pos.x, e.pos.z - pos.z) > 4.6) continue;
+            // HOLD OFF ATTACKING while a tell is pending. `dodge()` is refused
+            // mid-swing by design, so a policy that keeps swinging can never
+            // slip -- and the first version of this check did keep swinging,
+            // which made "skilled" play identical to mashing and reported the
+            // reward as absent when it was merely unreachable by that policy.
+            // Choosing NOT to swing is the skill being measured.
+            held = true;
+            if (e.t >= e.spec.telegraph * 0.45) combat.dodge();
+            break;
           }
         }
         if (!held && t >= next) { combat.attack(); next += 0.1; }
@@ -1054,7 +1061,12 @@ async function run() {
     };
     const mash = await run('mash');
     const skill = await run('punish');
-    const ok = !skill.dead && !skill.alive && (mash.dead || mash.alive || skill.t < mash.t);
+    // A STRICT WIN, because the margin is no longer marginal: measured
+    // repeatedly at mash 12.5 s / 64 HP against slip-and-punish 8.1 s / 32 HP.
+    // The state this exists to prevent is the one it was written for, where
+    // mashing cleared in 10.6 s and playing deliberately took 15.4.
+    const ok = !skill.dead && !skill.alive
+               && (mash.dead || mash.alive || skill.t < mash.t);
     return { ok,
              detail: `mash ${mash.t.toFixed(1)}s${mash.dead ? ' DIED' : ''}`
                    + `${mash.alive ? ` ${mash.alive} alive` : ''}`

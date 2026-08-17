@@ -547,8 +547,12 @@ export function createCombat(ctx) {
    * lets it land inside the recovery of the attack you just slipped -- a
    * punish you cannot fit into the opening is not a punish.
    */
-  const PUNISH_DMG = 1.7;
-  const PUNISH_WINDUP = 0.55;
+  // 2.1 and 0.45, up from 1.7 and 0.55. The first values made reading the
+  // fight beat mashing by a second over a twelve-second encounter, which is
+  // inside the run-to-run noise -- a later measurement had them dead level. A
+  // reward you can only see by averaging is not a reward the player feels.
+  const PUNISH_DMG = 2.1;
+  const PUNISH_WINDUP = 0.45;
   function withPunish(spec) {
     if (!player.punishing) return spec;
     return { ...spec,
