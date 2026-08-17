@@ -258,6 +258,8 @@ const CAM_BLOCKERS = [];
 let terrain = null;        // analytic ground for the meadow
 let terrainProbes = [];
 const FLOORS = [];         // meshes the ground raycast targets
+// OPEN VOLUMES THE CAMERA MAY ALWAYS OCCUPY -- see `Town.shafts` in arch_lib.
+const SHAFTS = [];
 let townReady = false;
 
 function applyTownLook(root) {
@@ -337,6 +339,7 @@ function absorbRegion(root, manifest) {
     if (/FLOOR/i.test(o.name || '')) FLOORS.push(o);
   });
   for (const p of manifest.platforms || []) PLATFORMS.push(p);
+  for (const q of manifest.shafts || []) SHAFTS.push(q);
   for (const c of manifest.camBlockers || []) CAM_BLOCKERS.push(c);
   for (const s of manifest.solids || []) {
     SOLIDS.push({
@@ -386,13 +389,16 @@ Promise.all([
     // gradient on a flat wall in a game with no other soft gradients anywhere.
     // At this strength it is a warm pool at the foot of the post and nothing
     // on the wall behind it, which is all a lit lamp should do at midday.
-    // A LAMP UNDERGROUND IS NOT AN ACCENT, IT IS THE LIGHT. The plaza's six
-    // are deliberately almost nothing at midday; the cellar's is the only
-    // source in a room the sun cannot reach, so it is told apart by being
-    // below the paving and given a real intensity and reach.
-    const below = L.y < -0.5;
-    const lamp = new THREE.PointLight(0xffc879, below ? 6.0 : 0.45,
-                                      below ? 9.0 : 3.2, 2);
+    // A LAMP INDOORS IS NOT AN ACCENT, IT IS THE LIGHT. The plaza's six are
+    // deliberately almost nothing at midday; the cellar's is the only source in
+    // a room the sun cannot reach. That used to be told apart by testing
+    // whether the lamp was below the paving, which was true of the cellar and
+    // of nothing else -- the belltower's stair lamps are twelve metres UP a
+    // windowless shaft and just as much the only light in the room. The
+    // builder now says which job each lamp does instead.
+    const inside = L.k === 'interior' || L.y < -0.5;
+    const lamp = new THREE.PointLight(0xffc879, inside ? 6.0 : 0.45,
+                                      inside ? 9.0 : 3.2, 2);
     lamp.position.set(L.x, L.y, L.z);
     world.add(lamp);
   }
@@ -1012,6 +1018,19 @@ function groundAt(x, z, fromY) {
   groundRay.far = 12;
   const hit = groundRay.intersectObjects(FLOORS, false)[0];
   return hit ? hit.point.y : null;
+}
+
+/** The open shaft the point is inside, or null. */
+function shaftAt(x, y, z) {
+  for (const s of SHAFTS) {
+    // the blend band reaches a metre past each end, so the test has to as well
+    if (y < s.y0 - 0.05 || y > s.y1 + 1.05) continue;
+    // generous horizontally: she stands on the stair AROUND the well, not in
+    // it, so the test is "is she in this shaft's tower", not "in its void"
+    if (Math.abs(x - s.x) > s.hx + 2.6 || Math.abs(z - s.z) > s.hz + 2.6) continue;
+    return s;
+  }
+  return null;
 }
 
 /** Try to move by (dx, dz).  Returns true if the hero actually moved. */
@@ -1893,11 +1912,57 @@ const LOCK_POLAR = 1.06;
   const d = Math.max(0.45, Math.min(hitD, groundD) - 0.25);
   camera.position.copy(camTarget).addScaledVector(camWant, d);
 
+  // A STAIRWELL IS THE ONE SHAPE THIS SOLVE CANNOT DO.
+  //
+  // Everything above finds air by pulling in or pitching up, and both assume
+  // air exists somewhere behind the player. On a spiral stair it does not: the
+  // flight she is on runs along a wall, so whichever way she faces there is
+  // masonry 60 cm behind her back. Measured in the belltower, the boom
+  // collapsed to 0.45-1.9 m at every point on the climb, which renders as a
+  // full-frame close-up of her shoulders -- and widening the tower from 5.2 m
+  // to 6.6 changed almost nothing, because in a CORNER, which a spiral puts you
+  // in every few seconds, two walls close at once.
+  //
+  // The well down the middle is the exception, and it is not a heuristic: a
+  // stair well is empty by definition, for the shaft's whole height. So rather
+  // than hunt for air, put the camera in the volume the builder has PROMISED is
+  // clear. The boom keeps the length and pitch the player chose; only its
+  // horizontal position is confined, so turning the camera still turns it.
+  const shaft = shaftAt(camTarget.x, camTarget.y, camTarget.z);
+  if (shaft) {
+    // BLENDED IN OVER A METRE at each end of the shaft, because the two solves
+    // put the camera in genuinely different places and swapping between them on
+    // one frame is a cut. `k` is how far into the shaft she is.
+    const k = Math.min(1, (camTarget.y - shaft.y0) / 1.0,
+                          (shaft.y1 - camTarget.y) / 1.0);
+    if (k > 0) {
+      _o.copy(camTarget).addScaledVector(camWant, cam.dist);
+      _o.x = THREE.MathUtils.clamp(_o.x, shaft.x - shaft.hx, shaft.x + shaft.hx);
+      _o.z = THREE.MathUtils.clamp(_o.z, shaft.z - shaft.hz, shaft.z + shaft.hz);
+      // never below the tread she is standing on, and never so far above it
+      // that the shot becomes a floor plan: confining the boom horizontally
+      // shortens it without shortening its RISE, so an ordinary 45-degree
+      // camera came out at 64 and the climb was viewed from directly overhead.
+      // Capped against the horizontal distance that survived the clamp.
+      const horiz = Math.hypot(_o.x - camTarget.x, _o.z - camTarget.z);
+      _o.y = THREE.MathUtils.clamp(_o.y, camTarget.y - 0.30,
+                                   camTarget.y + 1.15 * horiz + 0.35);
+      camera.position.lerp(_o, k);
+    }
+  }
+
   // ...which means the camera now sometimes sits inside the hero.  Fade them
   // out rather than showing the inside of their head.  This is the cheap fix:
   // the real one is a corridor-aware camera that yaws to look ALONG an alley
   // instead of being pressed into its wall.
-  const fade = THREE.MathUtils.clamp((d - 0.75) / 0.85, 0, 1);
+  //
+  // MEASURED FROM WHERE THE CAMERA ENDED UP, not from the boom length the solve
+  // asked for. Those were the same number until the shaft confinement started
+  // moving the camera afterwards, and then they were not: in the belltower the
+  // solve wanted 0.45 m, the camera actually sat 2.5 m away across the well,
+  // and the hero was faded to nothing in a shot framed perfectly well on her.
+  const fade = THREE.MathUtils.clamp(
+    (camera.position.distanceTo(camTarget) - 0.75) / 0.85, 0, 1);
   if (cur) for (const m of cur.mats) { m.opacity = fade; m.visible = fade > 0.02; }
 
   const camGround = groundAt(camera.position.x, camera.position.z, camera.position.y);

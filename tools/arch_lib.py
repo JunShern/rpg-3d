@@ -107,6 +107,19 @@ class Town:
         self.loose = []
         self.loose_groups = []
         self.props = []
+        # LANTERNS REGISTER THEMSELVES. The region builder used to thread a
+        # `lights` list by hand through every function that made one, which
+        # worked until the belltower grew an interior: its lamps are made in
+        # `build_buildings`, where no such list is in scope, and the failure
+        # mode is a pitch-black stair with nothing else wrong.
+        self.lights = []
+        # OPEN VOLUMES THE CAMERA MAY ALWAYS OCCUPY. A stairwell is the one
+        # shape a third-person camera cannot solve: every flight has a wall
+        # directly behind the player, so the boom collapses onto her back no
+        # matter how wide the room is. The well down the middle is guaranteed
+        # empty for the shaft's whole height -- that is what a well IS -- so the
+        # runtime confines the camera to it rather than trying to find air.
+        self.shafts = []
 
     def add(self, *objs):
         for o in objs:
@@ -134,6 +147,11 @@ class Town:
         player walked straight through it into the earth.
         """
         self.solids.append((cx, cy, hx, hy, math.radians(yaw), top, base))
+
+    def shaft(self, cx, cy, hx, hy, z0, z1):
+        """An open vertical volume the camera can be placed inside. See the
+        note on `self.shafts`."""
+        self.shafts.append((cx, cy, hx, hy, z0, z1))
 
     def platform(self, cx, cy, hx, hy, top):
         """A surface ABOVE the analytic ground that the player can stand on.
@@ -418,7 +436,8 @@ def cellar(t, hx0, hx1, hy0, hy1, floor_z=-3.0, ceil_z=-0.62):
                    (rx1 - 0.9, ry0 + 1.2)):
         barrel(t, bx, by, r=0.34, h=0.82, z0=floor_z)
     crate(t, rx1 - 1.0, ry0 + 2.3, s=0.40, yaw=12, z0=floor_z)
-    lamp = lantern(t, (rx0 + rx1) / 2, ry0 + 1.4, z0=floor_z, h=2.05)
+    lamp = lantern(t, (rx0 + rx1) / 2, ry0 + 1.4, z0=floor_z, h=2.05,
+                   kind='interior')
     embercap(t, rx0 + 1.0, ry0 + 2.6, z=floor_z, scale=1.1)
     t.add(*out)
     return lamp
@@ -960,9 +979,14 @@ def awning(t, x, y0, z, w=1.5, drop=0.55, reach=0.85):
     return t.add(*out) and out
 
 
-def lantern(t, x, y, z0=0.0, h=3.1, wall=False):
+def lantern(t, x, y, z0=0.0, h=3.1, wall=False, kind='accent'):
     """A post lantern, or a bracket lamp when `wall` is set.  Emissive material;
-    the runtime turns each of these into an actual point light."""
+    the runtime turns each of these into an actual point light.
+
+    `kind` is 'accent' for a lamp on a sunlit street -- which should be almost
+    nothing at midday -- or 'interior' for one the sun cannot reach, which has
+    to actually light the room it is in.
+    """
     M, out = t.M, []
     if not wall:
         out.append(box("lamp_base", (x, y, z0 + 0.09), (0.17, 0.17, 0.09),
@@ -993,7 +1017,13 @@ def lantern(t, x, y, z0=0.0, h=3.1, wall=False):
     out.append(K.blob("lamp_finial", (x, y, zz + 0.15), (0.055, 0.055, 0.075),
                       None, M["brass"], seg=10, rings=7))
     t.add(*out)
-    return (x, y, zz - 0.12)          # where the runtime should hang a light
+    # WHERE the light hangs, and WHAT JOB IT DOES. The runtime used to tell an
+    # accent lamp from a room's only light source by testing whether it was
+    # below the paving, which was true of the cellar and of nothing else. A
+    # lamp twelve metres up a windowless shaft is just as much the only light
+    # in the room, and no test on its height could say so.
+    t.lights.append((x, y, zz - 0.12, kind))
+    return (x, y, zz - 0.12, kind)
 
 
 def arch(t, cx, cy, span=3.2, height=4.2, depth=1.4, thick=0.42, yaw=0.0):
@@ -1420,7 +1450,57 @@ def finish(t, name_town="TOWN", name_floor="FLOOR"):
     return town_obj, floor_obj
 
 
-def belltower(t, cx, cy, base=2.35, storeys=4, yaw=0.0):
+# THE TOWER IS SIZED BY THE CAMERA, and that is the whole reason these numbers
+# are what they are.
+#
+# The first hollow version used the tower's existing 5.2 m footprint, which
+# leaves a 3.6 m room inside. That is a perfectly good stairwell and a
+# completely unusable one: the boom collapsed to 0.5-0.75 m against the walls,
+# which is inside the character, and every capture of the climb was a
+# full-frame close-up of plaster. A third-person camera needs about three
+# metres of clearance behind the player, so an interior it has to work in
+# cannot be much narrower than five.
+#
+# So the shaft was sized outward from that, and the tower around the shaft --
+# 6.6 m across the base for a 4.9 m room. It reads as a stouter tower than it
+# was, which the silhouette can afford at 20 m tall, and it is the right trade:
+# a landmark you can climb beats a slimmer one you can only look at.
+TOWER_INNER  = 2.45     # half-width of the shaft's interior, constant all the
+                        # way up while the OUTSIDE tapers -- which is how real
+                        # towers are built, and which means the stair does not
+                        # have to get narrower as you climb
+TOWER_FLIGHT = 1.28     # width of a flight. 0.85 looked ample on paper and was
+                        # not: the balustrade stands on the tread's inner 10 cm
+                        # and the character is 0.64 m across, so what was left
+                        # between the rail and the wall was an ELEVEN CENTIMETRE
+                        # corridor for her centre -- a stair you would scrape
+                        # your way up. Walking the geometry said so; looking at
+                        # the number 0.85 next to the number 0.64 did not.
+TOWER_TAPER  = 0.040    # per storey. It was 0.055, which over five storeys
+                        # takes 22% off the width -- fine on a solid shaft, and
+                        # on a hollow one it thins the top storey's wall to
+                        # three centimetres, because the inside does not taper.
+TOWER_TREADS = 5        # treads per flight, four flights to a storey
+
+
+def _sill(t, out, cx, cy, inner, px, py, hx, ztop, k, j):
+    """A waist-high parapet where the stair runs along the OPEN face.
+
+    An arcade you can walk out of is a hole. The rail on the well side is
+    generated per tread because the stair is stepped; this is the same thing on
+    the other side, and only where the wall it would lean against is missing --
+    which is the +y face, above the ground storey.
+    """
+    c = inner - TOWER_FLIGHT / 2
+    if abs(py - c) > 1e-6 or ztop < 4.39:
+        return                  # not against the open face, or still inside it
+    y = cy + inner - 0.13       # at the outer lip of the tread
+    out.append(box(f"tower_sill{k}_{j}", (cx + px, y, ztop + 0.48),
+                   (hx, 0.10, 0.48), t.M["stone"], bevel=0.02, seg=1))
+    t.solid(cx + px, y, hx, 0.10, 0.0, top=ztop + 0.96, base=ztop - 0.3)
+
+
+def belltower(t, cx, cy, base=2.35, storeys=4, yaw=0.0, hollow=True):
     """THE LANDMARK.
 
     The town had none.  Every building tops out between 6.5 and 9.5 m and the
@@ -1439,6 +1519,21 @@ def belltower(t, cx, cy, base=2.35, storeys=4, yaw=0.0):
     is to hit its quality without borrowing its furniture.  A bell in an open
     belfry under a hipped cap, with a weathervane, is the same silhouette job
     done with different parts.
+
+    AND YOU CAN GO IN IT.  It was a twenty-metre landmark you could only ever
+    look at, which is close to the complaint an audit made about the whole
+    town: that its vertical vocabulary was something to see rather than
+    somewhere to be.  `hollow` opens the shaft, puts a door on the plaza face
+    and runs a square-spiral stair up the inside to the belfry, so the tallest
+    thing in the level is also the one place you can stand and see the whole of
+    it -- the square below, the roof route across it, the road out, the ford,
+    and the stone circle at the far end of the meadow.
+
+    The climb is deliberately its own KIND of space rather than more of the
+    town.  Everything else in the demo is wide, sunlit and horizontal; this is
+    narrow, dark, and the only way through it is up.  It costs a lamp at every
+    landing and an open well down the middle that you can see the whole way
+    down.
     """
     M, out = t.M, []
     shaft_h = 3.9 * storeys
@@ -1446,16 +1541,107 @@ def belltower(t, cx, cy, base=2.35, storeys=4, yaw=0.0):
     out.append(box("tower_plinth", (cx, cy, 0.22), (base + 0.34, base + 0.34, 0.22),
                    M["stone"], bevel=0.06, seg=2))
 
+    floor_z = 0.44                      # the interior floor is the plinth top
+    inner = TOWER_INNER
+
+    # A STOOP, because the plinth is 44 cm and the step limit is 45. That
+    # clears it by a centimetre, which is not a doorway -- it is a bug that
+    # happens to pass. Two authored steps and it is a threshold instead.
+    if hollow:
+        for si, sz in enumerate((0.15, 0.30)):
+            sd = 0.62 - 0.24 * si
+            out.append(box(f"tower_stoop{si}", (cx, cy + base + sd / 2, sz / 2 + 0.001),
+                           (1.05, sd / 2, sz / 2), M["stone"], bevel=0.03, seg=1))
+            t.platform(cx, cy + base + sd / 2, 1.05, sd / 2, sz)
+        t.platform(cx, cy, inner, inner, floor_z)          # the ground room
+
     # the shaft TAPERS, which is most of why a tall box reads as a tower rather
     # than as a chimney: each stage is a little narrower than the one under it
     for i in range(storeys):
         z0 = 0.44 + 3.9 * i
-        w = base * (1.0 - 0.055 * i)
-        out.append(box(f"tower_stage{i}", (cx, cy, z0 + 1.95), (w, w, 1.95),
-                       M["plaster_c"], bevel=0.07, seg=2))
+        w = base * (1.0 - TOWER_TAPER * i)
+        if not hollow:
+            out.append(box(f"tower_stage{i}", (cx, cy, z0 + 1.95), (w, w, 1.95),
+                           M["plaster_c"], bevel=0.07, seg=2))
+        else:
+            # FOUR WALLS. The x pair spans the full depth and the y pair only
+            # the inner span, so they meet at the corners without overlapping.
+            th = (w - inner) / 2
+            # ASHLAR, NOT PLASTER. The shaft used to be `plaster_c`, which is
+            # also the house immediately east of it -- so the town's one
+            # landmark was the same colour and the same surface as its
+            # neighbour, and an audit called it an untextured grey box. It is
+            # dressed stone now: regular coursed blocks against the plastered
+            # ranges, which is how a civic building has always been told apart
+            # from the houses around it.
+            for sx in (-1, 1):
+                out.append(box(f"tower_wx{i}", (cx + sx * (inner + w) / 2, cy, z0 + 1.95),
+                               (th, w, 1.95), M["stone"], bevel=0.05, seg=2))
+            # THE PLAZA FACE IS AN ARCADE ABOVE THE DOOR, and this is the single
+            # change that made the interior work at all.
+            #
+            # A closed 4.9 m shaft is still narrower than a third-person camera
+            # needs. Widening got the boom from 0.7 m to 1.9, which is better
+            # and still a full-frame close-up of the player's back -- and in a
+            # CORNER, which a spiral stair puts you in every few seconds, no
+            # width helps, because the camera is jammed into two walls at once.
+            # The boom has to be able to leave the building.
+            #
+            # So the face you see from the square is open from the first floor
+            # up: two tall openings either side of a central pier. It pays for
+            # itself four times over. The camera swings out into open air. The
+            # stair is lit by daylight instead of by five point lights doing an
+            # impression of it. The climb is VISIBLE from the plaza, so the
+            # tower advertises what it is without a marker or a line of dialogue.
+            # And the elevation stops being a grey box, which is what an audit
+            # called it.
+            #
+            # The ground storey stays solid -- the base reads as a base, and the
+            # first flight is behind it.
+            for sy in (-1, 1):
+                if sy > 0 and i == 0:
+                    continue            # the +y wall of the ground storey is the doorway
+                if sy > 0 and hollow:
+                    # central pier, and a header across the top so the openings
+                    # read as arcaded rather than as a missing wall
+                    out.append(box(f"tower_pier{i}", (cx, cy + (inner + w) / 2, z0 + 1.70),
+                                   (0.26, th, 1.70), M["stone"], bevel=0.04, seg=2))
+                    t.solid(cx, cy + (inner + w) / 2, 0.26, th, yaw, top=z0 + 3.40, base=z0)
+                    out.append(box(f"tower_head{i}", (cx, cy + (inner + w) / 2, z0 + 3.65),
+                                   (inner, th, 0.25), M["stone"], bevel=0.04, seg=2))
+                    t.solid(cx, cy + (inner + w) / 2, inner, th, yaw,
+                            top=z0 + 3.90, base=z0 + 3.40)
+                    continue
+                out.append(box(f"tower_wy{i}", (cx, cy + sy * (inner + w) / 2, z0 + 1.95),
+                               (inner, th, 1.95), M["stone"], bevel=0.05, seg=2))
+            if i == 0:
+                door_h, dh = 2.45, 0.95         # dh = half-width of the opening
+                for sxx in (-1, 1):
+                    out.append(box("tower_wy0", (cx + sxx * (inner + dh) / 2,
+                                                 cy + (inner + w) / 2, z0 + 1.95),
+                                   ((inner - dh) / 2, th, 1.95), M["stone"],
+                                   bevel=0.05, seg=2))
+                lz0 = floor_z + door_h
+                out.append(box("tower_dlintel", (cx, cy + (inner + w) / 2,
+                                                 (lz0 + z0 + 3.9) / 2),
+                               (dh, th, (z0 + 3.9 - lz0) / 2), M["stone"],
+                               bevel=0.05, seg=2))
+                # a cut-stone surround, so the opening reads as a door and not
+                # as a hole where the plaster stopped
+                out.append(box("tower_djamb", (cx, cy + w - 0.02, lz0 + 0.11),
+                               (dh + 0.18, 0.07, 0.15), M["stone"], bevel=0.03, seg=1))
+                for sxx in (-1, 1):
+                    out.append(box("tower_djamb", (cx + sxx * (dh + 0.09), cy + w - 0.02,
+                                                   floor_z + door_h / 2),
+                                   (0.09, 0.07, door_h / 2), M["stone"], bevel=0.03, seg=1))
         # string course: the shadow line that separates the stages
+        # ON A STONE SHAFT THE COURSE HAS TO BE THE THING THAT IS NOT STONE.
+        # It was stone on plaster, where it read as a shadow line dividing the
+        # storeys; stone on stone is invisible, and the taper alone is too
+        # gradual to say where one stage ends.
         out.append(box(f"tower_course{i}", (cx, cy, z0 + 3.90),
-                       (w + 0.13, w + 0.13, 0.10), M["stone"], bevel=0.03, seg=1))
+                       (w + 0.15, w + 0.15, 0.12),
+                       M["plaster_c"] if hollow else M["stone"], bevel=0.03, seg=1))
         # a narrow slit window per stage, alternating faces so it reads as lived-in
         for s in (-1, 1):
             if (i + (s > 0)) % 2:
@@ -1466,14 +1652,42 @@ def belltower(t, cx, cy, base=2.35, storeys=4, yaw=0.0):
     # the belfry: four corner piers with the sky showing between them, which is
     # what makes the top read as open rather than as one more solid stage
     top = 0.44 + 3.9 * storeys
-    bw = base * (1.0 - 0.055 * (storeys - 1))
+    bw = base * (1.0 - TOWER_TAPER * (storeys - 1))
     for sx in (-1, 1):
         for sy in (-1, 1):
             out.append(box("tower_pier", (cx + sx * (bw - 0.22), cy + sy * (bw - 0.22),
                                           top + 1.15),
                            (0.22, 0.22, 1.15), M["stone"], bevel=0.04, seg=2))
-    out.append(box("tower_belfry_floor", (cx, cy, top + 0.08), (bw, bw, 0.13),
-                   M["stone"], bevel=0.04, seg=1))
+    # THE BELFRY FLOOR HAS A HOLE IN IT, because the stair arrives through it.
+    # Four slabs around the opening, the same way the plaza is four slabs around
+    # the cellar mouth -- a floor you cannot come up through is a floor that
+    # makes the whole climb end in a ceiling.
+    belfry_top = top + 0.21
+    if hollow:
+        # The opening is the LAST FLIGHT'S CORRIDOR -- the strip of floor the
+        # stair comes up through -- so you emerge onto the belfry by stepping
+        # off the flight to either side of it. Cutting a square out of a corner
+        # instead leaves centimetre slivers of open floor at the top of a
+        # twenty-metre drop, which is a trap authored by arithmetic.
+        cc = TOWER_INNER - TOWER_FLIGHT / 2
+        hy0, hy1 = cy + cc - TOWER_FLIGHT / 2 - 0.02, cy + cc + TOWER_FLIGHT / 2 + 0.02
+        hx1 = cx + cc - TOWER_FLIGHT / 2
+        for nm, (ax0, ax1, ay0, ay1) in {
+            "n": (cx - bw, cx + bw, cy - bw, hy0),
+            "s": (cx - bw, cx + bw, hy1, cy + bw),
+            "e": (hx1, cx + bw, hy0, hy1),
+        }.items():
+            if ax1 - ax0 < 1e-3 or ay1 - ay0 < 1e-3:
+                continue
+            out.append(box(f"tower_belfry_floor_{nm}",
+                           ((ax0 + ax1) / 2, (ay0 + ay1) / 2, top + 0.08),
+                           ((ax1 - ax0) / 2, (ay1 - ay0) / 2, 0.13),
+                           M["stone"], bevel=0.03, seg=1))
+            t.platform((ax0 + ax1) / 2, (ay0 + ay1) / 2,
+                       (ax1 - ax0) / 2, (ay1 - ay0) / 2, belfry_top)
+    else:
+        out.append(box("tower_belfry_floor", (cx, cy, top + 0.08), (bw, bw, 0.13),
+                       M["stone"], bevel=0.04, seg=1))
     out.append(box("tower_belfry_lintel", (cx, cy, top + 2.38), (bw + 0.10, bw + 0.10, 0.16),
                    M["stone"], bevel=0.04, seg=1))
 
@@ -1503,12 +1717,146 @@ def belltower(t, cx, cy, base=2.35, storeys=4, yaw=0.0):
     out.append(box("tower_vane", (cx + 0.30, cy, capz + 3.00), (0.30, 0.02, 0.13),
                    M["brass"], bevel=0.015, seg=1))
 
+    lamps = []
+    if hollow:
+        fw = TOWER_FLIGHT
+        # A PARAPET ROUND THE BELFRY, at 0.92 m -- high enough that you cannot
+        # walk off a twenty-metre drop, low enough to see the whole level over.
+        # The kerb round the cellar mouth taught this one: a lip you can step
+        # over is not a railing, it is a trip hazard with the same geometry.
+        for sx, sy, ex, ey in ((0, -1, bw, 0.10), (0, 1, bw, 0.10),
+                               (-1, 0, 0.10, bw), (1, 0, 0.10, bw)):
+            px, py = cx + sx * bw, cy + sy * bw
+            out.append(box("tower_belfry_rail", (px, py, belfry_top + 0.46),
+                           (ex, ey, 0.46), M["stone"], bevel=0.04, seg=1))
+            t.solid(px, py, ex, ey, yaw, top=belfry_top + 0.92, base=belfry_top - 0.2)
+
+        # THE WELL, declared to the runtime as camera space. Inset from the
+        # stair's inner edge so the near plane never touches a balustrade.
+        # It starts ABOVE the ground room and ends BELOW the belfry floor,
+        # because both of those are rooms rather than shaft: the room has a door
+        # for the boom to go out of and the belfry is open sky, and confining
+        # the camera in either one takes a working 4.8 m shot down to 1.6.
+        t.shaft(cx, cy, inner - fw - 0.14, inner - fw - 0.14,
+                floor_z + 0.5, belfry_top - 1.0)
+
+        # ---------------------------------------------------------- the stair
+        #
+        # A SQUARE SPIRAL, four flights and four corner landings to a storey.
+        # Round would be more picturesque and would also be the wrong shape: the
+        # runtime stands you on axis-aligned rectangles, so a square spiral is
+        # the form where what you see and what you can stand on are the same
+        # object rather than an approximation of each other.
+        c = inner - fw / 2                          # landing centre offset
+        # Visited in this order, which turns AWAY from the door -- the ground
+        # room is entered from +y and the stair starts on the +x side, so you
+        # step in, and the way up is immediately on your right.
+        corners = [(c, c), (c, -c), (-c, -c), (-c, c)]
+        flights = 4 * storeys
+        per = (belfry_top - floor_z) / flights      # rise per flight
+        rise = per / TOWER_TREADS
+        assert rise < 0.44, f"tower riser {rise:.3f} m is over the step limit"
+        # `flights + 1` landings for `flights` flights, because the last flight
+        # has to ARRIVE somewhere. Without the closing one the top tread ended
+        # five centimetres short of the belfry floor -- a sliver of open air at
+        # the top of a twenty-metre drop, which is the exact trap the comment
+        # above this says the corridor-shaped opening exists to avoid. Walking
+        # the geometry found it; reading it did not.
+        for k in range(flights + 1):
+            a, b = corners[k % 4], corners[(k + 1) % 4]
+            za = floor_z + k * per
+            # the landing
+            out.append(box(f"tower_land{k}", (cx + a[0], cy + a[1], za - 0.09),
+                           (fw / 2, fw / 2, 0.09), M["stone"], bevel=0.02, seg=1))
+            t.platform(cx + a[0], cy + a[1], fw / 2 + 0.03, fw / 2 + 0.03, za)
+            _sill(t, out, cx, cy, inner, a[0], a[1], fw / 2, za, k, 'L')
+            # THE LANDINGS GET NO RAIL OF THEIR OWN, and the reason is worth
+            # writing down because the obvious move is wrong. A corner landing
+            # looks open on two sides, so I railed both -- and fenced every
+            # landing off from the two flights that meet there, because those
+            # two sides ARE the flights. The well is one 1.7 m square in the
+            # middle, and the four flights' rails already run its whole
+            # perimeter; the corners where they meet are guarded twice over.
+            if k == flights:
+                break                       # the arrival landing has no flight
+            # A LAMP EVERY FULL TURN, tucked into the corner of the landing --
+            # in the middle it is a post you walk through, which is worse than
+            # no post at all. These are the only light in the shaft: the slit
+            # windows are surface detail on the outside face, and a stair lit
+            # only by what leaks past the door is a black rectangle.
+            if k % 4 == 1:
+                lamps.append(lantern(t, cx + a[0] * 1.16, cy + a[1] * 1.16,
+                                     z0=za, h=1.75, kind='interior'))
+            ax = 0 if abs(b[0] - a[0]) > 1e-6 else 1
+            sgn = 1.0 if b[ax] > a[ax] else -1.0
+            going = (abs(b[ax] - a[ax]) - fw) / TOWER_TREADS
+            u0 = a[ax] + sgn * fw / 2
+            # which side of the flight is the open well: the wall is on the side
+            # the flight runs along, so the drop is on the other one
+            other = 1 - ax
+            wellside = -1.0 if a[other] > 0 else 1.0
+            for j in range(TOWER_TREADS):
+                zt = za + rise * (j + 1)
+                u = u0 + sgn * going * (j + 0.5)
+                px = cx + (u if ax == 0 else a[0])
+                py = cy + (u if ax == 1 else a[1])
+                hx = going / 2 if ax == 0 else fw / 2
+                hy = going / 2 if ax == 1 else fw / 2
+                out.append(box(f"tower_tread{k}_{j}", (px, py, zt - 0.10),
+                               (hx, hy, 0.10), M["stone"], bevel=0.02, seg=1))
+                # THE PLATFORM IS WIDER THAN THE TREAD, by three centimetres a
+                # side. Same promise the ladder rungs make: the tread is the
+                # picture and the platform is what you actually stand on, and a
+                # player turning the camera on a spiral stair over a twenty
+                # metre well should not be punished for a rounding error.
+                t.platform(px, py, hx + 0.03, hy + 0.03, zt)
+                # a stepped balustrade on the well side -- solid, so the well is
+                # something you look down rather than something you fall down
+                bpx = px + (wellside * (fw / 2 - 0.05) if other == 0 else 0.0)
+                bpy = py + (wellside * (fw / 2 - 0.05) if other == 1 else 0.0)
+                bhx = going / 2 if ax == 0 else 0.05
+                bhy = going / 2 if ax == 1 else 0.05
+                out.append(box(f"tower_bal{k}_{j}", (bpx, bpy, zt + 0.28),
+                               (bhx, bhy, 0.28), M["stone"], bevel=0.02, seg=1))
+                t.solid(bpx, bpy, bhx, bhy, yaw, top=zt + 0.56, base=zt - 0.3)
+                _sill(t, out, cx, cy, inner, px - cx, py - cy, hx, zt, k, j)
+
     for o in out:
         if yaw:
             K.transform(o, rotate=(0, 0, yaw), around=(cx, cy, 0))
     t.add(*out)
-    t.solid(cx, cy, base + 0.34, base + 0.34, yaw, top=shaft_h)
-    return out
+    if hollow:
+        # FOUR WALL SOLIDS, NOT ONE BLOCK. The tower used to declare its whole
+        # footprint solid to the full height of the shaft, which is exactly the
+        # bug that fenced the buildings off from their own roofs: a collider
+        # authored from the outside, describing a thing that has an inside.
+        # PER STOREY, so the collision follows the taper. One shell sized to the
+        # widest course would stand up to 0.6 m proud of the wall you can see at
+        # the top of the tower, which is nothing to walk into but is something
+        # for the camera to hit in mid-air.
+        dh = 0.95
+        for i in range(storeys):
+            z0, z1 = 0.44 + 3.9 * i, 0.44 + 3.9 * (i + 1)
+            w = base * (1.0 - TOWER_TAPER * i)
+            th = (w - inner) / 2
+            for sx in (-1, 1):
+                t.solid(cx + sx * (inner + w) / 2, cy, th, w, yaw, top=z1, base=z0)
+            t.solid(cx, cy - (inner + w) / 2, inner, th, yaw, top=z1, base=z0)
+            if i:
+                pass            # the plaza face is an arcade; its pier and head
+                                # declare their own solids where they are built
+            else:
+                # the ground storey's +y wall is split around the doorway, and
+                # closed again above the lintel so the first flight cannot walk
+                # out through the top of the door into open air
+                for sx in (-1, 1):
+                    t.solid(cx + sx * (inner + dh) / 2, cy + (inner + w) / 2,
+                            (inner - dh) / 2, th, yaw, top=z1, base=z0)
+                t.solid(cx, cy + (inner + w) / 2, dh, th, yaw,
+                        top=z1, base=floor_z + 2.45)
+    else:
+        t.solid(cx, cy, base + 0.34, base + 0.34, yaw, top=shaft_h)
+    return [L for L in lamps if L]
 
 
 def gallery(t, cx, cy, w=7.0, d=2.2, deck=3.55, yaw=0.0, stair_side=1):

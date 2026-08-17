@@ -222,7 +222,10 @@ def build_buildings(t):
     # So the tower takes that building's place. From the fountain its shaft now
     # rises out of the roofline you are already looking at, at eye level; from
     # the meadow it is still dead centre in the arch.
-    A.belltower(t, -1.0, -15.5, base=2.6, storeys=5)
+    # base 3.3, not 2.6: see the note on TOWER_INNER. The north range leaves an
+    # 11.75 m gap between its two houses, so a 6.6 m tower still clears each
+    # neighbour by 2.7 m.
+    A.belltower(t, -1.0, -15.5, base=3.3, storeys=5)
 
     # THE UPPER LEVEL. On the east range, facing the plaza, so from the fountain
     # you can see both the stair and the deck it leads to -- a balcony you
@@ -231,12 +234,15 @@ def build_buildings(t):
 
 
 def build_props(t):
-    lights = []
     A.fountain(t, 0.0, 0.5, r=2.6)
 
+    # NOT ON THE TOWER'S AXIS. The lamp at (-1.0, -8.6) stood dead centre in
+    # front of the belltower door, so the one approach to the one interior in
+    # the town was framed by a post -- visible the moment the door existed to
+    # walk toward, and invisible for as long as the tower was solid.
     for x, y in ((-8.5, -6.0), (8.5, -6.0), (-8.5, 7.5), (5.0, 9.0),
-                 (-1.0, -8.6), (12.0, 0.2)):
-        lights.append(A.lantern(t, x, y, h=3.2))
+                 (-4.6, -8.6), (12.0, 0.2)):
+        A.lantern(t, x, y, h=3.2)
 
     # THE YARD, east of the square, behind the east range.
     #
@@ -249,7 +255,7 @@ def build_props(t):
     # THE CELLAR. Its lamp is the only light source down there, so unlike the
     # square's lanterns -- which are an accent on a sunlit facade -- this one
     # has to actually light a room.
-    lights.append(A.cellar(t, *CELLAR_HOLE))
+    A.cellar(t, *CELLAR_HOLE)
 
     for x, y, r in ((-12.4, -8.6, 0.55), (-4.0, -9.2, 0.5), (4.6, -9.2, 0.5),
                     (12.4, -8.6, 0.55), (-12.6, 9.4, 0.6), (2.0, 10.2, 0.5)):
@@ -331,7 +337,7 @@ def build_props(t):
                          (-12.0, 1.8, 0.42, 8), (-12.3, 2.8, 0.36, 40)):
         A.crate(t, x, y, s=s, yaw=yaw)
 
-    return lights
+
 
 
 def render_sheet(prefix, floor_obj):
@@ -398,7 +404,7 @@ def main():
 
     build_ground(t)
     build_buildings(t)
-    lights = build_props(t)
+    build_props(t)
 
     town, floor = A.finish(t)
     paved(floor, tile=3.2)
@@ -436,8 +442,15 @@ def main():
 
     # collision + lights, in three.js space, from the same run that built them
     man = t.manifest()
-    man["lights"] = [{"x": round(x, 3), "y": round(z, 3), "z": round(-y, 3)}
-                     for x, y, z in lights]
+    # `k` is the lamp's JOB -- 'accent' on a sunlit street, 'interior' where it
+    # is the only source in the room. The runtime used to infer that from the
+    # lamp being below the paving, which described the cellar and nothing else.
+    man["lights"] = [{"x": round(x, 3), "y": round(z, 3), "z": round(-y, 3), "k": k}
+                     for x, y, z, k in t.lights]
+    man["shafts"] = [{"x": round(x, 3), "z": round(-y, 3),
+                      "hx": round(hx, 3), "hz": round(hy, 3),
+                      "y0": round(z0, 3), "y1": round(z1, 3)}
+                     for x, y, hx, hy, z0, z1 in t.shafts]
     man["bounds"] = PLAZA
     mpath = os.path.splitext(out)[0] + ".manifest.json"
     with open(mpath, "w") as fh:

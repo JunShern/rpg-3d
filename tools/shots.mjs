@@ -23,7 +23,7 @@ const OUT = 'docs/shots';
 // az PI/2 looks toward -x, az -PI/2 toward +x.
 //
 // World coordinates, since every shot below is framed on one of them:
-//   fountain (0, -0.5)   gate arch (-1, -11)   belltower (-1, 22.5)
+//   fountain (0, -0.5)   gate arch (-1, -11)   belltower (-1, 15.5)
 //   gallery (12.6, -8.5) meadow mouth z=-19.5  stream z=-47
 //   landmark hill + outcrop (27, -82)
 //
@@ -45,6 +45,17 @@ const SHOTS = [
   { name: '03d-yard', warp: [12.0, 3, -3.25], az: -Math.PI / 2, polar: 1.24, dist: 9.0,
     walkTo: [[20.0, -3.25], [25.6, -3.25], [27.0, -1.4]] },
   { name: '04-belltower', warp: [-1.0, 0, -7.0], az: Math.PI, polar: 1.47, dist: 9.0 },
+  // THE TOWER IS ENTERABLE, so it gets the same three-shot treatment the cellar
+  // does: the way in, the middle of the climb, and what the climb was for. The
+  // shaft CAN be warped into, unlike the cellar -- its stair is platforms, and
+  // `groundAt` checks platforms before it raycasts the paving.
+  { name: '04b-tower-door', warp: [-1.0, 0, 10.6], az: Math.PI, polar: 1.30, dist: 7.5 },
+  // framed ACROSS the well, which is the only direction in a stairwell with
+  // room for a boom: along a flight the camera is into a corner in two metres
+  { name: '04c-tower-stair', warp: [0.81, 9, 13.69], az: 2.36, polar: 1.24, dist: 5.0 },
+  { name: '04d-tower-well', warp: [-2.81, 13, 17.31], az: -0.79, polar: 1.05, dist: 5.0 },
+  { name: '04e-belfry', warp: [-1.0, 20.5, 16.6], az: 0.2, polar: 1.30, dist: 6.5 },
+  { name: '04f-tower-from-the-air', warp: [-1.0, 20.5, 16.6], az: 0.0, polar: 0.80, dist: 9.5 },
   { name: '05-gate-to-meadow', warp: [-1.0, 0, -5.5], az: 0, polar: 1.26, dist: 7.5 },
   { name: '06-path-climb', warp: [0.5, 0, -34.0], az: 0, polar: 1.24, dist: 8.5 },
   { name: '07-stream-ford', warp: [-1.0, 0, -41.0], az: -0.55, polar: 1.30, dist: 9.0 },

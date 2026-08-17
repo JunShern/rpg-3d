@@ -1118,6 +1118,47 @@ async function run() {
                    + `lowest after the climb ${minY.toFixed(2)}` };
   });
 
+  // THE BELLTOWER MUST BE CLIMBABLE END TO END, for the same reason the roof
+  // route has a check that walks it: the tower is twenty metres of stair over
+  // an open well, and every single way it can be wrong -- a solid that fences
+  // the shaft off from its own inside, a riser over the step limit, a belfry
+  // floor with no hole in it, a landing that does not reach the next flight --
+  // is invisible to any measurement short of walking the whole thing.
+  //
+  // The waypoints are the four corner landings, visited five times over. The
+  // steering is horizontal only, so it cannot tell one storey's landing from
+  // another's; it does not need to, because from a landing the only way to the
+  // next corner is up the flight between them.
+  await check('the belltower can be climbed from the square to the belfry', () => {
+    // the four corner landings, in three.js space. c = TOWER_INNER -
+    // TOWER_FLIGHT / 2 = 1.81, about the tower's centre at (-1, 15.5).
+    const A = [0.81, 13.69], B = [0.81, 17.31],
+          C = [-2.81, 17.31], D = [-2.81, 13.69];
+    const WAY = [['the door', -1.0, 11.9], ['the ground room', -1.0, 14.2]];
+    for (let s = 0; s < 5; s++) WAY.push(['A', ...A], ['B', ...B], ['C', ...C], ['D', ...D]);
+    WAY.push(['the belfry floor', -1.0, 16.0]);
+    __sim({ warp: [-1.0, 0.4, 10.4], az: 0, steps: 20 });
+    let reached = 0, stalled = null;
+    for (const [name, tx, tz] of WAY) {
+      let i = 0;
+      for (; i < 500; i++) {
+        const h = __sim({ steps: 0 }).heroPos;
+        if (Math.hypot(tx - h[0], tz - h[2]) < 0.42) break;
+        __sim({ steps: 1, az: Math.atan2(h[0] - tx, h[2] - tz), held: ['KeyW'] });
+      }
+      const h = __sim({ steps: 0 }).heroPos;
+      if (Math.hypot(tx - h[0], tz - h[2]) < 0.85) reached++;
+      else if (!stalled) stalled = `${name} at ${h[1].toFixed(2)} m, `
+        + `${Math.hypot(tx - h[0], tz - h[2]).toFixed(2)} m short`;
+    }
+    const end = __sim({ steps: 0 }).heroPos;
+    // the belfry floor is at 20.15 m; anything under 19 means she came off the
+    // stair somewhere and the climb restarted from whatever caught her
+    return { ok: reached >= WAY.length - 1 && end[1] > 19.0,
+             detail: `${reached}/${WAY.length} landings, ended at ${end[1].toFixed(2)} m `
+                   + `(the belfry floor is 20.15)${stalled ? ' | stalled: ' + stalled : ''}` };
+  });
+
   group('The camera');
 
   // NOTHING TOUCHED THE CAMERA. It is the most intricate code in the project --
