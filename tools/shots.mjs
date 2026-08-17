@@ -54,6 +54,11 @@ const SHOTS = [
   // room for a boom: along a flight the camera is into a corner in two metres
   { name: '04c-tower-stair', warp: [0.81, 9, 13.69], az: 2.36, polar: 1.24, dist: 5.0 },
   { name: '04d-tower-well', warp: [-2.81, 13, 17.31], az: -0.79, polar: 1.05, dist: 5.0 },
+  // the ground room, framed on the door and the bell rope
+  // LOOKING IN THROUGH THE DOORWAY. Framed the other way round the boom goes
+  // straight into the back wall, because the room is 4.9 m across and the
+  // doorway is the only opening for it to sit in.
+  { name: '04g-tower-room', warp: [-1.0, 0.6, 15.6], az: Math.PI, polar: 1.24, dist: 5.5 },
   { name: '04e-belfry', warp: [-1.0, 20.5, 16.6], az: 0.2, polar: 1.30, dist: 6.5 },
   { name: '04f-tower-from-the-air', warp: [-1.0, 20.5, 16.6], az: 0.0, polar: 0.80, dist: 9.5 },
   { name: '05-gate-to-meadow', warp: [-1.0, 0, -5.5], az: 0, polar: 1.26, dist: 7.5 },
@@ -88,6 +93,16 @@ const SHOTS = [
   { name: '09h-spine-crest', warp: [-8.44, 11, -73.0], az: 0.0, polar: 1.18, dist: 8.0 },
   { name: '09i-spine-view', warp: [-8.44, 11, -73.0], az: 2.2, polar: 1.06, dist: 9.0 },
   { name: '09d-fieldwall', warp: [5.7, 6, -35.0], az: 0.0, polar: 1.26, dist: 9.0 },
+  // THE ORCHARD, centred at (19.5, -30.5): from the road, and from inside the
+  // rows. The point of both is the contrast with the scattered copses.
+  { name: '09j-orchard', warp: [10.5, 3, -30.0], az: -1.571, polar: 1.22, dist: 11.0 },
+  // DOWN A ROW, not across one. The planting is yawed 9 degrees, so the only
+  // clear line through it is along the rows -- which is also the shot that
+  // says "planted" rather than "wooded".
+  // IN AN AISLE, not in a row. Standing IN a row puts the boom through the two
+  // trees behind you whichever way you face; the aisle between rows is the one
+  // line with air in it, and it is 2.3 m wide.
+  { name: '09k-orchard-rows', warp: [18.67, 3, -32.57], az: -1.414, polar: 1.20, dist: 8.0 },
   { name: '10-town-from-meadow', warp: [0, 0, -30.0], az: Math.PI, polar: 1.30, dist: 9.0 },
 
   // Combat states. Each of these SPAWNS its own cast rather than hunting for a

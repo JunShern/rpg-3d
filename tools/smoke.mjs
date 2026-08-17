@@ -1143,7 +1143,14 @@ async function run() {
     // check walked to D at 19.16 m and struck out across the well for a belfry
     // floor a metre above its head.
     WAY.push(['the arrival landing', ...A]);
-    WAY.push(['the belfry floor', -1.0, 16.0]);
+    // STEP FORWARD OFF THE LANDING FIRST. Steering straight from the landing to
+    // the middle of the belfry aims diagonally back across the last flight, so
+    // she walks DOWN it before she can turn -- and by then the floor she is
+    // heading for is 0.8 m above her head. The belfry is entered by stepping
+    // off the TOP of the flight, which is what a player does and what the
+    // waypoint list was not saying.
+    WAY.push(['onto the belfry floor', A[0], 15.2]);
+    WAY.push(['across the belfry', -1.0, 16.4]);
     __sim({ warp: [-1.0, 0.4, 10.4], az: 0, steps: 20 });
     let reached = 0, stalled = null;
     for (const [name, tx, tz] of WAY) {
@@ -1161,7 +1168,7 @@ async function run() {
     const end = __sim({ steps: 0 }).heroPos;
     // the belfry floor is at 20.15 m; anything under 19 means she came off the
     // stair somewhere and the climb restarted from whatever caught her
-    return { ok: reached >= WAY.length - 1 && end[1] > 19.0,
+    return { ok: reached === WAY.length && end[1] > 20.0,
              detail: `${reached}/${WAY.length} landings, ended at ${end[1].toFixed(2)} m `
                    + `(the belfry floor is 20.15)${stalled ? ' | stalled: ' + stalled : ''}` };
   });

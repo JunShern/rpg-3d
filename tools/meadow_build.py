@@ -459,6 +459,13 @@ def _clear_of_landmarks(x, y, pad=0.0):
     if SPINE["y0"] - 3.0 < y < SPINE["y1"] + 3.0 \
        and abs(x - _spine_x(y)) < 4.4 + pad:
         return False
+    # THE ORCHARD IS PLANTED, so nothing may seed itself inside it -- one
+    # scattered wild tree in the middle of a grid destroys the only thing the
+    # grid is there to say.
+    ocx, ocy, osp, on = ORCHARD
+    if (abs(x - ocx) < (on - 1) / 2 * osp + 3.4 + pad
+            and abs(y - ocy) < (on - 1) / 2 * osp + 3.4 + pad):
+        return False
     return True
 
 
@@ -467,7 +474,9 @@ def scatter(M, t):
     an even scatter reads as a spreadsheet however good the tree is."""
     rnd = _lcg(20260816)
 
-    copses = [(-26, 34, 9), (22, 30, 8), (-34, 62, 10), (30, 58, 9),
+    # (22, 30) IS THE ORCHARD NOW -- see `orchard`. A wild copse ten metres
+    # from a planted one makes neither of them read.
+    copses = [(-26, 34, 9), (-34, 62, 10), (30, 58, 9),
               (-14, 86, 11), (34, 88, 9), (2, 46, 6), (-40, 46, 7)]
     for cx, cy, cr in copses:
         n = 4 + int(rnd() * 5)
@@ -808,11 +817,19 @@ def landmark(M, t):
     ], at="both", steps=2, height=0.16), seg=9, mat=M["stone"],
         squircle=3.4, up=(0, 0, 1)))
 
-    # the altar: low, broad, and the only flat thing up here
-    t.walk(K.tube("stone_altar", [
+    # the altar: low, broad, and the only flat thing up here.
+    #
+    # `add`, not `walk`, and CAPPED -- the same two faults the outcrop's shelves
+    # had. `walk` joins it into the FLOOR, whose grass blend is entirely vertex
+    # colour, so it inherits (0,0,0) and the toon material multiplies by it;
+    # and an uncapped tube is an open pipe you look down the unlit inside of
+    # from the one place you are meant to stand. It has always been a black
+    # slab with a hole in it at the centre of the monument.
+    t.add(K.tube("stone_altar", K.dome([
         {"p": Vector((hx, hy, z + 0.02)), "r": (1.30, 0.95), "n": 3.4},
-        {"p": Vector((hx, hy, z + 0.46)), "r": (1.18, 0.86), "n": 3.4},
-    ], seg=14, mat=M["rock"], squircle=3.4, up=(0, 0, 1)))
+        {"p": Vector((hx, hy, z + 0.40)), "r": (1.18, 0.86), "n": 3.4},
+    ], at="end", steps=2, height=0.06), seg=14, mat=M["rock"],
+        squircle=3.4, up=(0, 0, 1)))
     t.platform(hx, hy, 1.05, 0.78, z + 0.46)
 
 
@@ -1172,7 +1189,16 @@ def spine(M, t):
         # a solid flush with the crest would shove you off your own footing;
         # one that stops below it still fences the faces, which is the job.
         t.platform(cx, y, hw * 0.70, step * 0.62, top)
-        t.solid(cx, y, hw * 0.94, step * 0.62, top=top - 0.30)
+        # ONLY WHERE THERE IS A FLANK TO FENCE. `pushOut` ignores a box once you
+        # are more than 0.2 m above its top, so a solid 0.30 m under the crest
+        # is transparent to someone standing ON the crest and solid to someone
+        # beside it -- which is exactly right in the middle of the ridge and
+        # impossible at its ends, where the crest IS the ground. Emitting them
+        # the whole length fenced off the toe, and the toe is the only way up:
+        # measured, she reached one waypoint of eight and stopped 2.7 m short of
+        # the second, at 3.08 m against a crest that peaks at 9.29.
+        if _spine_lift(y) >= 1.0:
+            t.solid(cx, y, hw * 0.94, step * 0.62, top=top - 0.42)
         if top > peak_z:
             peak_y, peak_z = y, top
 
@@ -1216,6 +1242,84 @@ def spine(M, t):
         t.add(K.blob(f"spine_lip{k}", (px, yy, pz + sc * 0.25),
                      (sc, sc * 0.9, sc * 0.6), None, M["rock"], seg=8, rings=6,
                      squircle=2.6))
+
+
+# THE ORCHARD: cultivated ground, in a map that is otherwise wild or built.
+#
+# Every tree in the meadow is scattered -- clustered into copses, jittered,
+# deliberately irregular, and correctly so, because that is what a wood looks
+# like. The consequence is that the whole outdoors reads as ONE kind of place:
+# nature, at varying density. A grid of small trees behind a wall says
+# something no amount of scatter can, which is that people live here and this
+# ground belongs to somebody. It is the same job the field walls do and it does
+# it with the asset the map is already made of.
+#
+# It takes the place of the wild copse that used to sit here rather than being
+# added beside it: the point is a contrast between kinds of wood, and two woods
+# ten metres apart would just be more trees.
+# SPACING IS SET BY THE CAMERA, not by horticulture. At 3.4 m with a two-metre
+# canopy the gaps are 1.4 m and the boom is inside a tree from anywhere except
+# straight down a row -- the capture from inside the rows was the interior of a
+# trunk. The dell learned this the same way and was thinned for it. 4.2 m with
+# a smaller crown leaves 2.3 m of air, which is also just what an orchard is.
+ORCHARD = (19.0, 30.5, 4.2, 5)      # cx, cy, spacing, rows/cols
+ORCHARD_YAW = math.radians(9.0)     # off-axis, because nothing else here is
+
+
+def _orchard_xy(i, j, jitter=None):
+    cx, cy, sp, n = ORCHARD
+    u, v = (i - (n - 1) / 2) * sp, (j - (n - 1) / 2) * sp
+    if jitter:
+        u += jitter[0]
+        v += jitter[1]
+    c, s_ = math.cos(ORCHARD_YAW), math.sin(ORCHARD_YAW)
+    return cx + u * c - v * s_, cy + u * s_ + v * c
+
+
+def orchard(M, t):
+    cx, cy, sp, n = ORCHARD
+    rnd = _lcg(31771)
+    for j in range(n):
+        for i in range(n):
+            # REGULAR, BUT NOT PERFECT. A dead-exact grid reads as a texture
+            # rather than as planting; a quarter of a metre of wander is what
+            # makes it look like somebody walked out with a line and a spade.
+            x, y = _orchard_xy(i, j, ((rnd() - 0.5) * 0.5, (rnd() - 0.5) * 0.5))
+            sc = 0.60 + rnd() * 0.10
+            tree(M, t, x, y, sc, kind="broadleaf", rnd=_lcg(int(x * 91 + y * 57) + 5))
+            # fruit, which is the whole reason this reads as an orchard and not
+            # as a suspiciously tidy wood
+            # ON THE OUTSIDE OF THE CANOPY, which is the only place it can be
+            # seen. The first pass put the fruit 0.4-0.7 m from the trunk at the
+            # crown's lower edge -- entirely inside the canopy blobs, whose main
+            # sphere is 1.45 scale units across. Twenty-five trees of invisible
+            # fruit, and the capture showed a suspiciously tidy wood.
+            z = height(x, y) + 2.6 * sc
+            for k in range(6):
+                a = 6.2831 * (k / 6) + rnd() * 0.7
+                r = (1.16 + rnd() * 0.26) * sc
+                t.add(K.blob(f"fruit{len(t.parts)}",
+                             (x + math.cos(a) * r, y + math.sin(a) * r,
+                              z + (0.92 + rnd() * 0.34) * sc),
+                             (0.13 * sc, 0.13 * sc, 0.125 * sc),
+                             None, M["fruit"], seg=6, rings=5, squircle=2.1))
+
+    # WALLED ON THE TWO SIDES YOU APPROACH FROM. The y=40 field wall already
+    # closes the far side, so two more make an enclosure rather than a fence.
+    half = (n - 1) / 2 * sp + 2.2
+    drywall(M, t, cx - half, cy - half, cx - half, cy + half,
+            gap_at=half * 0.86, gap_w=3.0)
+    drywall(M, t, cx - half, cy - half, cx + half, cy - half)
+
+    # the harvest, stacked by the gate -- and the meadow's first breakables,
+    # which until now were a town-only idea for no reason anyone chose
+    gx, gy = cx - half + 1.5, cy - half * 0.10
+    A.crate(t, gx, gy, s=0.40, yaw=14, z0=height(gx, gy))
+    A.crate(t, gx + 0.95, gy - 0.35, s=0.34, yaw=-8, z0=height(gx + 0.95, gy - 0.35))
+    A.barrel(t, gx + 0.35, gy + 1.05, r=0.33, h=0.80, z0=height(gx + 0.35, gy + 1.05))
+    # and the reason to walk in past them
+    ox, oy = _orchard_xy(n - 1, 1)
+    A.embercap(t, ox + 1.5, oy, z=height(ox + 1.5, oy), scale=1.05)
 
 
 def backdrop(M, t):
@@ -1333,6 +1437,10 @@ def main():
         "bark_dead": K.material("bark_dead", (0.44, 0.41, 0.36), roughness=0.95),
         "rock":     K.material("rock", (0.52, 0.50, 0.48), roughness=0.9),
         "bloom_a":  K.material("bloom_a", (0.94, 0.86, 0.42), roughness=0.7),
+        # ORCHARD FRUIT: warm red-orange, which is the only warm accent in the
+        # whole outdoor palette and therefore the thing that will read from the
+        # road at thirty metres.
+        "fruit":    K.material("fruit", (0.86, 0.38, 0.24), roughness=0.72),
         "bloom_b":  K.material("bloom_b", (0.86, 0.52, 0.72), roughness=0.7),
         # THE BACKDROP IS PAINTED, NOT LIT. Aerial perspective is most of what
         # says "far away", so these are authored already hazed toward the sky
@@ -1386,6 +1494,7 @@ def main():
     # metres west of it, at the point where the walk would otherwise be its
     # emptiest.
     ruin(M, t, RUIN[0], RUIN[1], yaw=18)
+    orchard(M, t)
     copse(M, t, _lcg(60413))
 
     # EMBERCAPS, at the places the road does not take you. Each one is the

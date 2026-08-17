@@ -1740,6 +1740,59 @@ def belltower(t, cx, cy, base=2.35, storeys=4, yaw=0.0, hollow=True):
         t.shaft(cx, cy, inner - fw - 0.14, inner - fw - 0.14,
                 floor_z + 0.5, belfry_top - 1.0)
 
+        # THE BELL ROPE, and it is the best thing in the tower for its cost.
+        #
+        # A twenty-metre shaft needs something that expresses twenty metres. The
+        # stair does not: you only ever see one flight of it. A rope hanging the
+        # whole height does, and it is visible from the ground room, from every
+        # landing, and from the belfry looking down -- one object that ties the
+        # space together and tells you what the building is FOR.
+        #
+        # It hangs from the underside of the belfry floor rather than from the
+        # bell, which is both how a guided rope looks from below and the reason
+        # no hole has to be cut in a floor that is four slabs around a stair.
+        #
+        # Sited at 1.10 from the axis, which is inside the well and OUTSIDE the
+        # box the camera is clamped to (1.03). A rope the camera can sit on is a
+        # brown wall across the frame once per revolution.
+        rx, ry = cx - 1.10, cy - 1.10
+        out.append(K.tube("tower_rope", [
+            {"p": Vector((rx, ry, belfry_top - 0.16)), "r": (0.028, 0.028), "n": 2.2},
+            {"p": Vector((rx, ry, floor_z + 3.10)), "r": (0.028, 0.028), "n": 2.2},
+            # the sally: the woolly grip a ringer actually holds, and the one
+            # part of a bell rope anybody recognises
+            {"p": Vector((rx, ry, floor_z + 2.55)), "r": (0.062, 0.062), "n": 2.4},
+            {"p": Vector((rx, ry, floor_z + 1.60)), "r": (0.062, 0.062), "n": 2.4},
+            {"p": Vector((rx, ry, floor_z + 1.42)), "r": (0.026, 0.026), "n": 2.2},
+        ], seg=6, mat=M["timber"], squircle=2.3, up=(0, 1, 0)))
+        out.append(box("tower_ropeeye", (rx, ry, belfry_top - 0.10),
+                       (0.07, 0.07, 0.06), M["brass"], bevel=0.02, seg=1))
+
+        # THE GROUND ROOM IS A ROOM. It was 4.9 m of empty floor you crossed on
+        # the way to the stair -- the first interior in the demo and the least
+        # furnished thing in it.
+        # A LAMP IN THE ROOM ITSELF. The stair's lanterns start at the first
+        # landing three metres up, so the ground floor was lit by whatever came
+        # through the door -- and the toon ramp has one dark band, so every
+        # timber thing in here (bench, crate, two barrels) came out as a black
+        # silhouette with brass hoops floating on it. Stone reads in shadow
+        # because stone is pale; timber does not.
+        # AMONG THE STORES, not across the room from them. The toon ramp is a
+        # hard step, so a point light does nothing at all until it crosses the
+        # threshold -- at 3 m and decay 2 it did not, and the bench, crate and
+        # both barrels stayed exactly as black as they were unlit. Half the
+        # distance is four times the light.
+        lantern(t, cx + 0.05, cy - inner + 0.40, z0=floor_z, h=2.15,
+                kind='interior')
+
+        bench_x = cx - inner + 0.30
+        out.append(box("tower_bench", (bench_x, cy - 0.35, floor_z + 0.21),
+                       (0.26, 0.85, 0.21), M["timber"], bevel=0.03, seg=1))
+        t.solid(bench_x, cy - 0.35, 0.26, 0.85, yaw, top=floor_z + 0.42, base=floor_z)
+        for bx, by, br in ((cx - 1.45, cy - 1.55, 0.33), (cx - 0.78, cy - 1.90, 0.29)):
+            barrel(t, bx, by, r=br, h=0.78, z0=floor_z)
+        crate(t, cx + 0.35, cy - 1.85, s=0.36, yaw=-11, z0=floor_z)
+
         # ---------------------------------------------------------- the stair
         #
         # A SQUARE SPIRAL, four flights and four corner landings to a storey.
@@ -1820,6 +1873,13 @@ def belltower(t, cx, cy, base=2.35, storeys=4, yaw=0.0, hollow=True):
                                (bhx, bhy, 0.28), M["stone"], bevel=0.02, seg=1))
                 t.solid(bpx, bpy, bhx, bhy, yaw, top=zt + 0.56, base=zt - 0.3)
                 _sill(t, out, cx, cy, inner, px - cx, py - cy, hx, zt, k, j)
+
+    if hollow:
+        # WHAT THE CLIMB IS FOR. Every other detour in the demo pays an
+        # embercap -- the ruin, the stone ring, the outcrop, the far copse, the
+        # ford bank, the cellar, the roof route -- and the tallest one in it
+        # paid nothing.
+        embercap(t, cx + bw - 0.85, cy - bw + 0.75, z=belfry_top, scale=1.1)
 
     for o in out:
         if yaw:
