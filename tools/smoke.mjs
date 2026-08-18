@@ -1399,6 +1399,11 @@ async function run() {
     //    exactly zero gold with no error anywhere.
     const sellBack = Shop.sellPrice('embercap');
     const listed = GS.data.items.items['embercap'].price;
+    // FUNDED FIRST. The reset gives 40 g and the sword above spent 260 of the
+    // 440 this check had, so the round trip was trying to buy a 210 g jack with
+    // 180 and reporting "-0g then +0g" -- a shop refusing an unaffordable
+    // purchase, read as a broken shop.
+    GS.addGold(400);
     const tg0 = GS.state.gold;
     Shop.buy('town-forge', 'drovers-jack', 1);
     const tg1 = GS.state.gold;
@@ -1427,11 +1432,18 @@ async function run() {
     const r = window.__t.killPinned(t, 12);
     __sim({ steps: 4 });
     const def = GS.data.monsters.monsters.nettle;
-    const paidGold = GS.state.gold - g1;
-    // xp may have rolled a level, in which case the raw delta is not the payout
+    // GOLD IS NOT BANKED ON THE KILL ANY MORE -- it is thrown on the floor and
+    // credited when you walk over it, which is the whole point of drops.js. XP
+    // is still immediate, because it is the fight paying out rather than a
+    // thing. The gold half of this belongs to the drop check below, which owns
+    // the pick-up; asserting it here as well would be two tests of one fact
+    // that can disagree.
     const paidXp = p0.level > lv1 ? def.xp : p0.xp - x1;
-    notes.push(`nettle died in ${r.swings} swings and paid ${paidGold}g / ${paidXp}xp `
-             + `(the data says ${def.gold}g / ${def.xp}xp)`);
+    const onFloor = drops.count;
+    notes.push(`nettle died in ${r.swings} swings, paid ${paidXp}xp at once and `
+             + `left ${onFloor} thing(s) on the floor (the data says `
+             + `${def.gold}g / ${def.xp}xp)`);
+    drops.clear();
 
     // 6. AND THE SWORD HITS HARDER, which is the difference between a system
     //    and a menu. Measured on a pinned nettle: the same first swing, once
@@ -1462,7 +1474,7 @@ async function run() {
              // guess about the rounding of one number.
              && sellBack === Math.max(1, Math.round(listed * 0.5)) && lvl1 === lvl0 + 1
              && sold.ok && refund === 105 && !offersKeepsake
-             && r.dead && paidGold === def.gold && paidXp === def.xp;
+             && r.dead && paidXp === def.xp && onFloor >= 1;
     GS.state.gold = gold0;
     return { ok, detail: notes.join(' · ') };
   });
@@ -1490,11 +1502,18 @@ async function run() {
     const gold0 = GS.state.gold, xp0 = GS.state.party[0].xp;
     const t = window.__t.faceOff('nettle', 0.5, 6.2, 1.6);
     const r = window.__t.killPinned(t, 12);
-    __sim({ steps: 90 });                 // the toss, and the landing
+    // MEASURED WHILE THEY ARE STILL IN THE AIR. `killPinned` fights the target
+    // at 1.6 m, the pick-up radius is 1.5 m, and a drop arms 0.45 s after it is
+    // thrown -- so stepping 90 frames first and then counting what is lying
+    // around counts what is left AFTER the player has already hoovered it up.
+    // The first version of this check did exactly that and reported "0 objects
+    // thrown", which is the opposite of what had happened.
+    __sim({ steps: 12 });
     Math.random = rng;
     const onGround = drops.count;
     const bankedEarly = GS.state.gold - gold0;
     const xpNow = GS.state.party[0].xp - xp0;
+    __sim({ steps: 80 });                 // now let them finish the arc and land
 
     // walk onto them
     for (let i = 0; i < 300 && drops.count; i++) {
