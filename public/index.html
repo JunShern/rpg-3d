@@ -23,6 +23,42 @@
     letter-spacing: 0.01em;
   }
   #hud { top: 12px; left: 12px; }
+
+  /* ---- what you just got ---------------------------------------------
+     A short stack of lines above the vitality bar. It exists because the
+     economy was otherwise entirely invisible from inside the game: you
+     killed something, the save file changed, and nothing on screen moved.
+     Newest at the bottom, because that is where your eye already is. */
+  #gains {
+    position: fixed; left: 24px; bottom: 124px; width: 320px;
+    display: flex; flex-direction: column; justify-content: flex-end;
+    gap: 3px; pointer-events: none;
+    font: 600 12px/1.5 ui-monospace, Menlo, monospace; letter-spacing: .06em;
+  }
+  #gains div {
+    color: #ffe9a8; text-shadow: 0 1px 4px #000b, 0 0 10px #0007;
+    animation: gain 2.6s cubic-bezier(.2,.7,.3,1) forwards;
+  }
+  #gains div.item { color: #ffd08a; }
+  #gains div.xp   { color: #a8e0ff; }
+  #gains div.lvl  { color: #b6ffc0; font-size: 14px; letter-spacing: .12em; }
+  @keyframes gain {
+    0%   { opacity: 0; transform: translateY(8px); }
+    12%  { opacity: 1; transform: none; }
+    72%  { opacity: 1; transform: none; }
+    100% { opacity: 0; transform: translateY(-10px); }
+  }
+  /* the purse, always on -- a running total the gain lines add to */
+  /* ABOVE the vitality bar, not below it: at bottom:36 this sat underneath
+     the help bar and was invisible in every capture. */
+  #purse {
+    position: fixed; left: 24px; bottom: 98px; pointer-events: none;
+    font: 600 12px/1 ui-monospace, Menlo, monospace; letter-spacing: .12em;
+    color: #ffe9a8; text-shadow: 0 1px 4px #000b;
+  }
+  #purse b { font-size: 15px; }
+  #purse .lv { color: #cfe0f2; margin-left: 14px; }
+  body.talking #gains, body.talking #purse { opacity: 0; transition: opacity 140ms ease; }
   /* WHILE A CONVERSATION IS UP, THE DEBUG FURNITURE GETS OUT OF THE WAY. The
      dialogue window is bottom-anchored and carries its own "E/Enter continue"
      footer, which landed directly on top of the help bar -- two lines of white
@@ -38,7 +74,7 @@
 
   /* ---- health -------------------------------------------------------- */
   #vitals {
-    position: fixed; left: 24px; bottom: 60px; width: 268px;
+    position: fixed; left: 24px; bottom: 52px; width: 268px;
     pointer-events: none; font: 600 11px/1 ui-monospace, Menlo, monospace;
     letter-spacing: .14em; color: #cfe0f2; text-shadow: 0 1px 3px #0008;
   }
@@ -131,6 +167,9 @@
 
   <div class="panel" id="hud">loading…</div>
   <div class="panel" id="loading">building the scene…</div>
+  <div id="gains"></div>
+  <div id="purse"></div>
+
   <div class="panel" id="help">
     <b>WASD</b> move &nbsp;·&nbsp; <b>drag</b> orbit &nbsp;·&nbsp;
     <b>J</b>/<b>click</b> attack &nbsp;·&nbsp; <b>Q</b> lock-on &nbsp;·&nbsp;

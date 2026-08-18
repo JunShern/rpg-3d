@@ -11,6 +11,7 @@
 
 import * as THREE from 'three';
 import { makeNpcs } from './npc.js';
+import { makeDrops } from './drops.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import {
   toonMaterial, flatMaterial, outlineMaterial, outlineGeometry, skyDome,
@@ -669,6 +670,38 @@ const NPC_ROSTER = [
 ];
 
 let npcs = null;
+let drops = null;
+
+// ------------------------------------------------------- what you just got
+//
+// One line per thing, newest at the bottom, gone in under three seconds. This
+// is the whole of the reward UI outside the menu, and it exists because the
+// economy was invisible without it: xp, gold and items all landed silently in
+// a save file and the player had to stop and press Esc to discover that any of
+// it had happened.
+const gainsEl = document.getElementById('gains');
+const purseEl = document.getElementById('purse');
+
+function gain(text, kind) {
+  if (!gainsEl) return;
+  const el = document.createElement('div');
+  if (kind) el.className = kind;
+  el.textContent = text;
+  gainsEl.appendChild(el);
+  // FIVE LINES AT MOST. A wiped encounter pays four times over and the column
+  // would otherwise climb the side of the screen.
+  while (gainsEl.children.length > 5) gainsEl.removeChild(gainsEl.firstChild);
+  // removed on the animation's own schedule rather than a timer, so the two
+  // cannot disagree about when the line is gone
+  el.addEventListener('animationend', () => el.remove());
+}
+
+function purse() {
+  if (!purseEl || !window.GS || !GS.ok) return;
+  const me = GS.state.party.find((m) => m.active) || GS.state.party[0];
+  purseEl.innerHTML = `<b>${GS.state.gold}</b> g`
+    + (me ? `<span class="lv">LV ${me.level}</span>` : '');
+}
 
 Promise.all(ROSTER.concat(NPC_RIGS).map((def) =>
   new GLTFLoader().loadAsync(def.url).then((g) => { chars[def.name] = buildCharacter(def, g); })
@@ -694,10 +727,27 @@ Promise.all(ROSTER.concat(NPC_RIGS).map((def) =>
       if (st.maxHp > was) combat.player.hp += st.maxHp - was;
       combat.player.hp = Math.min(combat.player.hp, combat.player.maxHP);
     };
-    GS.on('change', syncHP);
-    GS.on('levelup', syncHP);
-    if (GS.ready && GS.ready.then) GS.ready.then(syncHP);
+    GS.on('change', () => { syncHP(); purse(); });
+    // A LEVEL IS THE LOUDEST THING THE ECONOMY DOES, so it gets its own line
+    // and its own colour. `grantXp` emits one event per member who levelled.
+    // AN ARRAY of {char, level}, one per member who levelled -- `grantXp`
+    // splits the award across the active party and can roll more than one
+    // level at a time, so this is a list and not an event.
+    GS.on('levelup', (events) => {
+      syncHP();
+      purse();
+      for (const ev of events || []) {
+        const name = (GS.charDef(ev.char) || {}).name || ev.char;
+        gain(`${String(name).toUpperCase()}  LEVEL ${ev.level}`, 'lvl');
+      }
+    });
+    if (GS.ready && GS.ready.then) GS.ready.then(() => { syncHP(); purse(); });
   }
+
+  drops = makeDrops({
+    scene, groundAt, playerPos: () => pos,
+    toast: (label, kind) => gain(kind === 'gold' ? label : label, kind === 'gold' ? null : 'item'),
+  });
 
   npcs = makeNpcs({ scene, chars, groundAt, hud });
   const n = npcs.load(NPC_ROSTER);
@@ -1379,15 +1429,31 @@ function startCombat() {
       const me = G.state.party.find((m) => m.active) || G.state.party[0];
       return me ? G.stats(me) : null;
     },
-    onKill: (species) => {
+    onKill: (species, e) => {
       const G = window.GS;
       if (!G || !G.ok || !G.data || !G.data.monsters) return;
       const m = G.data.monsters.monsters[species];
       if (!m) return;
-      if (m.xp) G.grantXp(m.xp);
-      if (m.gold) G.addGold(m.gold);
+      // XP IS IMMEDIATE, because it is not a thing -- it is the fight itself
+      // paying out, and it belongs on the same frame as the kill.
+      if (m.xp) { G.grantXp(m.xp); gain(`+${m.xp} XP`, 'xp'); }
+      // GOLD AND ITEMS ARE OBJECTS, and they come out of the body. The whole
+      // point is that something visibly LEAVES the creature: the numbers used
+      // to move silently inside the save and the player reported, correctly,
+      // that nothing dropped.
+      const from = e && e.pos
+        ? e.pos.clone().setY(e.pos.y + (e.spec ? e.spec.height * 0.6 : 0.5))
+        : pos.clone().setY(pos.y + 0.8);
+      if (m.gold && drops) {
+        drops.spawn('gold', from, `+${m.gold} g`, () => G.addGold(m.gold));
+      } else if (m.gold) { G.addGold(m.gold); }
       for (const d of m.drops || []) {
-        if (Math.random() < (d.chance || 0)) G.addItem(d.item, 1);
+        if (Math.random() >= (d.chance || 0)) continue;
+        const def = G.data.items.items[d.item];
+        const name = (def && def.name) || d.item;
+        if (drops) drops.spawn((def && def.type) || 'material', from, name,
+                               () => G.addItem(d.item, 1));
+        else G.addItem(d.item, 1);
       }
     },
     /**
@@ -2491,6 +2557,10 @@ function frame(dt) {
   // person you are mid-conversation with is the one thing worse than not
   // having them at all.
   if (npcs) npcs.update(dt, pos);
+  // ON SCALED TIME. A drop is part of the fight -- it should hang in the air
+  // through hit-stop with everything else, and it must not be collectable
+  // while a conversation is frozen over the top of it.
+  if (drops) drops.update(sdt);
   renderer.render(scene, camera);
   hud.textContent =
     `${fps} fps  ·  ${cur ? cur.name : '—'}  ·  ${combat && combat.isStaggered() ? 'hurt' : slip.t > 0 ? 'slip' : attacking ? 'attack' : !grounded ? 'air'
@@ -2525,6 +2595,7 @@ live();
 // before the roster finished loading.  Define the accessor explicitly.
 Object.defineProperty(globalThis, 'cur', { get: () => cur, configurable: true });
 Object.defineProperty(globalThis, 'npcs', { get: () => npcs, configurable: true });
+Object.defineProperty(globalThis, 'drops', { get: () => drops, configurable: true });
 Object.assign(globalThis, { scene, camera, renderer, chars, OUTLINES, THREE,
                             selectCharacter,
                             pos, cam, get SOLIDS() { return SOLIDS; }, FLOORS });

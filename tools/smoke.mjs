@@ -528,6 +528,7 @@ async function run() {
     // noise. Rule (q), one turn further on than the camera: the suite shares
     // one page, and every kill is now a mutation of it.
     if (window.GS && GS.ok) GS.reset();
+    if (window.drops) drops.clear();
     combat.respawn();
     __freezeEncounters(false);
     // PUT THE ENCOUNTERS BACK. Each kill test permanently removes one member of
@@ -1389,10 +1390,26 @@ async function run() {
     const atk1 = GS.stats(p0).atk;
     notes.push(`equip ${eq.ok ? 'ok' : eq.reason} · atk ${atk0} -> ${atk1}`);
 
-    // 3. selling returns sellRate * price, not the price
+    // 3. selling returns sellRate * price, not the price -- and the ROUND TRIP
+    //    is exercised, not just the price function. Only `sellPrice` was
+    //    covered before, so nothing here noticed that `buy` and `sell` take
+    //    their arguments in DIFFERENT orders upstream -- buy(shop, item, qty)
+    //    against sell(item, qty, shop). Calling it the buy way looks up an item
+    //    named "town-forge", returns {ok:false,reason:'noitem'}, and hands back
+    //    exactly zero gold with no error anywhere.
     const sellBack = Shop.sellPrice('embercap');
     const listed = GS.data.items.items['embercap'].price;
-    notes.push(`embercap lists ${listed}g, sells back ${sellBack}g`);
+    const tg0 = GS.state.gold;
+    Shop.buy('town-forge', 'drovers-jack', 1);
+    const tg1 = GS.state.gold;
+    const sold = Shop.sell('drovers-jack', 1, 'town-forge');
+    const refund = GS.state.gold - tg1;
+    // and a keepsake is never on the sell list, whatever else is
+    GS.addItem('bell-token', 1);
+    const offersKeepsake = Shop.sellable('town-forge').some((r) => r.id === 'bell-token');
+    notes.push(`embercap lists ${listed}g, sells back ${sellBack}g · `
+             + `jack round trip -${tg0 - tg1}g then +${refund}g`
+             + `${offersKeepsake ? ' · KEEPSAKE ON THE SELL LIST' : ''}`);
 
     // 4. xp levels somebody up, and the curve is the one in the data
     const lvl0 = p0.level;
@@ -1444,9 +1461,61 @@ async function run() {
              // this check measured correctly and the whole thing failed on my
              // guess about the rounding of one number.
              && sellBack === Math.max(1, Math.round(listed * 0.5)) && lvl1 === lvl0 + 1
+             && sold.ok && refund === 105 && !offersKeepsake
              && r.dead && paidGold === def.gold && paidXp === def.xp;
     GS.state.gold = gold0;
     return { ok, detail: notes.join(' · ') };
+  });
+
+  // A KILL LEAVES SOMETHING ON THE GROUND, AND WALKING OVER IT PICKS IT UP.
+  //
+  // The economy existed for a day before anybody could see it. xp, gold and the
+  // drop roll all landed silently in a save file -- the player's report was "i
+  // didn't see any items or visual artifacts drop when i killed monsters", and
+  // they were exactly right: the only way to learn you had been paid was to
+  // stop and open a menu.
+  //
+  // So the property is not "the ledger moved". It is that something LEFT the
+  // body, sat on the ground while you were looking elsewhere, and went in when
+  // you walked over it -- three separate readable moments. This check asserts
+  // all three, and specifically asserts that gold is NOT credited on the kill,
+  // because a reward that is banked before the object lands makes the object a
+  // decoration.
+  await check('a kill drops something you can walk over and collect', () => {
+    GS.reset();
+    drops.clear();
+    // force the 25% roll so this measures the path and not the dice
+    const rng = Math.random;
+    Math.random = () => 0;
+    const gold0 = GS.state.gold, xp0 = GS.state.party[0].xp;
+    const t = window.__t.faceOff('nettle', 0.5, 6.2, 1.6);
+    const r = window.__t.killPinned(t, 12);
+    __sim({ steps: 90 });                 // the toss, and the landing
+    Math.random = rng;
+    const onGround = drops.count;
+    const bankedEarly = GS.state.gold - gold0;
+    const xpNow = GS.state.party[0].xp - xp0;
+
+    // walk onto them
+    for (let i = 0; i < 300 && drops.count; i++) {
+      const h = __sim({ steps: 0 }).heroPos;
+      __sim({ steps: 1, az: Math.atan2(h[0] - 0.5, h[2] - 6.2), held: ['KeyW'] });
+    }
+    __sim({ steps: 6 });
+    const def = GS.data.monsters.monsters.nettle;
+    const gold = GS.state.gold - gold0;
+    const caps = GS.count('embercap');
+    const feed = document.getElementById('gains');
+    const lines = feed ? feed.children.length : 0;
+
+    const ok = r.dead && onGround === 2 && bankedEarly === 0 && xpNow === def.xp
+             && drops.count === 0 && gold === def.gold && caps === 1 && lines >= 2;
+    GS.reset(); drops.clear();
+    return { ok,
+             detail: `${onGround} objects thrown and landed · gold on the kill `
+                   + `${bankedEarly} (must be 0, it is still on the floor) · `
+                   + `xp ${xpNow} at once · walked over them: +${gold}g, `
+                   + `${caps} embercap, ${lines} lines in the feed` };
   });
 
   // THE NORTH ROAD IS A ROAD, AND THE PASS PAYS FOR THE CLIMB.
