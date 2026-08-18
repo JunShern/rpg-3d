@@ -177,9 +177,11 @@ const SHOTS = [
   // and opens their conversation; `panel` opens a menu or a counter directly.
   // Both need real time to pass -- the window is built on a promise and fades in
   // on a timer -- which is why these carry a `wait` the stepped shots do not.
-  { name: '20-dialogue', warp: [-5.0, 2, 4.2], az: 2.6, polar: 1.22, dist: 5.4,
+  // APPROACHED FROM THE OPEN SIDE. From the north the boom sits under the
+  // market awning and a two-metre pink plane takes a third of the frame.
+  { name: '20-dialogue', warp: [-4.8, 2, 1.5], az: 2.09, polar: 1.22, dist: 5.4,
     talk: 'tally', wait: 2600 },
-  { name: '21-dialogue-choices', warp: [-5.0, 2, 4.2], az: 2.6, polar: 1.22, dist: 5.4,
+  { name: '21-dialogue-choices', warp: [-4.8, 2, 1.5], az: 2.09, polar: 1.22, dist: 5.4,
     talk: 'tally', wait: 900, advance: 2 },
   { name: '22-menu', warp: [0.6, 0, 5.6], az: 0, polar: 1.14, dist: 7.0,
     panel: 'menu', wait: 700 },
