@@ -1,0 +1,898 @@
+{
+  "defaults": {
+    "cps": 46,
+    "bustPx": 190,
+    "players": [
+      "vesper"
+    ]
+  },
+  "speakers": {
+    "vesper": {
+      "name": "Vesper",
+      "color": "#7fb3a3",
+      "portrait": "vesper"
+    },
+    "lake": {
+      "name": "Lake",
+      "color": "#8fa6c8",
+      "portrait": "lake"
+    },
+    "maren": {
+      "name": "Maren",
+      "color": "#c8a37f",
+      "portrait": "maren"
+    },
+    "finn": {
+      "name": "Finn",
+      "color": "#b8975f",
+      "portrait": "finn"
+    },
+    "mara": {
+      "name": "Mara",
+      "color": "#a8b0bc",
+      "portrait": "mara"
+    },
+    "pip": {
+      "name": "Pip",
+      "color": "#9fbf86",
+      "portrait": "pip"
+    },
+    "tally": {
+      "name": "Tally",
+      "color": "#d09a6a",
+      "portrait": "elder-woman"
+    },
+    "hobb": {
+      "name": "Hobb",
+      "color": "#c47a52",
+      "portrait": "hobb"
+    },
+    "sexton": {
+      "name": "The Sexton",
+      "color": "#9a93b8",
+      "portrait": "tally"
+    },
+    "nell": {
+      "name": "Nell",
+      "color": "#c9b46a",
+      "portrait": "child-girl"
+    }
+  },
+  "nodes": {
+    "tally.hail": {
+      "if": {
+        "notFlag": "npc.met.tally"
+      },
+      "else": "tally.again",
+      "speaker": "tally",
+      "lines": [
+        {
+          "text": "Mind the crates, mind the crates. You'd think a square this size would be room enough for four stalls and one cart, and you would be wrong.",
+          "expr": "happy"
+        },
+        {
+          "text": "Tally. I sell what the road brings in, which this month is apples and opinions."
+        }
+      ],
+      "effects": {
+        "setFlags": {
+          "npc.met.tally": true
+        }
+      },
+      "next": "tally.ask"
+    },
+    "tally.again": {
+      "speaker": "tally",
+      "lines": [
+        {
+          "text": "Back again. Go on then.",
+          "expr": "happy"
+        }
+      ],
+      "next": "tally.ask"
+    },
+    "tally.ask": {
+      "speaker": "tally",
+      "lines": [],
+      "chooserExpr": "happy",
+      "choices": [
+        {
+          "text": "What are you selling?",
+          "to": "tally.shop"
+        },
+        {
+          "text": "What's worth buying?",
+          "to": "tally.wares"
+        },
+        {
+          "text": "Those glowing things in the grass.",
+          "to": "tally.caps"
+        },
+        {
+          "text": "Who rings the bell?",
+          "to": "tally.bell"
+        },
+        {
+          "text": "Nothing. Good day.",
+          "to": null
+        }
+      ]
+    },
+    "tally.wares": {
+      "speaker": "tally",
+      "lines": [
+        {
+          "text": "Off me? Apples, and the apples are honest. The orchard's out past the gate, east of the road — you'll smell it before you see it."
+        },
+        {
+          "text": "If you want steel, that's Hobb, and Hobb is in a mood. If you want anything else, that's Finn, and Finn will talk your ear clean off.",
+          "expr": "happy"
+        }
+      ],
+      "next": "tally.ask"
+    },
+    "tally.caps": {
+      "speaker": "tally",
+      "lines": [
+        {
+          "text": "Embercaps. They come up after rain along the walls and down the ravine, and they keep their light a good while after you knock them loose."
+        },
+        {
+          "text": "Children collect them. Grown adults with swords also collect them, and pretend it's for a reason.",
+          "expr": "happy"
+        }
+      ],
+      "effects": {
+        "setFlags": {
+          "knows.embercaps": true
+        }
+      },
+      "next": "tally.ask"
+    },
+    "tally.bell": {
+      "speaker": "tally",
+      "lines": [
+        {
+          "text": "The Sexton, when the Sexton remembers. The rope's hanging in the tower's ground room — you can reach it yourself, and everyone does once."
+        },
+        {
+          "text": "Pull it twice and you'll be found and spoken to. So: once."
+        }
+      ],
+      "effects": {
+        "setFlags": {
+          "knows.bell": true
+        }
+      },
+      "next": "tally.ask"
+    },
+    "hobb.hail": {
+      "if": {
+        "notFlag": "npc.met.hobb"
+      },
+      "else": "hobb.again",
+      "speaker": "hobb",
+      "lines": [
+        {
+          "text": "Don't lean on that. It's been hot since before you were up."
+        },
+        {
+          "text": "Hobb. This is a forge, not a gallery, but you're in it now so you may as well ask."
+        }
+      ],
+      "effects": {
+        "setFlags": {
+          "npc.met.hobb": true
+        }
+      },
+      "next": "hobb.ask"
+    },
+    "hobb.again": {
+      "speaker": "hobb",
+      "lines": [
+        {
+          "text": "Still hot. Still busy. Go on."
+        }
+      ],
+      "next": "hobb.ask"
+    },
+    "hobb.ask": {
+      "speaker": "hobb",
+      "lines": [],
+      "choices": [
+        {
+          "text": "What's for sale?",
+          "to": "hobb.shop"
+        },
+        {
+          "text": "What are you working on?",
+          "to": "hobb.work"
+        },
+        {
+          "text": "My sword's seen some use.",
+          "to": "hobb.blade"
+        },
+        {
+          "text": "What's north of the town?",
+          "to": "hobb.north"
+        },
+        {
+          "text": "I'll leave you to it.",
+          "to": null
+        }
+      ]
+    },
+    "hobb.work": {
+      "speaker": "hobb",
+      "lines": [
+        {
+          "text": "Cart bands. Pip's axle went at the ford and that cart came home on a bad wheel, which is Pip all over."
+        },
+        {
+          "text": "Before that, the bell's clapper pin. Before that, cart bands."
+        }
+      ],
+      "next": "hobb.ask"
+    },
+    "hobb.blade": {
+      "speaker": "hobb",
+      "lines": [
+        {
+          "text": "It has. You swing it like you mean it and land it like you don't."
+        },
+        {
+          "text": "Nothing to be done at this anvil about that. Hit the things that stop moving when you do — barrels, crates, the caps in the grass. They'll teach you the reach."
+        }
+      ],
+      "next": "hobb.ask"
+    },
+    "hobb.north": {
+      "speaker": "hobb",
+      "lines": [
+        {
+          "text": "The road climbs. Past the last field wall it stops pretending to be a road and starts being a hill."
+        },
+        {
+          "text": "It comes out at the cutting — two rock faces and a beacon somebody's let go out. Stand at the top and look back and you'll see this whole square no bigger than your thumb. Worth the walk once."
+        }
+      ],
+      "effects": {
+        "setFlags": {
+          "knows.pass": true
+        }
+      },
+      "next": "hobb.ask"
+    },
+    "sexton.hail": {
+      "if": {
+        "notFlag": "npc.met.sexton"
+      },
+      "else": "sexton.again",
+      "speaker": "sexton",
+      "lines": [
+        {
+          "text": "You've been looking up at it. Everybody does, and then everybody goes in."
+        },
+        {
+          "text": "The stair's sound. Hold the inside as you climb — the treads are narrower than they look from below."
+        }
+      ],
+      "effects": {
+        "setFlags": {
+          "npc.met.sexton": true,
+          "knows.tower": true
+        }
+      },
+      "next": "sexton.ask"
+    },
+    "sexton.again": {
+      "speaker": "sexton",
+      "lines": [
+        {
+          "text": "Mind the treads."
+        }
+      ],
+      "next": "sexton.ask"
+    },
+    "sexton.ask": {
+      "speaker": "sexton",
+      "lines": [],
+      "choices": [
+        {
+          "text": "May I ring it?",
+          "to": "sexton.ring"
+        },
+        {
+          "text": "What's up at the top?",
+          "to": "sexton.belfry"
+        },
+        {
+          "text": "Later.",
+          "to": null
+        }
+      ]
+    },
+    "sexton.ring": {
+      "speaker": "sexton",
+      "lines": [
+        {
+          "text": "You will whether I say so or not. The rope's in the ground room, and it wants a proper pull, not a tug."
+        },
+        {
+          "text": "Watch the rope, not the roof. That's how you'll know it took."
+        }
+      ],
+      "effects": {
+        "setFlags": {
+          "knows.bell": true
+        }
+      },
+      "next": "sexton.ask"
+    },
+    "sexton.belfry": {
+      "speaker": "sexton",
+      "lines": [
+        {
+          "text": "The bell, and the best look at the roofs there is. You can see where the leads run between the ranges — people your age get ideas about that."
+        },
+        {
+          "text": "They're not wrong. Just don't come to me about it afterwards."
+        }
+      ],
+      "effects": {
+        "setFlags": {
+          "knows.rooftops": true
+        }
+      },
+      "next": "sexton.ask"
+    },
+    "nell.hail": {
+      "if": {
+        "notFlag": "npc.met.nell"
+      },
+      "else": "nell.again",
+      "speaker": "nell",
+      "lines": [
+        {
+          "text": "You're the one with the sword.",
+          "expr": "happy"
+        },
+        {
+          "text": "I'm Nell. I know four ways onto the roofs and one way under the square and I'm not telling you the under one."
+        }
+      ],
+      "effects": {
+        "setFlags": {
+          "npc.met.nell": true
+        }
+      },
+      "next": "nell.ask"
+    },
+    "nell.again": {
+      "speaker": "nell",
+      "lines": [
+        {
+          "text": "Still not telling you the under one.",
+          "expr": "happy"
+        }
+      ],
+      "next": "nell.ask"
+    },
+    "nell.ask": {
+      "speaker": "nell",
+      "lines": [],
+      "chooserExpr": "happy",
+      "choices": [
+        {
+          "text": "Tell me a roof way, then.",
+          "to": "nell.roofs"
+        },
+        {
+          "text": "Under the square?",
+          "to": "nell.cellar"
+        },
+        {
+          "text": "Do you ever leave the square?",
+          "to": "nell.out"
+        },
+        {
+          "text": "Carry on.",
+          "to": null
+        }
+      ]
+    },
+    "nell.roofs": {
+      "speaker": "nell",
+      "lines": [
+        {
+          "text": "The gallery steps, obviously. Everyone finds those. Go up them and keep going up.",
+          "expr": "happy"
+        },
+        {
+          "text": "There's a lead that runs the whole east range. Somebody left something good at the far end of it and it's still there, so nobody's been all the way along."
+        }
+      ],
+      "effects": {
+        "setFlags": {
+          "knows.rooftops": true
+        }
+      },
+      "next": "nell.ask"
+    },
+    "nell.cellar": {
+      "speaker": "nell",
+      "lines": [
+        {
+          "text": "There's a way down. It's not a secret because it's hidden, it's a secret because you have to want it."
+        },
+        {
+          "text": "It's cold down there and the ceiling is the square, which I like. You can hear feet.",
+          "expr": "happy"
+        }
+      ],
+      "effects": {
+        "setFlags": {
+          "knows.cellar": true
+        }
+      },
+      "next": "nell.ask"
+    },
+    "nell.out": {
+      "speaker": "nell",
+      "lines": [
+        {
+          "text": "Past the gate? To the ford and back. Not further. There are things in the long grass that don't run away when you shout at them."
+        },
+        {
+          "text": "I shouted at one for a while to check."
+        }
+      ],
+      "next": "nell.ask"
+    },
+    "finn.hail": {
+      "if": {
+        "notFlag": "npc.met.finn"
+      },
+      "else": "finn.again",
+      "speaker": "finn",
+      "lines": [
+        {
+          "text": "Come in, come in — mind the step, everyone forgets the step.",
+          "expr": "happy"
+        },
+        {
+          "text": "Finn. If it isn't nailed down and isn't a sheep, I've probably had one through here."
+        }
+      ],
+      "effects": {
+        "setFlags": {
+          "npc.met.finn": true
+        }
+      },
+      "next": "finn.ask"
+    },
+    "finn.again": {
+      "speaker": "finn",
+      "lines": [
+        {
+          "text": "Back in. Mind the step.",
+          "expr": "happy"
+        }
+      ],
+      "next": "finn.ask"
+    },
+    "finn.ask": {
+      "speaker": "finn",
+      "lines": [],
+      "chooserExpr": "happy",
+      "choices": [
+        {
+          "text": "Show me what you have.",
+          "to": "finn.shop"
+        },
+        {
+          "text": "What's the news?",
+          "to": "finn.news"
+        },
+        {
+          "text": "Where is everyone?",
+          "to": "finn.folk"
+        },
+        {
+          "text": "Just looking.",
+          "to": null
+        }
+      ]
+    },
+    "finn.news": {
+      "speaker": "finn",
+      "lines": [
+        {
+          "text": "The stream's up, so the ford's a hop rather than a wade. The old fold out west has sheep in it again — first time in a good while."
+        },
+        {
+          "text": "And something's got into the meadow that wasn't in it last season. Nettles that move. I'd rather you than me."
+        }
+      ],
+      "next": "finn.ask"
+    },
+    "finn.folk": {
+      "speaker": "finn",
+      "lines": [
+        {
+          "text": "Tally's out at the stall shouting at the crates. Hobb's at the fire. The Sexton is wherever the tower is, which is a joke she's heard."
+        },
+        {
+          "text": "Mara's up in the yard with the woolts, and Pip's by the gate with a cart that shouldn't be moving.",
+          "expr": "happy"
+        }
+      ],
+      "next": "finn.ask"
+    },
+    "mara.hail": {
+      "if": {
+        "notFlag": "npc.met.mara"
+      },
+      "else": "mara.again",
+      "speaker": "mara",
+      "lines": [
+        {
+          "text": "Shut the gate behind you or I'll be up on the roofs after them all afternoon."
+        },
+        {
+          "text": "Mara. These four are the last of the town flock. The rest are out at the fold now the wall's mended."
+        }
+      ],
+      "effects": {
+        "setFlags": {
+          "npc.met.mara": true
+        }
+      },
+      "next": "mara.ask"
+    },
+    "mara.again": {
+      "speaker": "mara",
+      "lines": [
+        {
+          "text": "Gate. Thank you."
+        }
+      ],
+      "next": "mara.ask"
+    },
+    "mara.ask": {
+      "speaker": "mara",
+      "lines": [],
+      "choices": [
+        {
+          "text": "The fold out west?",
+          "to": "mara.fold"
+        },
+        {
+          "text": "Are they safe out there?",
+          "to": "mara.safe"
+        },
+        {
+          "text": "I'll leave you to them.",
+          "to": null
+        }
+      ]
+    },
+    "mara.fold": {
+      "speaker": "mara",
+      "lines": [
+        {
+          "text": "Drystone, four walls, gate downhill. It's a fair walk — out past the ford, then west off the road where the rock spine runs."
+        },
+        {
+          "text": "Get up on the spine and look west and you'll see it below you, and the cairn on the rise above it. My grandfather stacked that cairn. Or said he did."
+        }
+      ],
+      "effects": {
+        "setFlags": {
+          "knows.fold": true
+        }
+      },
+      "next": "mara.ask"
+    },
+    "mara.safe": {
+      "speaker": "mara",
+      "lines": [
+        {
+          "text": "Safe as anything is. A woolt's whole plan is to be somewhere else very suddenly, and it's a better plan than most."
+        },
+        {
+          "text": "Walk up on one and you'll see it work."
+        }
+      ],
+      "next": "mara.ask"
+    },
+    "pip.hail": {
+      "if": {
+        "notFlag": "npc.met.pip"
+      },
+      "else": "pip.again",
+      "speaker": "pip",
+      "lines": [
+        {
+          "text": "It's fine. It's fine. It only does that on the left.",
+          "expr": "happy"
+        },
+        {
+          "text": "Pip. Carter, when the cart agrees."
+        }
+      ],
+      "effects": {
+        "setFlags": {
+          "npc.met.pip": true
+        }
+      },
+      "next": "pip.ask"
+    },
+    "pip.again": {
+      "speaker": "pip",
+      "lines": [
+        {
+          "text": "Still only on the left.",
+          "expr": "happy"
+        }
+      ],
+      "next": "pip.ask"
+    },
+    "pip.ask": {
+      "speaker": "pip",
+      "lines": [],
+      "chooserExpr": "happy",
+      "choices": [
+        {
+          "text": "Where does the road go?",
+          "to": "pip.road"
+        },
+        {
+          "text": "What's the ravine?",
+          "to": "pip.ravine"
+        },
+        {
+          "text": "Good luck with the wheel.",
+          "to": null
+        }
+      ]
+    },
+    "pip.road": {
+      "speaker": "pip",
+      "lines": [
+        {
+          "text": "Out the gate, down through the fields, over the ford, and up. Keeps going up until it stops being worth it."
+        },
+        {
+          "text": "There's a cutting at the top with a beacon in it. I've had the cart that far exactly once and I'd not do it twice."
+        }
+      ],
+      "effects": {
+        "setFlags": {
+          "knows.pass": true
+        }
+      },
+      "next": "pip.ask"
+    },
+    "pip.ravine": {
+      "speaker": "pip",
+      "lines": [
+        {
+          "text": "The gorge west of the road? Water cut it. You can get down into the bed if you pick your spot, and it's cool down there on a day like this."
+        },
+        {
+          "text": "Caps grow along the bottom. Mind the walk out — it's steeper than the walk in, which is always the way."
+        }
+      ],
+      "effects": {
+        "setFlags": {
+          "knows.ravine": true
+        }
+      },
+      "next": "pip.ask"
+    },
+    "lake.hail": {
+      "if": {
+        "notFlag": "npc.met.lake"
+      },
+      "else": "lake.again",
+      "speaker": "lake",
+      "lines": [
+        {
+          "text": "You made it, then."
+        },
+        {
+          "text": "I've been sat on this step since the bell. It's a good step. You can see everyone arrive and nobody sees you.",
+          "expr": "wry"
+        }
+      ],
+      "effects": {
+        "setFlags": {
+          "npc.met.lake": true
+        }
+      },
+      "next": "lake.ask"
+    },
+    "lake.again": {
+      "speaker": "lake",
+      "lines": [
+        {
+          "text": "Still here. Still a good step.",
+          "expr": "wry"
+        }
+      ],
+      "next": "lake.ask"
+    },
+    "lake.ask": {
+      "speaker": "lake",
+      "lines": [],
+      "choices": [
+        {
+          "text": "Seen Maren?",
+          "to": "lake.maren"
+        },
+        {
+          "text": "What have you learned sitting there?",
+          "to": "lake.watch"
+        },
+        {
+          "text": "Enjoy the step.",
+          "to": null
+        }
+      ]
+    },
+    "lake.maren": {
+      "speaker": "lake",
+      "lines": [
+        {
+          "text": "Out past the ford somewhere. Gone to look at the old ruin, and nobody has ever once come straight back from looking at that."
+        },
+        {
+          "text": "Try the meadow. Try up on the hill with the stones, if the walk went that far."
+        }
+      ],
+      "effects": {
+        "setFlags": {
+          "knows.maren": true
+        }
+      },
+      "next": "lake.ask"
+    },
+    "lake.watch": {
+      "speaker": "lake",
+      "lines": [
+        {
+          "text": "That the birds go up before anything happens, and come down after. If a square full of them empties, look where they were.",
+          "expr": "wry"
+        }
+      ],
+      "effects": {
+        "setFlags": {
+          "knows.flock": true
+        }
+      },
+      "next": "lake.ask"
+    },
+    "maren.hail": {
+      "if": {
+        "notFlag": "npc.met.maren"
+      },
+      "else": "maren.again",
+      "speaker": "maren",
+      "lines": [
+        {
+          "text": "There you are. Look at this.",
+          "expr": "happy"
+        },
+        {
+          "text": "The lintel's still up. Two uprights and a stone across them, and nobody's touched it in — I don't know. Longer than the town."
+        }
+      ],
+      "effects": {
+        "setFlags": {
+          "npc.met.maren": true
+        }
+      },
+      "next": "maren.ask"
+    },
+    "maren.again": {
+      "speaker": "maren",
+      "lines": [
+        {
+          "text": "Still looking. Don't rush me.",
+          "expr": "happy"
+        }
+      ],
+      "next": "maren.ask"
+    },
+    "maren.ask": {
+      "speaker": "maren",
+      "lines": [],
+      "chooserExpr": "happy",
+      "choices": [
+        {
+          "text": "What's up on the hill?",
+          "to": "maren.stones"
+        },
+        {
+          "text": "Anything worth taking?",
+          "to": "maren.finds"
+        },
+        {
+          "text": "I'll leave you to it.",
+          "to": null
+        }
+      ]
+    },
+    "maren.stones": {
+      "speaker": "maren",
+      "lines": [
+        {
+          "text": "A ring of them, and a rock shelf beside it you can climb. Go up the shelves — they're steps if you take them at the right corner."
+        },
+        {
+          "text": "From the top you get the town, the road and the far hills in one look. I sat up there an hour."
+        }
+      ],
+      "effects": {
+        "setFlags": {
+          "knows.outcrop": true
+        }
+      },
+      "next": "maren.ask"
+    },
+    "maren.finds": {
+      "speaker": "maren",
+      "lines": [
+        {
+          "text": "Caps, if you can be bothered to knock them. There's a hollow in the wood south of here that's full of them and very hard to leave.",
+          "expr": "happy"
+        },
+        {
+          "text": "And whatever's at the end of the roof lead back in town, which I am too tall and too sensible for."
+        }
+      ],
+      "effects": {
+        "setFlags": {
+          "knows.dell": true
+        }
+      },
+      "next": "maren.ask"
+    },
+    "finn.shop": {
+      "speaker": "finn",
+      "lines": [
+        {
+          "text": "Everything on the shelf and a few things under it. Take your time.",
+          "expr": "happy"
+        }
+      ],
+      "effects": {
+        "shop": "town-goods"
+      }
+    },
+    "hobb.shop": {
+      "speaker": "hobb",
+      "lines": [
+        {
+          "text": "Rack on the wall. Prices are on the rack. Don't haggle, I'm working."
+        }
+      ],
+      "effects": {
+        "shop": "town-forge"
+      }
+    },
+    "tally.shop": {
+      "speaker": "tally",
+      "lines": [
+        {
+          "text": "Have a look. Mind the crates.",
+          "expr": "happy"
+        }
+      ],
+      "effects": {
+        "shop": "town-stall"
+      }
+    }
+  }
+}

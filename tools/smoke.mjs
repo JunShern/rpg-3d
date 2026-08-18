@@ -1215,6 +1215,174 @@ async function run() {
                    + `(the crest peaks at 9.29)${stalled ? ' | ' + stalled : ''}` };
   });
 
+  group('The town has people in it');
+
+  // EVERY PERSON IS REACHABLE, AND EVERY CONVERSATION EXISTS.
+  //
+  // Nine townspeople, placed by hand in world coordinates against a town built
+  // by a different script. There are two ways that goes wrong and neither is
+  // visible in a capture: somebody stands 1.5 m inside a wall so the prompt
+  // never arms, or somebody's roster row names a dialogue node that is not in
+  // the file, which fails silently and opens nothing.
+  await check('every townsperson can be reached and has something to say', () => {
+    const rows = [], missing = [];
+    const nodes = Dialogue.data ? Dialogue.data.nodes : null;
+    for (const id of ['tally', 'hobb', 'sexton', 'nell', 'finn', 'mara', 'pip',
+                      'lake', 'maren']) {
+      const n = npcs.at(id);
+      if (!n) { missing.push(`${id}:absent`); continue; }
+      if (!nodes || !nodes[n.node]) missing.push(`${id}:node ${n.node}`);
+      // STAND WHERE A PLAYER WOULD, which is not on top of them: start 3.5 m
+      // out along their own facing -- the side they are looking at -- and walk
+      // in. Warping to arm's length would prove nothing about whether the
+      // approach is clear.
+      const ax = n.x + Math.sin(n.facing) * 3.5, az0 = n.z + Math.cos(n.facing) * 3.5;
+      __sim({ warp: [ax, (n.gy || 0) + 3, az0], az: 0, steps: 25 });
+      let reached = false;
+      for (let i = 0; i < 300; i++) {
+        const h = __sim({ steps: 0 }).heroPos;
+        if (Math.hypot(n.x - h[0], n.z - h[2]) < 1.7) { reached = true; break; }
+        __sim({ steps: 1, az: Math.atan2(h[0] - n.x, h[2] - n.z), held: ['KeyW'] });
+      }
+      __sim({ steps: 2 });
+      const armed = npcs.near === id;
+      rows.push(`${id}${armed ? '' : reached ? ' NO-PROMPT' : ' UNREACHABLE'}`);
+      if (!armed) missing.push(`${id}:${reached ? 'no prompt at 1.7 m' : 'could not walk to'}`);
+    }
+    return { ok: !missing.length,
+             detail: `${rows.length} people · ${missing.length ? missing.join(' | ')
+                        : 'all reachable, all with a node'}` };
+  });
+
+  // AND THE WINDOW OPENS, TYPES, BRANCHES AND FREEZES THE WORLD.
+  //
+  // The dialogue box is vendored from another project, so the thing worth
+  // checking is not that IT works -- it has its own suite over there -- but
+  // that the SEAM works: our key reaches it, our UILOCK freezes the fight, the
+  // portrait resolves against our copy of the art, and letting go gives control
+  // back. A lock that is never released is the worst failure available here:
+  // the player cannot move and there is nothing on screen to explain why.
+  await check('a conversation opens, branches and gives control back', async () => {
+    // ASYNC, AND IT HAS TO BE. `Dialogue.play()` awaits its data and the panel
+    // fades in on an 8 ms timer; `__sim` steps the SIMULATION and does not
+    // advance real timers at all. Stepping three frames and then asking whether
+    // the window is open measured a window that had not been built yet -- it
+    // reported no portrait, no choices, and a world that was still running,
+    // which is three symptoms of one mistake about time.
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const n = npcs.at('tally');
+    __sim({ warp: [n.x + 1.4, 3, n.z + 1.4], az: 0, steps: 25 });
+    __sim({ steps: 3 });
+    const armed = npcs.near;
+    const opened = npcs.tryTalk();
+    for (let i = 0; i < 60 && !Dialogue.isOpen; i++) await wait(25);
+    __sim({ steps: 2 });
+    const d0 = Dialogue.debug();
+
+    // THE WORLD MUST BE FROZEN: hold W for 40 frames and go nowhere.
+    const before = __sim({ steps: 0 }).heroPos;
+    __sim({ steps: 40, held: ['KeyW'] });
+    const after = __sim({ steps: 0 }).heroPos;
+    const drift = Math.hypot(after[0] - before[0], after[2] - before[2]);
+
+    // type it out and advance to the choice list
+    Dialogue.finishLine(); Dialogue.key('confirm');
+    Dialogue.finishLine(); Dialogue.key('confirm');
+    await wait(60);
+    const d1 = Dialogue.debug();
+
+    // take a branch, come back, and leave
+    Dialogue.key('confirm');
+    await wait(60);
+    Dialogue.finishLine(); Dialogue.key('confirm');
+    Dialogue.finishLine(); Dialogue.key('confirm');
+    await wait(60);
+    Dialogue.close();
+    await wait(120);
+    __sim({ steps: 2 });
+    const freed = !Dialogue.isOpen && !window.UILOCK.held;
+
+    // ...and she can move again
+    const p0 = __sim({ steps: 0 }).heroPos;
+    __sim({ steps: 40, held: ['KeyW'] });
+    const p1 = __sim({ steps: 0 }).heroPos;
+    const moved = Math.hypot(p1[0] - p0[0], p1[2] - p0[2]);
+
+    const ok = armed === 'tally' && opened && d0.open && d0.portrait === 'cutin'
+             && drift < 0.05 && (d1.choices || []).length >= 3 && freed && moved > 1.0;
+    return { ok,
+             detail: `armed on ${armed} · portrait ${d0.portrait} · frozen: drifted `
+                   + `${drift.toFixed(3)} m under 40 frames of W · `
+                   + `${(d1.choices || []).length} choices · after closing, lock `
+                   + `${freed ? 'released' : 'STILL HELD'} and she walked `
+                   + `${moved.toFixed(2)} m` };
+  });
+
+  // THE ECONOMY IS REAL, AND IT IS THE SAME NUMBERS EVERYWHERE.
+  //
+  // game_state / shop / menu are vendored from Emberbrook and have their own
+  // suite there. What is NOT covered by that suite is the part that is ours:
+  // this game's data files, and whether the seams hold -- an item table nested
+  // one level differently loads fine and then throws the first time anybody
+  // asks for a stat, which is exactly what happened.
+  //
+  // A kill has to PAY, from the same file combat fights out of. If monsters.json
+  // says a nettle is 40 HP and 8 xp, and the fight gives 8 xp for killing one,
+  // then the reward is proportional to something real instead of invented at
+  // the call site.
+  await check('the economy loads, trades, equips and levels', async () => {
+    await GS.ready;
+    const notes = [];
+    const p0 = GS.state.party[0];
+    const gold0 = GS.state.gold;
+
+    // 1. buying moves gold and inventory in opposite directions
+    GS.addGold(400);
+    const before = GS.state.gold;
+    const bought = Shop.buy('town-forge', 'smiths-edge', 1);
+    const spent = before - GS.state.gold;
+    notes.push(`bought for ${spent}g`);
+
+    // 2. equipping it shows up in the derived stats, and nowhere else
+    const atk0 = GS.stats(p0).atk;
+    Menu.equipItem(p0, 'weapon', 'smiths-edge');
+    const atk1 = GS.stats(p0).atk;
+    notes.push(`atk ${atk0} -> ${atk1}`);
+
+    // 3. selling returns sellRate * price, not the price
+    const sellBack = Shop.sellPrice('embercap');
+    const listed = GS.data.items.items['embercap'].price;
+    notes.push(`embercap lists ${listed}g, sells back ${sellBack}g`);
+
+    // 4. xp levels somebody up, and the curve is the one in the data
+    const lvl0 = p0.level;
+    GS.grantXp(GS.xpToNext(p0.level) + 1);
+    const lvl1 = p0.level;
+    notes.push(`L${lvl0} -> L${lvl1} on ${GS.xpToNext(lvl0)} xp`);
+
+    // 5. AND A KILL PAYS IT. Spawn one, kill it, and read the ledger -- this is
+    //    the only assertion here that crosses from the economy into the fight.
+    const g1 = GS.state.gold, x1 = p0.xp, lv1 = p0.level;
+    __sim({ warp: [0.5, 2, 6.2], az: 0, steps: 10 });
+    const e = combat.spawn('nettle', 2.0, 6.2);
+    for (let i = 0; i < 400 && !e.dead; i++) {
+      __sim({ steps: 1, az: Math.atan2(0.5 - e.pos.x, 6.2 - e.pos.z) + Math.PI });
+      if (i % 6 === 0) combat.attack();
+    }
+    __sim({ steps: 4 });
+    const def = GS.data.monsters.monsters.nettle;
+    const paidGold = GS.state.gold - g1;
+    // xp may have rolled a level, in which case the raw delta is not the payout
+    const paidXp = p0.level > lv1 ? def.xp : p0.xp - x1;
+    notes.push(`nettle paid ${paidGold}g / ${paidXp}xp (data says ${def.gold}g / ${def.xp}xp)`);
+
+    const ok = bought && spent === 260 && atk1 === atk0 + 6
+             && sellBack === Math.floor(listed * 0.5) && lvl1 === lvl0 + 1
+             && e.dead && paidGold === def.gold && paidXp === def.xp;
+    GS.state.gold = gold0;
+    return { ok, detail: notes.join(' · ') };
+  });
+
   // THE NORTH ROAD IS A ROAD, AND THE PASS PAYS FOR THE CLIMB.
   //
   // Three separate things had to be true here and none of them were. The road

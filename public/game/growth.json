@@ -1,0 +1,79 @@
+{
+ "_schema": "curve: xpToNext(level) = k * level^2, the xp needed to advance FROM that level. characters: base = level-1 stats, growth = per-level gains (fractional, accumulated then floored). Ported from the Emberbrook schema unchanged so its game_state.js reads this without edits.",
+ "curve": {
+  "type": "quadratic",
+  "k": 10,
+  "_why": "10, not 25. The demo is ten minutes long and the whole point of a level is that you SEE one: at k=10 the first level costs 10 xp and a nettle is worth 8, so the second creature you kill levels you. A curve tuned for a forty-hour game reads as a stat screen that never moves."
+ },
+ "characters": {
+  "vesper": {
+   "name": "Vesper",
+   "active": true,
+   "base": {
+    "hp": 100,
+    "atk": 8,
+    "def": 5,
+    "spd": 6
+   },
+   "growth": {
+    "hp": 8,
+    "atk": 2,
+    "def": 1.5,
+    "spd": 1
+   },
+   "startEquip": {
+    "weapon": "town-blade",
+    "armor": "travellers-coat"
+   },
+   "desc": "Steady, stubborn, and the one holding the sword."
+  },
+  "lake": {
+   "name": "Lake",
+   "active": false,
+   "joinFlag": "npc.met.lake",
+   "base": {
+    "hp": 96,
+    "atk": 7,
+    "def": 7,
+    "spd": 5
+   },
+   "growth": {
+    "hp": 9,
+    "atk": 1.5,
+    "def": 2,
+    "spd": 1
+   },
+   "startEquip": {
+    "weapon": "town-blade",
+    "armor": "drovers-jack"
+   },
+   "desc": "Watches a square for an hour and tells you what happened in it."
+  },
+  "maren": {
+   "name": "Maren",
+   "active": false,
+   "joinFlag": "npc.met.maren",
+   "base": {
+    "hp": 88,
+    "atk": 9,
+    "def": 4,
+    "spd": 9
+   },
+   "growth": {
+    "hp": 6,
+    "atk": 2.5,
+    "def": 1,
+    "spd": 2
+   },
+   "startEquip": {
+    "weapon": "town-blade",
+    "armor": "travellers-coat"
+   },
+   "desc": "Has never once come straight back from looking at anything."
+  }
+ },
+ "startGold": 40,
+ "startInventory": {
+  "emberbrew": 2
+ }
+}

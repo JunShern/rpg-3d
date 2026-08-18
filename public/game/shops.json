@@ -1,0 +1,36 @@
+{
+ "_schema": "shopId -> stock (item ids from items.json; the price comes from there). Shops buy anything sellable at sellRate * price. `keeper` is the speaker id in dialogue.json, because a counter is titled by the person behind it, not by the trade.",
+ "rates": {
+  "buyRate": 1.0,
+  "sellRate": 0.5
+ },
+ "shops": {
+  "town-goods": {
+   "name": "The Shop (general goods)",
+   "keeper": "finn",
+   "stock": [
+    "emberbrew",
+    "field-poultice",
+    "reed-cord"
+   ]
+  },
+  "town-forge": {
+   "name": "The Forge",
+   "keeper": "hobb",
+   "stock": [
+    "smiths-edge",
+    "river-steel",
+    "drovers-jack",
+    "warden-mail"
+   ]
+  },
+  "town-stall": {
+   "name": "The Market Stall",
+   "keeper": "tally",
+   "stock": [
+    "emberbrew",
+    "embercap"
+   ]
+  }
+ }
+}

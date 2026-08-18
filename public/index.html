@@ -23,6 +23,15 @@
     letter-spacing: 0.01em;
   }
   #hud { top: 12px; left: 12px; }
+  /* WHILE A CONVERSATION IS UP, THE DEBUG FURNITURE GETS OUT OF THE WAY. The
+     dialogue window is bottom-anchored and carries its own "E/Enter continue"
+     footer, which landed directly on top of the help bar -- two lines of white
+     text through each other. The HUD readout and the vitals bar are no better:
+     a frame that is meant to read as a conversation should not also be showing
+     a triangle count. `body.talking` is set by npc.js when the window opens. */
+  body.talking #help, body.talking #hud, body.talking #vitals { opacity: 0;
+    transition: opacity 140ms ease; }
+  #help, #hud, #vitals { transition: opacity 200ms ease; }
   #help { bottom: 12px; left: 12px; color: #b6c4d8; }
   #help b { color: #ffe9a8; font-weight: 600; }
   #loading { top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 13px; padding: 14px 20px; }
@@ -129,6 +138,27 @@
     <b>shift</b> slip &nbsp;·&nbsp; <b>space</b>+<b>J</b> falling cut &nbsp;·&nbsp;
     <b>C</b> character
   </div>
+
+  <!-- THE DIALOGUE WINDOW, vendored from the Emberbrook project unmodified.
+       Classic scripts, not modules: both files are IIFEs that hang one global
+       off `window` (EBUI, Dialogue), which is how they are written upstream and
+       is exactly why they can be dropped in and later re-copied wholesale when
+       that project improves them. They are loaded BEFORE main.js so the module
+       finds them already defined -- and they are DOM-free at load time, so the
+       order is the only coupling. main.js supplies the `window.UILOCK` contract
+       they expect for pausing the world. -->
+  <script>window.EB_SAVE_KEY = 'rpg3d-save';</script>
+  <script src="/js/vendor/ui_kit.js"></script>
+  <script src="/js/vendor/dialogue.js"></script>
+  <!-- THE ECONOMY AND THE MENU, same provenance and the same deal. game_state
+       owns the save (party, level, xp, gold, inventory, equipment); menu.js is
+       the Esc screen and registers itself once GS.ready resolves; shop.js is the
+       counter, opened from a keeper's dialogue rather than from a floor pad --
+       this game has no pre-rendered scene keys for it to match against, and a
+       shopkeeper offering to show you their stock is a better door anyway. -->
+  <script src="/js/vendor/game_state.js"></script>
+  <script src="/js/vendor/shop.js"></script>
+  <script src="/js/vendor/menu.js"></script>
 
   <script type="importmap">
   {

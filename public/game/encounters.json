@@ -1,0 +1,43 @@
+{
+ "_schema": "Per zone. This game does not cut to a battle screen -- combat is real-time and in the world -- so these tables describe WHAT LIVES WHERE for the spawner, not a random-encounter roll.",
+ "meadow": {
+  "groups": [
+   {
+    "weight": 3,
+    "monsters": [
+     "nettle"
+    ]
+   },
+   {
+    "weight": 2,
+    "monsters": [
+     "nettle",
+     "curler"
+    ]
+   },
+   {
+    "weight": 1,
+    "monsters": [
+     "curler"
+    ]
+   }
+  ]
+ },
+ "ridge": {
+  "groups": [
+   {
+    "weight": 2,
+    "monsters": [
+     "curler",
+     "curler"
+    ]
+   },
+   {
+    "weight": 1,
+    "monsters": [
+     "bellow"
+    ]
+   }
+  ]
+ }
+}

@@ -10,6 +10,7 @@
 // placed the geometry, so a wall and the box that blocks you cannot drift apart.
 
 import * as THREE from 'three';
+import { makeNpcs } from './npc.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import {
   toonMaterial, flatMaterial, outlineMaterial, outlineGeometry, skyDome,
@@ -490,6 +491,39 @@ const ROSTER = [
   { name: 'lake',   url: '/assets/lake.glb',   look: CAST_LOOK, outline: 0.0028 },
   { name: 'maren',  url: '/assets/maren.glb',  look: CAST_LOOK, outline: 0.0028 },
 ];
+// THE TOWNSPEOPLE'S BODIES. Loaded into `chars` like the cast, but deliberately
+// not in ROSTER -- `cycleCharacter` walks ROSTER, so C still cycles the three
+// playable characters and does not offer to make you the shopkeeper. They are
+// here to be CLONED by npc.js, which wants the finished article: toon materials
+// keyed to the look table and an outline hull per mesh, both of which
+// `buildCharacter` has already done.
+//
+// Same intake as the cast, and for the same reason it was cheap: these are
+// Emberbrook Tripo generations on the identical source rig, so each one cost a
+// row in char_build.CHARACTERS. They also arrive with painted cut-in portraits
+// already drawn, which is the half of a conversation this engine cannot make.
+// LOW-POLY, AND THAT IS THE WHOLE POINT OF THEM BEING SEPARATE FILES. The
+// playable rigs come out of char_build at 0.45 decimation, which is 86,000
+// triangles each -- fine for the one body the camera is always three metres
+// from, and ruinous nine times over. Nine townspeople took the plaza to
+// 2,014,781 triangles and 20 fps, and every one of those triangles was on
+// somebody standing still in the middle distance.
+//
+// These are the same characters through the same pipeline at 0.10, about
+// 19,000 triangles apiece. They are cloned by npc.js and never played, so the
+// only thing they have to survive is being looked at from two metres away in a
+// toon ramp that reads silhouette before surface -- which is exactly the case
+// decimation costs least.
+//
+// Keyed `<name>.npc` so they cannot collide with the playable rig of the same
+// name: Lake is both a character you can BE and a body two townspeople wear.
+const NPC_RIGS = [
+  { name: 'lake.npc',  url: '/assets/npc/lake.glb',  look: CAST_LOOK, outline: 0.0028 },
+  { name: 'maren.npc', url: '/assets/npc/maren.glb', look: CAST_LOOK, outline: 0.0028 },
+  { name: 'finn.npc',  url: '/assets/npc/finn.glb',  look: CAST_LOOK, outline: 0.0028 },
+  { name: 'mara.npc',  url: '/assets/npc/mara.glb',  look: CAST_LOOK, outline: 0.0028 },
+  { name: 'pip.npc',   url: '/assets/npc/pip.glb',   look: CAST_LOOK, outline: 0.0028 },
+];
 // The scripted five-head hero was the character PROBE, not a cast member, and
 // he reads as a different game beside these three.  hero_build.py still builds
 // him -- he is the reference implementation and hosts the joint probes -- he is
@@ -552,6 +586,11 @@ function buildCharacter(def, gltf) {
   }
   const ch = { name: def.name, group, mixer, clips, mats, current: null,
                legs: collectLegs(group),
+               // THE RAW CLIPS, not just the actions. `clips` above are
+               // AnimationActions already bound to THIS character's mixer, and
+               // an action cannot be replayed on another one. An NPC clone
+               // needs the underlying AnimationClips to bind its own.
+               rawClips: gltf.animations,
                hand: findBone(group, 'handr') };
   mixer.addEventListener('finished', (e) => {
     if (e.action === clips.land) {
@@ -576,12 +615,74 @@ function selectCharacter(name) {
   hud.dataset.who = name;
 }
 
-Promise.all(ROSTER.map((def) =>
+// ------------------------------------------------------------------ people
+//
+// WHERE EVERYBODY STANDS. Positions are in three.js world space (z = -blender y)
+// and were read off the town build rather than eyeballed: the shop door is at
+// (7, 15) in the builder's frame, the smithy at (17, -2), the belltower at
+// (-1, 15.5), the walled yard at (26, -3.25).
+//
+// EVERY ONE OF THEM IS SOMEWHERE THEY WOULD BE. A townsperson standing in open
+// paving is set dressing; a townsperson at their own counter, gate or fire is a
+// place with somebody in it. Tally is at her stall, Hobb at his forge, the
+// Sexton under the tower she keeps, Mara in the yard with the animals, Pip
+// beside the cart with the bad wheel, Finn behind the shop counter -- and Nell
+// is loose in the square, because a child who stays put is not a child.
+//
+// `rig` is which body they wear and `tint` is how six rigs dress ten people.
+const NPC_ROSTER = [
+  // BODIES ARE CAST AGAINST THE PORTRAITS, not assigned and hoped for. The
+  // first pass put Tally's elderly-cleric cut-in on a young woman in a red
+  // dress, and the mismatch is the loudest thing in the frame -- you read the
+  // body for two seconds while you walk up, then the box contradicts it.
+  // Looking at the art settled it: the `tally` plate is a bald man in glasses
+  // and a sashed robe, which is a SEXTON; `elder-woman` is an old woman with a
+  // shawl and knitting, which is somebody who has run a market stall for forty
+  // years. They swapped, and both got better.
+  //
+  // Five people wear their own face -- finn, mara, pip, lake, maren are the
+  // rigs those portraits were drawn for. The other four borrow a rig and are
+  // tinted, which is exactly how Emberbrook dresses thirty-nine people in six
+  // bodies: a toon ramp reads silhouette and value long before it reads a face.
+  { id: 'tally',  name: 'Tally',      rig: 'maren.npc', tint: '#cfc6b4', scale: 0.95,
+    x: -6.2, z: 2.4,   facing: 150, dialogue: 'tally.hail' },
+  { id: 'hobb',   name: 'Hobb',       rig: 'lake.npc',  tint: '#c9a184',
+    x: 15.6, z: -1.4,  facing: 210, dialogue: 'hobb.hail' },
+  { id: 'sexton', name: 'The Sexton', rig: 'finn.npc',  tint: '#a9a4b4', scale: 0.97,
+    x: -2.6, z: 11.2,  facing: 200, dialogue: 'sexton.hail' },
+  { id: 'nell',   name: 'Nell',       rig: 'pip.npc',   tint: '#f0d79a', scale: 0.74,
+    x: 3.4,  z: 1.2,   facing: 40,  dialogue: 'nell.hail' },
+  { id: 'finn',   name: 'Finn',       rig: 'finn.npc',
+    x: 6.4,  z: 16.6,  facing: 180, dialogue: 'finn.hail' },
+  { id: 'mara',   name: 'Mara',       rig: 'mara.npc',
+    x: 25.0, z: -4.6,  facing: 300, dialogue: 'mara.hail', y: 1.2 },
+  { id: 'pip',    name: 'Pip',        rig: 'pip.npc',
+    x: 1.6,  z: -9.4,  facing: 20,  dialogue: 'pip.hail' },
+  // THE TWO TRAVELLERS ARE OUT IN IT. Lake never leaves the step he found;
+  // Maren is at the ruin, thirty metres off the road, which is the point of
+  // the ruin. Finding somebody you know out in the meadow is worth more than
+  // one more person in the square.
+  { id: 'lake',   name: 'Lake',       rig: 'lake.npc',
+    x: 11.4, z: -7.6,  facing: 250, dialogue: 'lake.hail' },
+  { id: 'maren',  name: 'Maren',      rig: 'maren.npc',
+    x: -13.4, z: -49.6, facing: 30, dialogue: 'maren.hail' },
+];
+
+let npcs = null;
+
+Promise.all(ROSTER.concat(NPC_RIGS).map((def) =>
   new GLTFLoader().loadAsync(def.url).then((g) => { chars[def.name] = buildCharacter(def, g); })
 )).then(() => {
   selectCharacter(ROSTER[0].name);
   console.log('[chars]', Object.keys(chars).map(
     (k) => `${k}: ${Object.keys(chars[k].clips).join('/')}`).join('  |  '));
+  // AFTER the rigs, because npc.js clones them -- rule (o), populate a lookup
+  // before the thing that reads it.
+  npcs = makeNpcs({ scene, chars, groundAt, hud });
+  const n = npcs.load(NPC_ROSTER);
+  console.log('[npc]', n + ' placed:', npcs.debug());
+  if (window.EBUI) window.EBUI.assetBase = '/assets/';
+  if (window.Dialogue) window.Dialogue.load().catch((e) => console.warn('[dlg]', e));
   done();
 }).catch((err) => {
   document.getElementById('loading').textContent = 'failed to load a character';
@@ -608,10 +709,44 @@ function play(name, fade = 0.22) {
 // -------------------------------------------------------------------- input
 
 const keys = new Set();
+
+// THE INPUT LOCK, which is Emberbrook's contract and not an invention.
+//
+// The vendored ui_kit.js pauses the world by calling `window.UILOCK.lock(name)`
+// and unlocking by name, and it falls back to zeroing `SIM.keys` on a page that
+// has no such object. Providing the real thing is four lines and means the
+// vendored files can stay byte-identical to upstream, which is the whole reason
+// they are in a `vendor/` folder: the next time that project's dialogue box
+// improves, this one gets the improvement with a copy.
+//
+// BY NAME, not a boolean. Two overlays can be open at once -- a shop handed off
+// from a conversation is exactly that case -- and a boolean would have the
+// first one to close unfreeze the world underneath the second.
+const LOCKS = new Set();
+window.UILOCK = {
+  lock(name) { LOCKS.add(name || 'ui'); keys.clear(); },
+  unlock(name) { LOCKS.delete(name || 'ui'); },
+  get held() { return LOCKS.size > 0; },
+  names: () => [...LOCKS],
+};
+const uiLocked = () => LOCKS.size > 0;
+
 addEventListener('keydown', (e) => {
   if (e.repeat) return;
+  // WHILE A PANEL IS UP, THE GAME GETS NOTHING. The panel's own capture-phase
+  // listener already stops propagation, so this is the belt to that braces --
+  // and it is what stops a conversation's Space and E from also jumping and
+  // swinging behind the box.
+  if (uiLocked()) return;
   keys.add(e.code);
   if (e.code === 'Space') { e.preventDefault(); jump(); }
+  // E IS SHARED, AND THE PERSON IN FRONT OF YOU IS ASKED FIRST. E has been a
+  // second attack key since before there was anybody to talk to, and taking it
+  // away would break the muscle memory of every existing capture and probe. So
+  // it is contextual the way Emberbrook chains its own E handlers: if somebody
+  // is in reach, E talks; otherwise E is still a swing. J is always a swing,
+  // which means there is never a moment where you cannot attack.
+  if (e.code === 'KeyE' && npcs && npcs.tryTalk()) { e.preventDefault(); return; }
   if (e.code === 'KeyJ' || e.code === 'KeyE') { e.preventDefault(); attack(); }
   if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') { e.preventDefault(); dodge(); }
   if (e.code === 'KeyC') { e.preventDefault(); cycleCharacter(); }
@@ -1196,6 +1331,28 @@ function startCombat() {
     world,
     groundAt,
     pushOut,
+    /**
+     * WHAT A KILL IS WORTH, read out of game/monsters.json rather than invented
+     * here. The file is the single source: combat.js already fights a Nettle
+     * with 40 HP and the data says a Nettle is worth 8 xp and 6 gold, so the
+     * reward is proportional to something real. Rule (r) -- if the number were
+     * written here as well it would be a second copy waiting to disagree.
+     *
+     * Silent when there is no save system, which is how the suite's combat
+     * probes run: a fight that needs an economy loaded to resolve a death is a
+     * fight with a new way to break.
+     */
+    onKill: (species) => {
+      const G = window.GS;
+      if (!G || !G.ok || !G.data || !G.data.monsters) return;
+      const m = G.data.monsters.monsters[species];
+      if (!m) return;
+      if (m.xp) G.grantXp(m.xp);
+      if (m.gold) G.addGold(m.gold);
+      for (const d of m.drops || []) {
+        if (Math.random() < (d.chance || 0)) G.addItem(d.item, 1);
+      }
+    },
     /**
      * Is `p` hidden from the camera by world geometry?
      *
@@ -2278,7 +2435,12 @@ function frame(dt) {
   // the weather, and a world that stops breathing every time you connect reads
   // as the game hitching.
   WIND.value += dt;
-  const scale = combat ? combat.timeScale() : 1;
+  // A CONVERSATION FREEZES THE FIGHT, NOT THE FRAME. `sdt` going to zero stops
+  // the player, the enemies, the swing and the animation; `dt` keeps running so
+  // the wind still moves in the grass behind the box and the typewriter is not
+  // sitting on a still image. This is the same split hit-stop already uses, for
+  // the same reason -- a world that stops breathing reads as the game hitching.
+  const scale = (combat ? combat.timeScale() : 1) * (uiLocked() ? 0 : 1);
   const sdt = dt * scale;
   const isMoving = step(sdt);
   updateCombat(dt, dt);
@@ -2287,6 +2449,11 @@ function frame(dt) {
   updateThreatLines(sdt);
   updateSmash(sdt);
   updateMovers(sdt);
+  // ON UNSCALED TIME, and on purpose. A townsperson has to keep breathing and
+  // keep turning to face you while you are talking to them -- freezing the
+  // person you are mid-conversation with is the one thing worse than not
+  // having them at all.
+  if (npcs) npcs.update(dt, pos);
   renderer.render(scene, camera);
   hud.textContent =
     `${fps} fps  ·  ${cur ? cur.name : '—'}  ·  ${combat && combat.isStaggered() ? 'hurt' : slip.t > 0 ? 'slip' : attacking ? 'attack' : !grounded ? 'air'
@@ -2320,6 +2487,7 @@ live();
 // `get cur()` here would have snapshotted null at module-evaluation time,
 // before the roster finished loading.  Define the accessor explicitly.
 Object.defineProperty(globalThis, 'cur', { get: () => cur, configurable: true });
+Object.defineProperty(globalThis, 'npcs', { get: () => npcs, configurable: true });
 Object.assign(globalThis, { scene, camera, renderer, chars, OUTLINES, THREE,
                             selectCharacter,
                             pos, cam, get SOLIDS() { return SOLIDS; }, FLOORS });

@@ -1,0 +1,118 @@
+{
+ "child-girl": {
+  "expr": [
+   "happy"
+  ],
+  "h": 620,
+  "head": {
+   "chin": 0.429,
+   "crown": 0.03,
+   "eye": 0.287
+  },
+  "w": 595
+ },
+ "elder-woman": {
+  "expr": [],
+  "h": 620,
+  "head": {
+   "chin": 0.49,
+   "crown": 0.025,
+   "eye": 0.316
+  },
+  "w": 449
+ },
+ "finn": {
+  "expr": [
+   "happy"
+  ],
+  "h": 620,
+  "head": {
+   "chin": 0.512,
+   "crown": 0.025,
+   "eye": 0.328
+  },
+  "w": 743
+ },
+ "hobb": {
+  "expr": [],
+  "h": 600,
+  "head": {
+   "chin": 0.335,
+   "crown": 0.034,
+   "eye": 0.207
+  },
+  "w": 798
+ },
+ "lake": {
+  "expr": [
+   "wry"
+  ],
+  "h": 620,
+  "head": {
+   "chin": 0.302,
+   "crown": 0.016,
+   "eye": 0.196
+  },
+  "w": 497
+ },
+ "mara": {
+  "expr": [],
+  "h": 600,
+  "head": {
+   "chin": 0.722,
+   "crown": 0.012,
+   "eye": 0.462
+  },
+  "w": 567
+ },
+ "maren": {
+  "expr": [
+   "happy"
+  ],
+  "h": 620,
+  "head": {
+   "chin": 0.365,
+   "crown": 0.025,
+   "eye": 0.239
+  },
+  "w": 368
+ },
+ "pip": {
+  "expr": [
+   "happy"
+  ],
+  "h": 620,
+  "head": {
+   "chin": 0.437,
+   "crown": 0.017,
+   "eye": 0.295
+  },
+  "w": 785
+ },
+ "tally": {
+  "expr": [
+   "happy"
+  ],
+  "h": 620,
+  "head": {
+   "chin": 0.342,
+   "crown": 0.025,
+   "eye": 0.209
+  },
+  "w": 780
+ },
+ "vesper": {
+  "expr": [
+   "determined",
+   "happy",
+   "worried"
+  ],
+  "h": 620,
+  "head": {
+   "chin": 0.378,
+   "crown": 0.0,
+   "eye": 0.252
+  },
+  "w": 437
+ }
+}

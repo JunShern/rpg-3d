@@ -1,0 +1,53 @@
+{
+ "_schema": "monster def: hp/atk/def are the values combat.js already fights with; xp and gold are what a kill pays. This file is the SOURCE for the reward, not a description of it -- main.js reads it when a creature dies.",
+ "monsters": {
+  "nettle": {
+   "name": "Nettle",
+   "hp": 40,
+   "atk": 6,
+   "def": 2,
+   "spd": 7,
+   "xp": 8,
+   "gold": 6,
+   "drops": [
+    {
+     "item": "embercap",
+     "chance": 0.25
+    }
+   ],
+   "zone": "meadow"
+  },
+  "curler": {
+   "name": "Curler",
+   "hp": 78,
+   "atk": 9,
+   "def": 5,
+   "spd": 4,
+   "xp": 15,
+   "gold": 11,
+   "drops": [
+    {
+     "item": "reed-cord",
+     "chance": 0.3
+    }
+   ],
+   "zone": "meadow"
+  },
+  "bellow": {
+   "name": "Bellow",
+   "hp": 150,
+   "atk": 14,
+   "def": 8,
+   "spd": 3,
+   "xp": 34,
+   "gold": 26,
+   "drops": [
+    {
+     "item": "iron-scale",
+     "chance": 0.45
+    }
+   ],
+   "zone": "ridge"
+  }
+ }
+}

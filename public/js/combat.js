@@ -248,7 +248,8 @@ function pickClip(clips, want, fallback) {
 // ------------------------------------------------------------------ system
 
 export function createCombat(ctx) {
-  // ctx: { scene, camera, world, groundAt, playerPos, playerFacing, hud }
+  // ctx: { scene, camera, world, groundAt, playerPos, playerFacing, hud, onKill }
+  const onKill = ctx.onKill || null;
   const loader = new GLTFLoader();
   const protos = {};
   const enemies = [];
@@ -682,6 +683,12 @@ export function createCombat(ctx) {
       e.state = 'dead';
       play(e, 'die', 0.05);
       if (lockTarget === e) lockTarget = nearestTarget(e);
+      // THE KILL PAYS. `onKill` is handed in by main.js and is where xp, gold
+      // and drops come from -- combat.js knows what died and nothing else, and
+      // that is the whole of the coupling. Guarded because the fight has to
+      // work in a page with no save system at all, which is how every probe in
+      // the suite runs it.
+      if (onKill) { try { onKill(e.spec.name || e.name, e); } catch (err) { console.error('[kill]', err); } }
       return;
     }
 

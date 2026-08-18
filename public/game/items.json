@@ -1,0 +1,112 @@
+{
+ "_schema": "type: consumable|weapon|armor|material|keepsake. `price` is the single source of value -- shops sell at buyRate*price and buy at sellRate*price. statMods apply while equipped in `slot`. A keepsake has no price, no slot and noSell, so every filter in shop.js and menu.js already passes over it.",
+ "items": {
+  "emberbrew": {
+   "name": "Emberbrew",
+   "type": "consumable",
+   "price": 14,
+   "effect": {
+    "heal": 40
+   },
+   "desc": "Steeped embercaps. Tastes of hot stone and stops you bleeding."
+  },
+  "field-poultice": {
+   "name": "Field Poultice",
+   "type": "consumable",
+   "price": 34,
+   "effect": {
+    "heal": 90
+   },
+   "desc": "Moss, linen and someone else's opinion about your wound."
+  },
+  "embercap": {
+   "name": "Embercap",
+   "type": "material",
+   "price": 9,
+   "desc": "Still faintly warm. They come up after rain along the walls and down the ravine."
+  },
+  "reed-cord": {
+   "name": "Reed Cord",
+   "type": "material",
+   "price": 6,
+   "desc": "Plaited from the bed by the ford. Holds anything that is not in a hurry."
+  },
+  "iron-scale": {
+   "name": "Iron Scale",
+   "type": "material",
+   "price": 22,
+   "desc": "Flaked off a bellow's hide. Hobb will take all you can carry."
+  },
+  "town-blade": {
+   "name": "Town Blade",
+   "type": "weapon",
+   "slot": "weapon",
+   "price": 0,
+   "noSell": true,
+   "statMods": {
+    "atk": 0
+   },
+   "desc": "The sword you walked in with. Honest, and about as sharp."
+  },
+  "smiths-edge": {
+   "name": "Smith's Edge",
+   "type": "weapon",
+   "slot": "weapon",
+   "price": 260,
+   "statMods": {
+    "atk": 6
+   },
+   "desc": "Hobb's own. The bevel is uneven and it does not matter."
+  },
+  "river-steel": {
+   "name": "River Steel",
+   "type": "weapon",
+   "slot": "weapon",
+   "price": 620,
+   "statMods": {
+    "atk": 13,
+    "spd": 2
+   },
+   "desc": "Folded thin. Light enough that the third swing arrives when you meant it to."
+  },
+  "travellers-coat": {
+   "name": "Traveller's Coat",
+   "type": "armor",
+   "slot": "armor",
+   "price": 0,
+   "noSell": true,
+   "statMods": {
+    "def": 0
+   },
+   "desc": "Green wool, three seasons of road. Yours."
+  },
+  "drovers-jack": {
+   "name": "Drover's Jack",
+   "type": "armor",
+   "slot": "armor",
+   "price": 210,
+   "statMods": {
+    "def": 5,
+    "hp": 10
+   },
+   "desc": "Quilted for a winter spent walking behind sheep."
+  },
+  "warden-mail": {
+   "name": "Warden's Mail",
+   "type": "armor",
+   "slot": "armor",
+   "price": 540,
+   "statMods": {
+    "def": 12,
+    "spd": -1
+   },
+   "desc": "Riveted rings over leather. You will hear yourself coming."
+  },
+  "bell-token": {
+   "name": "Bell Token",
+   "type": "keepsake",
+   "noSell": true,
+   "desc": "Brass, worn smooth. Given to anyone who has rung the tower and admitted it."
+  }
+ }
+}
