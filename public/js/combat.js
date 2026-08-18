@@ -260,11 +260,24 @@ export function createCombat(ctx) {
   // The identity default is what makes that true: at level 1 with the starting
   // gear the numbers come out exactly as they were tuned by hand.
   const power = ctx.power || (() => null);
-  const ATK_BASE = 8;      // vesper's level-1 atk in growth.json, and the value
-                           // TUNE's damage numbers were balanced against
-  const DEF_SOFT = 25;     // defence is diminishing: taken = dmg * S/(S+def),
-                           // so 5 def is -17% and 25 def is -50%, and no amount
-                           // of armour ever reaches zero
+  // BOTH OF THESE ARE THE LEVEL-1 STARTING VALUES from growth.json, and they are
+  // baselines rather than constants for one reason: the identity case has to be
+  // EXACT. TUNE's damage was hand-balanced against a character with 8 atk and 5
+  // def, so scaling has to come out at exactly 1.0 for that character or the
+  // hand-tuning is quietly re-tuned by arithmetic.
+  //
+  // I got this wrong in the obvious way first: rounding. `withPunish` returns
+  // fractional damage -- a 12 becomes 16.2 in a punish window -- and wrapping it
+  // in Math.round changed the fight even at a multiplier of exactly 1. It cost
+  // the bellow a swing (11 -> 10) and it inverted "reading the fight beats
+  // holding the button", which went from 12.5s-vs-8.1s to 5.0s-vs-6.0s: mashing
+  // won. That check exists precisely to catch a balance change nobody meant to
+  // make, and it caught mine.
+  const ATK_BASE = 8;
+  const DEF_BASE = 5;
+  const DEF_SOFT = 25;     // defence is diminishing and RELATIVE to the base:
+                           // taken = dmg * (S+DEF_BASE)/(S+def), which is 1.0 at
+                           // 5 def, 0.71 at 17, and never reaches zero
   const loader = new GLTFLoader();
   const protos = {};
   const enemies = [];
@@ -762,7 +775,9 @@ export function createCombat(ctx) {
     if (player.dodging > 0
         && player.dodgeT >= TUNE.dodge.iFrom && player.dodgeT <= TUNE.dodge.iTo) return;
     const pw = power();
-    if (pw && pw.def) dmg = Math.max(1, Math.round(dmg * (DEF_SOFT / (DEF_SOFT + pw.def))));
+    if (pw && pw.def && pw.def !== DEF_BASE) {
+      dmg = Math.max(1, dmg * ((DEF_SOFT + DEF_BASE) / (DEF_SOFT + pw.def)));
+    }
     player.hp -= dmg;
     player.invuln = TUNE.playerIFrames;
     hitStop = Math.max(hitStop, 0.07);
@@ -948,8 +963,10 @@ export function createCombat(ctx) {
       }
       player.hitThisSwing.add(e);
       const pw = power();
-      const dmg = pw && pw.atk ? Math.max(1, Math.round(s.damage * (pw.atk / ATK_BASE)))
-                               : s.damage;
+      const k = pw && pw.atk ? pw.atk / ATK_BASE : 1;
+      // NOT ROUNDED, and short-circuited at 1 so the arithmetic cannot even
+      // introduce a float wobble on the tuned path.
+      const dmg = k === 1 ? s.damage : Math.max(1, s.damage * k);
       hurtEnemy(e, dmg, p, s.knock, s.lift, s.stop, s.shake, s.stun, s.breaks);
       // combat.js does not own the player's vertical velocity, so it raises a
       // flag and the movement code decides what to do with it

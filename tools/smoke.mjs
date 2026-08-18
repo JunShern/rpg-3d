@@ -518,6 +518,16 @@ async function run() {
   // artificially killed, or a whole encounter parked in the next county
   // poisons everything after it. Reset between groups.
   const fresh = () => page.evaluate(() => {
+    // THE CHARACTER SHEET IS SHARED STATE NOW, and it has to be put back with
+    // everything else. `onKill` grants xp, this suite kills upwards of forty
+    // creatures, and by the time the balance checks ran Vesper was level 5 with
+    // 16 atk -- a 2x damage multiplier. "reading the fight beats holding the
+    // button" went from 12.5s-vs-8.1s to 5.0s-vs-7.2s and mashing won, which
+    // read exactly like a balance regression and was actually the economy
+    // working. Deterministic across five runs, which is what said it was not
+    // noise. Rule (q), one turn further on than the camera: the suite shares
+    // one page, and every kill is now a mutation of it.
+    if (window.GS && GS.ok) GS.reset();
     combat.respawn();
     __freezeEncounters(false);
     // PUT THE ENCOUNTERS BACK. Each kill test permanently removes one member of
@@ -582,6 +592,13 @@ async function run() {
   for (const [sp, x, z, cap] of [['nettle', 0.5, 6.2, 10], ['curler', 6, -54, 24],
                                  ['bellow', 4, -48, 40]]) {
     await check(`${sp} dies to the ground chain`, (a) => {
+      // AT THE TUNED BASELINE, per species. "150 HP down in N swings" is a
+      // balance statement, and the two kills before this one pay 8 and 15 xp --
+      // enough to take Vesper to level 2 and her attack to 10, which is a 1.25x
+      // multiplier and the difference between the bellow taking 11 swings and
+      // 10. The outer `fresh()` pins the sheet once; this loop needs it three
+      // times, because it is the loop that is doing the levelling.
+      if (window.GS && GS.ok) GS.reset();
       const t = window.__t.faceOff(a.sp, a.x, a.z, 1.6);
       const hp0 = t.e.spec.hp;
       const r = window.__t.killPinned(t, a.cap);

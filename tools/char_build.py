@@ -304,9 +304,16 @@ def main():
     out = opt("--out", f"public/assets/{name}.glb")
     render_dir = opt("--render")
     decimate = float(opt("--decimate", 0.45)) or None
+    # --no-sword: a TOWNSPERSON. The cast is built armed because the cast
+    # fights; every body this script makes was getting a blade joined into it
+    # and an idle pose that holds one, so the shopkeeper, the sexton and the
+    # eight-year-old were all standing in the square gripping a sword. It is
+    # both the mesh and the POSE -- dropping the blade alone leaves nine people
+    # holding an invisible one.
+    armed = "--no-sword" not in argv
 
     body, rig = build(src, decimate=decimate, target_height=cfg["height"],
-                      tint=cfg["tint"])
+                      tint=cfg["tint"], with_sword=armed)
 
     bpy.context.scene.render.fps = 24
     K.rest(rig)
@@ -314,7 +321,7 @@ def main():
                anim_lib.anim_attack2, anim_lib.anim_attack3,
                anim_lib.anim_airattack, anim_lib.anim_dodge, anim_lib.anim_hurt,
                anim_lib.anim_jump, anim_lib.anim_land):
-        fn(rig, weapon=True)           # they carry a sword
+        fn(rig, weapon=armed)          # the cast carries a sword; the town does not
     print(f"[{NAME[0]}] actions: {sorted(a.name for a in bpy.data.actions)}")
 
     if render_dir:
