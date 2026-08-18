@@ -1215,6 +1215,79 @@ async function run() {
                    + `(the crest peaks at 9.29)${stalled ? ' | ' + stalled : ''}` };
   });
 
+  // THE NORTH ROAD IS A ROAD, AND THE PASS PAYS FOR THE CLIMB.
+  //
+  // Three separate things had to be true here and none of them were. The road
+  // climbs 16 m to the world edge; it was walkable but at a gradient of 0.6 to
+  // 0.8, which against a camera that looks 20 degrees DOWN meant the ground
+  // crossed the top of the frame 2.5 m ahead at every point of the climb --
+  // thirty metres of walking uphill looking at dirt. Nothing was up there when
+  // you arrived. And the mesh stopped dead on the playable bound, so turning
+  // round at the top put the boom 5 m outside the world and filled the bottom
+  // of the best view in the game with sky.
+  //
+  // So: can you get up it, can you SEE while you do, and is the view there when
+  // you turn round. Grading the road is what the first two depend on, and this
+  // check exists mostly to stop anyone quietly un-grading it.
+  await check('the north road climbs to a pass worth reaching', () => {
+    const WAY = [];
+    for (let by = 92; by <= 108; by += 4) WAY.push([by, terrain.pathAt(by), -by]);
+    __sim({ warp: [terrain.pathAt(88), 12, -88.0], az: 0, polar: 1.22, dist: 5.4,
+            steps: 30 });
+    let reached = 0, stalled = null;
+    for (const [by, tx, tz] of WAY) {
+      for (let i = 0; i < 600; i++) {
+        const h = __sim({ steps: 0 }).heroPos;
+        if (Math.hypot(tx - h[0], tz - h[2]) < 0.5) break;
+        __sim({ steps: 1, az: Math.atan2(h[0] - tx, h[2] - tz), held: ['KeyW'] });
+      }
+      const h = __sim({ steps: 0 }).heroPos;
+      if (Math.hypot(tx - h[0], tz - h[2]) < 1.0) reached++;
+      else if (!stalled) stalled = `y=${by}: ${Math.hypot(tx - h[0], tz - h[2]).toFixed(1)} m short`;
+    }
+
+    // HOW FAR CAN YOU SEE UP IT. Pure maths against the height function, along
+    // the road, from an eye at the player's height: the distance at which the
+    // ground rises past the top of the frame. 5.9 degrees is what a 52-degree
+    // FOV leaves above horizontal once the camera's 20.1 degrees of down-tilt
+    // is taken off. Ungraded this was 2.5 m everywhere; graded it is about 6.
+    const UP = Math.tan(5.9 * Math.PI / 180);
+    let worstSee = 99;
+    for (let by = 88; by <= 104; by += 2) {
+      const eye = terrain.heightXY(terrain.pathAt(by), by) + 1.65;
+      for (let d = 1; d < 30; d += 0.5) {
+        const ty = by + d;
+        if (terrain.heightXY(terrain.pathAt(ty), ty) > eye + d * UP) {
+          worstSee = Math.min(worstSee, d); break;
+        }
+      }
+    }
+
+    // AND THE VIEW BACK. Stand where a player stops -- three metres short of
+    // the clamp -- turn round, and the town has to be in frame with the boom
+    // still out. A boom that has collapsed into a rock passes any test that
+    // only asks "is the town in the frustum" of a camera sitting inside a wall.
+    __sim({ warp: [terrain.pathAt(104), 18, -104.0], az: Math.PI,
+            polar: 1.22, dist: 5.4, steps: 40, dt: 1 / 20 });
+    camera.updateMatrixWorld();
+    const fr = new THREE.Frustum().setFromProjectionMatrix(
+      new THREE.Matrix4().multiplyMatrices(
+        camera.projectionMatrix, camera.matrixWorldInverse));
+    const hero = __sim({ steps: 0 }).heroPos;
+    const boom = camera.position.distanceTo(
+      new THREE.Vector3(hero[0], hero[1] + 1.18, hero[2]));
+    // the gate arch, which is the town end of the walk
+    const townSeen = fr.containsPoint(new THREE.Vector3(-1, 6, -11));
+
+    const ok = reached === WAY.length && worstSee > 4.5 && townSeen && boom > 3.6;
+    return { ok,
+             detail: `${reached}/${WAY.length} waypoints up the road · you can see `
+                   + `${worstSee.toFixed(1)} m ahead at the worst point of the climb `
+                   + `(ungraded it was 2.5) · at the top the town is `
+                   + `${townSeen ? 'in frame' : 'OUT OF FRAME'} with the boom at `
+                   + `${boom.toFixed(2)} m of 5.4${stalled ? ' | ' + stalled : ''}` };
+  });
+
   // THE FOLD AND THE CAIRN ARE THE VIEW FROM THE SPINE.
   //
   // The spine is a climb, and until now the reward for making it was a look at
@@ -1692,8 +1765,21 @@ async function run() {
   // against about 30 and 258k anywhere in the meadow -- which is worth knowing
   // on its own and was invisible while this was measuring animals.
   for (const [label, x, z, az, maxMeshes, maxTris] of [
-    ['plaza', 0.5, 6.2, 0, 185, 840],
-    ['path', 3, -32, 0, 85, 560],   // the gate furniture took this to 70/70
+    // THE MESH CEILINGS ARE DRAW CALLS, AND DRAW CALLS HERE ARE BREAKABLES.
+    // `finish()` joins the whole world into two objects with one primitive per
+    // material, so the static scene is about 40 meshes of geometry -- the rest
+    // of the count is props that are deliberately NOT joined, because the
+    // runtime has to be able to remove one barrel without removing the others.
+    // The plaza vantage faces straight up the valley, so every breakable and
+    // every embercap in the world is inside its frustum: adding three embercaps
+    // at the far end of the map, 90 m away, moves this number.
+    //
+    // Re-baselined with real headroom rather than nudged to just above what was
+    // measured -- rule (k), a ceiling you are sitting on is not a ceiling. The
+    // TRIANGLE budget is the one that means anything about cost, and the plaza
+    // is at 515k of 840k.
+    ['plaza', 0.5, 6.2, 0, 215, 840],
+    ['path', 3, -32, 0, 100, 560],  // the gate furniture took this to 70/70
     ['flock', 6, -44, 0, 55, 340],   // the reed bed took this to 40/40
     ['meadow', 6, -54, 0, 40, 300],
     ['ridge', 13, -74, 0, 35, 300],

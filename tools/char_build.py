@@ -58,6 +58,18 @@ CHARACTERS = {
                "tint": (0.45, 0.45, 0.48)},
     "maren":  {"src": "assets/source/maren-src.glb",  "height": 1.62,
                "tint": (0.52, 0.48, 0.42)},
+    # THE TOWNSPEOPLE. Same intake, same argument: these are Emberbrook Tripo
+    # generations on the identical source rig, so they cost a row here and
+    # nothing else. Three more bodies is what turns "the player and two
+    # travellers" into a town with people in it -- and every one of them
+    # already has painted cut-in art in that project, which is the half of a
+    # conversation this engine cannot generate.
+    "finn":   {"src": "assets/source/finn-src.glb",   "height": 1.74,
+               "tint": (0.58, 0.52, 0.44)},
+    "mara":   {"src": "assets/source/mara-src.glb",   "height": 1.66,
+               "tint": (0.50, 0.52, 0.55)},
+    "pip":    {"src": "assets/source/pip-src.glb",    "height": 1.58,
+               "tint": (0.50, 0.56, 0.46)},
 }
 # euler degrees in the hand bone's frame -- dialled by eye against renders
 SWORD_TWEAK = (0.0, 0.0, 0.0)

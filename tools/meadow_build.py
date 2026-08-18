@@ -120,15 +120,15 @@ def _natural(x, y):
     return h
 
 
-def _road_z(y):
-    """The road's height: the natural ground along its own centreline, smoothed
-    over about twenty metres.
+# WHERE THE ROAD STOPS FOLLOWING THE HILL, AND HOW STEEPLY IT IS ALLOWED TO
+# CLIMB AFTER THAT. Both are mirrored in terrain.js -- `check()` compares the
+# two implementations at 56 probes and will say so if they drift.
+GRADE_Y, GRADE = 86.0, 0.40
 
-    A road grades a hill -- it cuts the crests and fills the hollows and stays
-    within a metre or so of the land -- which is exactly what a low-pass filter
-    along the centreline gives, and it cannot run away from the terrain the way
-    an absolute height can.
-    """
+
+def _smooth_z(y):
+    """The natural ground along the road's own centreline, low-passed over
+    about twenty metres."""
     s = 0.0
     n = 0.0
     for k in range(-4, 5):
@@ -137,6 +137,41 @@ def _road_z(y):
         s += w * _natural(_path_x(yy), yy)
         n += w
     return s / n
+
+
+def _road_z(y):
+    """The road's height. Smoothed ground, and above y=86 a GRADED climb.
+
+    The docstring here used to say "a road grades a hill -- it cuts the crests
+    and fills the hollows", and the code did no such thing: it low-passed the
+    ground over twenty metres, which smooths bumps and preserves slope exactly.
+    Where the ground is steep the road was equally steep, and north of the
+    landmark the boundary hill runs at 0.6 to 0.8.
+
+    That is a 35-to-40-degree ramp, and it made the last third of the journey
+    unplayable in a way no capture had ever been pointed at. The camera sits at
+    polar 1.22 and looks 20.1 degrees DOWN, so the top of the frame is 5.9
+    degrees ABOVE horizontal -- and measured along the road, the ground crossed
+    that line 2.5 metres ahead at every single point of the climb. You walked
+    thirty metres uphill looking at nothing but dirt. Raising the camera cannot
+    fix it: even jammed against the polar clamp at 1.48 the frame top only
+    reaches 20.8 degrees, against a slope of 35.
+
+    So the road now does what it always claimed to. Above GRADE_Y it leaves the
+    ground and climbs at a fixed 0.40, which puts the ground clear of the frame
+    at 5.6 m instead of 2.5 -- and by the top it is running 4.8 m BELOW the
+    ridge it used to sit on top of. That is a cutting, and it is the good kind
+    of consequence: the pass's rock walls stopped being decoration standing
+    beside a road and became the faces the road was cut through.
+    """
+    s = _smooth_z(y)
+    if y <= GRADE_Y:
+        return s
+    # eased in over six metres so the join is a curve, not a kink -- the road
+    # is one continuous surface and a discontinuity in its slope would read as
+    # a crease straight across it
+    w = _ramp(y - GRADE_Y, 0.0, 6.0)
+    return s * (1 - w) + (_smooth_z(GRADE_Y) + GRADE * (y - GRADE_Y)) * w
 
 
 def height(x, y):
@@ -271,6 +306,8 @@ def on_path(x, y, margin=0.0):
 # ------------------------------------------------------------------- terrain
 
 TERRAIN_STEP = 1.6
+# How far the floor is built PAST the playable bounds. See build_terrain.
+SKIRT = 12.0
 
 
 def build_terrain(M, step=TERRAIN_STEP):
@@ -289,8 +326,21 @@ def build_terrain(M, step=TERRAIN_STEP):
     floor went from three materials to one -- so it is also two fewer draw
     calls and one fewer texture.
     """
-    x0, x1 = MEADOW["x0"], MEADOW["x1"]
-    y0, y1 = MEADOW["y0"] - 2.0, MEADOW["y1"]   # tuck under the plaza edge
+    # THE SKIRT. The mesh used to stop exactly on the playable bounds, and the
+    # camera does not: the boom reaches dist * sin(polar) = 5.07 m past the
+    # player, and the player can stand hard against the clamp. At the top of
+    # the north road -- the best view in the game, the whole valley and the
+    # town hazed behind it -- turning to look back puts the camera at blender
+    # y = 115.6 with the world ending at 110, so the bottom of that frame is
+    # SKY: you are looking under the edge of the ground you are standing on.
+    #
+    # `owns()` still uses MEADOW, so the playable region and the clamp are
+    # unchanged; only the mesh grows. 12 m covers the 5.07 m boom, the near
+    # clip and enough ground beyond the camera that the cut edge is never the
+    # nearest thing in frame. It costs about 3,700 triangles on a 6,120
+    # triangle floor and buys back all four edges of the map, not just this one.
+    x0, x1 = MEADOW["x0"] - SKIRT, MEADOW["x1"] + SKIRT
+    y0, y1 = MEADOW["y0"] - 2.0, MEADOW["y1"] + SKIRT   # tuck under the plaza
     nx = int((x1 - x0) / step) + 1
     ny = int((y1 - y0) / step) + 1
 
@@ -458,6 +508,10 @@ def _clear_of_landmarks(x, y, pad=0.0):
     # about is a tree standing in mid-air.
     if SPINE["y0"] - 3.0 < y < SPINE["y1"] + 3.0 \
        and abs(x - _spine_x(y)) < 4.4 + pad:
+        return False
+    # THE PASS. Its rock walls stand on this ground and a tree seeding between
+    # them would be a tree growing out of a cliff.
+    if y > PASS_Y0 - 2.0 and abs(x - _path_x(y)) < 8.0 + pad:
         return False
     # THE FOLD'S YARD AND THE CAIRN'S MOUND are built ground, not wild. The
     # copse at (-34, 62) has an 11 m radius and reaches y=73, which is halfway
@@ -1751,12 +1805,181 @@ def approach(M, t):
     t.add(*out)
 
 
+PASS_Y0, PASS_Y1 = 101.0, 113.0   # the cutting; runs INTO the skirt on purpose
+# HALF THE CLEAR WIDTH between the cutting's rock faces. Wide enough that the
+# 5.4 m camera boom stays in the corridor when you turn to look back down the
+# valley, which is the view the whole climb exists for. WIDE, AND OVERLAPPING:
+# at a narrow corridor with tall rocks each one is a tapered column and the wall
+# reads as a row of organ pipes -- a cut face is a face, and its pieces have to
+# be wider in section than they are tall and merge into each other.
+PASS_CLEAR = 3.4
+
+
+def pass_top(M, t):
+    """The top of the north road: a rock cutting, a beacon, and the view back.
+
+    THE ROAD CLIMBS SIXTEEN METRES AND ENDED IN NOTHING. It runs from 4.3 m at
+    y=80 to 20.4 m at the world edge, it is walkable the whole way -- a probe
+    took her up it leg by leg and she got to y=109.9 before the clamp stopped
+    her -- and there was not one object on any of it. The last thing the
+    journey did was walk a player up a bald hillside into an invisible wall
+    under an empty sky. That is the single worst frame in the build and it is
+    the LAST one.
+
+    What was already there and worth keeping is the view BACK. From the top you
+    see the whole valley at once: the stone circle, the field walls, the
+    orchard, the stream, and the town hazed out behind them by the aerial
+    perspective baked into the backdrop. Nothing here should get in the way of
+    that, which is the one rule the geometry follows.
+
+    So the rock walls are on the FLANKS ONLY and never across the road. The
+    camera boom is 5.4 m at polar 1.22, so turning to look south puts it 5.07 m
+    north of the player -- straight up the corridor. Anything across the road
+    would shorten the boom exactly at the moment the vista opens, and the vista
+    is the reason to come up here. The walls close the sky to either side,
+    which is what makes it read as a pass, and leave the axis clear.
+
+    They run to y=113, past the playable bound at 110 and into the skirt, so
+    the ground the player cannot reach is behind rock rather than behind an
+    apology.
+    """
+    rnd = _lcg(6607)
+    i = 0
+    y = PASS_Y0
+    while y <= PASS_Y1:
+        # THE WALLS ARE THE CUT FACE, so their height is READ OFF THE CUTTING
+        # rather than chosen. Grading the road dropped it 6 m below the ridge at
+        # the top and left it untouched at y=90, and the first version of these
+        # rocks had their heights written as "road + 3 to 5" -- which, once the
+        # road moved, put their tops a metre BELOW the ground they stood on.
+        # Rule (e): derive the offset from the constraint. `rim` is the natural
+        # ground 8 m out, which is what the road was cut through, so the wall
+        # rises exactly as much as the cutting is deep and dies out on its own
+        # where the cutting does.
+        rz = _road_z(y)
+        for side in (-1, 1):
+            r = 1.55 + 1.25 * rnd()
+            # PLACE THE FACE, NOT THE CENTRE. Fixing the centre at 3.7-4.6 m and
+            # letting the radius run 1.55-2.8 means the inner face lands
+            # anywhere from 0.9 m to 3.0 m off the centreline -- so the corridor
+            # was 1.8 m wide in places, and the beacon standing 2.0 m off the
+            # road was inside the rock. The clear width is the thing that has to
+            # be constant, so it is the thing that gets written down.
+            bx = _path_x(y) + side * (PASS_CLEAR + r * 0.85)
+            rim = _natural(_path_x(y) + side * 8.0, y)
+            if rim - rz < 0.9:          # too shallow here to be a wall at all
+                continue
+            base = rz - 0.6
+            top = rim + 0.35 * rnd()
+            b = K.blob(f"passrock{i}", (bx, y, (base + top) / 2 - 0.3),
+                       (r, r * (0.62 + 0.55 * rnd()), (top - base) / 2 + 0.3),
+                       None, M["rock"], seg=8, rings=6, squircle=2.4 + 0.9 * rnd())
+            # EVERY ROCK ITS OWN YAW. Without it the blobs are all squircles on
+            # the same axes at the same spacing, and the wall reads as one
+            # extrusion notched at regular intervals -- a row of teeth. It is
+            # the cairn's lesson again: what makes stone read as stone is that
+            # no two pieces agree about anything.
+            K.transform(b, rotate=(0, 0, rnd() * 360.0), around=(bx, y, 0))
+            t.add(b)
+            t.solid(bx, y, r * 0.92, r * 0.82, top=top)
+            i += 1
+            # a smaller block fallen to the toe of the wall, in toward the road,
+            # so the bottom line is rubble rather than a clean skirting
+            if rnd() < 0.55:
+                fx = bx - side * (r * 0.75 + 0.4 * rnd())
+                fr = 0.34 + 0.30 * rnd()
+                fb = K.blob(f"passtoe{i}", (fx, y + (rnd() - 0.5) * 1.2,
+                                            _road_z(y) + fr * 0.45),
+                            (fr, fr * 0.82, fr * 0.72), None, M["rock"],
+                            seg=8, rings=5, squircle=2.6)
+                K.transform(fb, rotate=(0, 0, rnd() * 360.0), around=(fx, y, 0))
+                t.add(fb)
+        y += 1.15 + 0.65 * rnd()
+
+    # THE BEACON, on the road's shoulder at the summit of the cutting.
+    #
+    # It was on the open slope east of the road, on the theory that high ground
+    # makes it visible from far below. It does not: measured along the road, the
+    # ground crosses the top of the frame 6 m ahead even after grading, so
+    # NOTHING up here is visible from down there and no amount of height fixes
+    # it -- rule (p), an effect you cannot see from where it matters is not one.
+    # What is actually true is that you meet it at the top, in the defile, where
+    # it is the only warm thing in a corridor of grey rock.
+    by = 106.0
+    # +2.0: the walls start at 3.7, and at +2.6 the beacon stood 0.6 m off the
+    # rock with its basket inside it
+    bx = _path_x(by) + 2.0          # on the road's shoulder, inside the cutting
+    bz = height(bx, by)
+    t.add(A.box("beacon_plinth", (bx, by, bz + 0.62), (0.62, 0.62, 0.68),
+                M["stone"], bevel=0.06, seg=1))
+    t.add(A.box("beacon_step", (bx, by, bz + 0.14), (0.86, 0.86, 0.20),
+                M["stone"], bevel=0.05, seg=1))
+    # the post and the basket
+    t.add(K.tube("beacon_post", K.dome([
+        {"p": Vector((bx, by, bz + 1.20)), "r": (0.13, 0.13), "n": 3.0},
+        {"p": Vector((bx, by, bz + 2.60)), "r": (0.10, 0.10), "n": 3.0},
+    ], at="none", steps=1), seg=8, mat=M["iron"], squircle=3.0, up=(0, 0, 1)))
+    for k in range(9):
+        a = k / 9 * 6.283
+        t.add(K.tube(f"beacon_rib{k}", K.dome([
+            {"p": Vector((bx + math.cos(a) * 0.20, by + math.sin(a) * 0.20,
+                          bz + 2.55)), "r": (0.035, 0.035), "n": 2.6},
+            {"p": Vector((bx + math.cos(a) * 0.42, by + math.sin(a) * 0.42,
+                          bz + 3.25)), "r": (0.030, 0.030), "n": 2.6},
+        ], at="none", steps=1), seg=6, mat=M["iron"], squircle=2.6, up=(0, 0, 1)))
+    # THE COALS. `forge` is already in the runtime's TOWN_FLAT set, so it is
+    # drawn flat at its own colour instead of taking the toon shadow band --
+    # which is the only reason a fire reads as a fire here. No new material, no
+    # new mesh in any budget, and rule (j) is sidestepped rather than fought:
+    # a point light would do nothing at all until it crossed the ramp threshold.
+    t.add(K.blob("beacon_coals", (bx, by, bz + 2.86), (0.30, 0.30, 0.16),
+                 None, M["forge"], seg=9, rings=6, squircle=2.4))
+    t.solid(bx, by, 0.90, 0.90, top=bz + 0.34)
+
+    # THE ROAD ENDS IN A ROCKFALL, because it has to end in SOMETHING. The
+    # playable bound stops the player at y=110 and there is no way to argue with
+    # that -- but an invisible wall on an open road is the one piece of pure
+    # game-machinery left in the walk. Blocking it with fallen rock costs eleven
+    # blobs and answers the question the wall raises.
+    #
+    # y=112.5, NOT 111.5. The BLOB is bigger than the solid: a boulder centred
+    # at 111.5 with r=2.2 has mesh down to 109.3, which is inside the corridor
+    # the camera swings through. Looking back down the valley from y=107 put the
+    # boom at y=112.1 and the entire frame was the inside of a rock -- the one
+    # view this whole feature exists to deliver, eaten by the thing meant to
+    # explain the wall behind it. Sited off the MESH extent now, not the solid:
+    # at 112.5 the rock reaches 110.3, which is past the clamp at 110.
+    for k in range(11):
+        fx = _path_x(112.0) + (rnd() - 0.5) * 9.0
+        fy = 112.5 + rnd() * 2.6
+        fr = 0.85 + 1.35 * rnd()
+        fz = _road_z(fy) if abs(fx - _path_x(fy)) < 4.5 else height(fx, fy)
+        fb = K.blob(f"passfall{k}", (fx, fy, fz + fr * 0.55),
+                    (fr, fr * (0.7 + 0.5 * rnd()), fr * (0.62 + 0.35 * rnd())),
+                    None, M["rock"], seg=8, rings=6, squircle=2.5 + 0.7 * rnd())
+        K.transform(fb, rotate=(0, 0, rnd() * 360.0), around=(fx, fy, 0))
+        t.add(fb)
+        t.solid(fx, fy, fr * 0.9, fr * 0.8, top=fz + fr * 1.1)
+
+    # THE REWARD IS THE ONE ALREADY IN THE GAME. Embercaps are what the map
+    # teaches you to look for, so the far end of the longest walk in it pays
+    # out in embercaps rather than in something invented for the occasion.
+    for dx, dy in ((-1.9, -1.1), (1.5, -1.7), (-0.6, 1.9)):
+        A.embercap(t, bx + dx, by + dy, z=height(bx + dx, by + dy), scale=1.05)
+
+
 def waymarks(M, t):
     """Posts along the path. They do the job a corridor wall does in a town --
     tell you where the road goes -- without enclosing anything."""
     y = GATE_Y + 5
     i = 0
-    while y < MEADOW["y1"] - 20:
+    # UP TO THE CUTTING, and no further. This stopped at y=90, 20 m short of the
+    # world edge, which left the steepest and least legible stretch of the whole
+    # road unmarked. But it should not run INTO the pass either: once the road
+    # is between two rock faces the rock is telling you where the road goes far
+    # better than a post can, and a row of posts down a defile is just clutter
+    # in the one frame this map ends on.
+    while y < PASS_Y0 - 2.0:
         for side in (-1, 1):
             x = _path_x(y) + side * 3.6
             z = height(x, y)
@@ -1880,6 +2103,7 @@ def main():
     A.embercap(t, -33.0, 62.0, z=height(-33.0, 62.0))
     A.embercap(t, -9.0, STREAM_Y - 3.1, z=height(-9.0, STREAM_Y - 3.1))
     stream(M, t)
+    pass_top(M, t)
     fold(M, t)
     reedbed(M, t)
     approach(M, t)
@@ -1944,7 +2168,11 @@ def main():
         # triangles the player is looking at rather than the smooth function --
         # a 1.6 m quad chords up to 21 cm below the true surface on the hill,
         # which is the difference between standing on the ground and hovering.
-        "gridX0": MEADOW["x0"], "gridY0": MEADOW["y0"] - 2.0, "step": TERRAIN_STEP,
+        # MUST MATCH build_terrain's grid origin, skirt included -- `heightMesh`
+        # indexes the triangle list from it, and an origin off by the skirt puts
+        # the player 12 m of terrain away from the ground she is standing on.
+        "gridX0": MEADOW["x0"] - SKIRT, "gridY0": MEADOW["y0"] - 2.0,
+        "step": TERRAIN_STEP,
     }
     probes = []
     for px in (-40, -18, -1, 6, 14, 30, 44):

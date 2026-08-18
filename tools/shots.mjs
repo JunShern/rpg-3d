@@ -160,6 +160,19 @@ const SHOTS = [
   // trees behind you whichever way you face; the aisle between rows is the one
   // line with air in it, and it is 2.3 m wide.
   { name: '09k-orchard-rows', warp: [18.67, 3, -32.57], az: -1.414, polar: 1.20, dist: 8.0 },
+  // THE TOP OF THE ROAD. It climbs 16 m from y=80 to the world edge at y=110
+  // and had nothing on it whatever -- thirty metres of rising road ending at an
+  // invisible wall on bare grass, which is the last thing the journey does.
+  // az 0 = looking NORTH, UP the road. The whole question this frame asks is
+  // whether the beacon pulls you the last thirty metres, and a shot pointed
+  // back down the hill cannot answer it. Gameplay boom, not a capture boom.
+  { name: '09o-pass-approach', warp: [12.9, 12, -96.0], az: 0.0, polar: 1.26, dist: 5.4 },
+  // y=104, not 107. Three metres short of the clamp is where a player actually
+  // stops and turns round, and it is also the last mark whose boom stays clear
+  // of the rockfall that closes the road.
+  { name: '09p-pass-top', warp: [11.9, 18, -104.0], az: Math.PI, polar: 1.26, dist: 5.4 },
+  // and the whole point of climbing it: the valley you came up
+  { name: '09q-valley-back', warp: [11.6, 18, -106.0], az: 0.0, polar: 1.30, dist: 6.5 },
   { name: '10-town-from-meadow', warp: [0, 0, -30.0], az: Math.PI, polar: 1.30, dist: 9.0 },
 
   // Combat states. Each of these SPAWNS its own cast rather than hunting for a

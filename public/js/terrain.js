@@ -87,9 +87,7 @@ export function makeTerrain(cfg) {
   // times per query at the same handful of grid lines, so it is memoised on the
   // exact y rather than recomputed nine trig-heavy evaluations at a time.
   const roadCache = new Map();
-  function roadZ(y) {
-    const hit = roadCache.get(y);
-    if (hit !== undefined) return hit;
+  function smoothZ(y) {
     let s = 0, n = 0;
     for (let k = -4; k <= 4; k++) {
       const yy = y + k * 2.6;
@@ -97,7 +95,27 @@ export function makeTerrain(cfg) {
       s += w * natural(pathAt(yy), yy);
       n += w;
     }
-    const v = s / n;
+    return s / n;
+  }
+  // GRADE_Y / GRADE -- MUST MATCH meadow_build. Above y=86 the road stops
+  // following the hill and climbs at a fixed 0.40, because the boundary hill
+  // runs at 0.6-0.8 and the camera looks 20 degrees down: on the old road the
+  // ground crossed the top of the frame 2.5 m ahead at every point of the
+  // climb. See meadow_build._road_z for the measurements.
+  const GRADE_Y = 86.0, GRADE = 0.40;
+  // the base of the graded ramp is a constant, but it is COMPUTED rather than
+  // written down, so it cannot disagree with the builder's copy
+  let gradeBase = null;
+  function roadZ(y) {
+    const hit = roadCache.get(y);
+    if (hit !== undefined) return hit;
+    const s = smoothZ(y);
+    let v = s;
+    if (y > GRADE_Y) {
+      if (gradeBase === null) gradeBase = smoothZ(GRADE_Y);
+      const w = ramp(y - GRADE_Y, 0.0, 6.0);
+      v = s * (1 - w) + (gradeBase + GRADE * (y - GRADE_Y)) * w;
+    }
     if (roadCache.size > 4096) roadCache.clear();
     roadCache.set(y, v);
     return v;
