@@ -248,8 +248,23 @@ function pickClip(clips, want, fallback) {
 // ------------------------------------------------------------------ system
 
 export function createCombat(ctx) {
-  // ctx: { scene, camera, world, groundAt, playerPos, playerFacing, hud, onKill }
+  // ctx: { scene, camera, world, groundAt, playerPos, playerFacing, hud, onKill,
+  //        power }
   const onKill = ctx.onKill || null;
+  // WHAT THE CHARACTER SHEET IS WORTH IN THE FIGHT.
+  //
+  // Buying a sword that changes a number on a menu and nothing else is a menu,
+  // not a system. `power()` is supplied by main.js out of the save and returns
+  // { atk, def, maxHp } -- and it must WORK WITHOUT ONE, because every combat
+  // probe in the suite runs on a page where the economy may not have loaded.
+  // The identity default is what makes that true: at level 1 with the starting
+  // gear the numbers come out exactly as they were tuned by hand.
+  const power = ctx.power || (() => null);
+  const ATK_BASE = 8;      // vesper's level-1 atk in growth.json, and the value
+                           // TUNE's damage numbers were balanced against
+  const DEF_SOFT = 25;     // defence is diminishing: taken = dmg * S/(S+def),
+                           // so 5 def is -17% and 25 def is -50%, and no amount
+                           // of armour ever reaches zero
   const loader = new GLTFLoader();
   const protos = {};
   const enemies = [];
@@ -746,6 +761,8 @@ export function createCombat(ctx) {
     // it is a read rather than a panic button
     if (player.dodging > 0
         && player.dodgeT >= TUNE.dodge.iFrom && player.dodgeT <= TUNE.dodge.iTo) return;
+    const pw = power();
+    if (pw && pw.def) dmg = Math.max(1, Math.round(dmg * (DEF_SOFT / (DEF_SOFT + pw.def))));
     player.hp -= dmg;
     player.invuln = TUNE.playerIFrames;
     hitStop = Math.max(hitStop, 0.07);
@@ -930,7 +947,10 @@ export function createCombat(ctx) {
         if (_v.x * fx2 + _v.z * fz < Math.cos(s.arc / 2)) continue;
       }
       player.hitThisSwing.add(e);
-      hurtEnemy(e, s.damage, p, s.knock, s.lift, s.stop, s.shake, s.stun, s.breaks);
+      const pw = power();
+      const dmg = pw && pw.atk ? Math.max(1, Math.round(s.damage * (pw.atk / ATK_BASE)))
+                               : s.damage;
+      hurtEnemy(e, dmg, p, s.knock, s.lift, s.stop, s.shake, s.stun, s.breaks);
       // combat.js does not own the player's vertical velocity, so it raises a
       // flag and the movement code decides what to do with it
       // DIMINISHING, or a perfect player never has to land. Each bounce

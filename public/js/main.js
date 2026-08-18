@@ -678,6 +678,27 @@ Promise.all(ROSTER.concat(NPC_RIGS).map((def) =>
     (k) => `${k}: ${Object.keys(chars[k].clips).join('/')}`).join('  |  '));
   // AFTER the rigs, because npc.js clones them -- rule (o), populate a lookup
   // before the thing that reads it.
+  // MAX HP IS THE SHEET'S, and it is re-read on every change rather than copied
+  // once: a level-up and a change of armour both move it, and a bar that only
+  // agrees with the menu at load time is worse than one that never does.
+  if (window.GS) {
+    const syncHP = () => {
+      if (!GS.ok || !combat) return;
+      const me = GS.state.party.find((m) => m.active) || GS.state.party[0];
+      const st = me && GS.stats(me);
+      if (!st || !st.maxHp) return;
+      const was = combat.player.maxHP;
+      combat.player.maxHP = st.maxHp;
+      // a level-up that raises the ceiling should not leave you on a bar that
+      // reads as damaged -- carry the gain onto the current pool too
+      if (st.maxHp > was) combat.player.hp += st.maxHp - was;
+      combat.player.hp = Math.min(combat.player.hp, combat.player.maxHP);
+    };
+    GS.on('change', syncHP);
+    GS.on('levelup', syncHP);
+    if (GS.ready && GS.ready.then) GS.ready.then(syncHP);
+  }
+
   npcs = makeNpcs({ scene, chars, groundAt, hud });
   const n = npcs.load(NPC_ROSTER);
   console.log('[npc]', n + ' placed:', npcs.debug());
@@ -1342,6 +1363,22 @@ function startCombat() {
      * probes run: a fight that needs an economy loaded to resolve a death is a
      * fight with a new way to break.
      */
+    /**
+     * THE CHARACTER SHEET, AS THE FIGHT SEES IT.
+     *
+     * Returns null until a save exists, and combat.js treats null as "use the
+     * hand-tuned numbers" -- which is what every probe in the suite runs on and
+     * what the whole of TUNE was balanced against. At level 1 with the starting
+     * gear it returns atk 8, which is ATK_BASE, so the multiplier is exactly 1
+     * and nothing changes. The system only starts to bite once you have bought
+     * something, which is the point.
+     */
+    power: () => {
+      const G = window.GS;
+      if (!G || !G.ok || !G.state) return null;
+      const me = G.state.party.find((m) => m.active) || G.state.party[0];
+      return me ? G.stats(me) : null;
+    },
     onKill: (species) => {
       const G = window.GS;
       if (!G || !G.ok || !G.data || !G.data.monsters) return;

@@ -173,6 +173,20 @@ const SHOTS = [
   { name: '09p-pass-top', warp: [11.9, 18, -104.0], az: Math.PI, polar: 1.26, dist: 5.4 },
   // and the whole point of climbing it: the valley you came up
   { name: '09q-valley-back', warp: [11.6, 18, -106.0], az: 0.0, polar: 1.30, dist: 6.5 },
+  // THE PEOPLE, AND THE SYSTEMS BEHIND THEM. `talk` walks up to a townsperson
+  // and opens their conversation; `panel` opens a menu or a counter directly.
+  // Both need real time to pass -- the window is built on a promise and fades in
+  // on a timer -- which is why these carry a `wait` the stepped shots do not.
+  { name: '20-dialogue', warp: [-5.0, 2, 4.2], az: 2.6, polar: 1.22, dist: 5.4,
+    talk: 'tally', wait: 2600 },
+  { name: '21-dialogue-choices', warp: [-5.0, 2, 4.2], az: 2.6, polar: 1.22, dist: 5.4,
+    talk: 'tally', wait: 900, advance: 2 },
+  { name: '22-menu', warp: [0.6, 0, 5.6], az: 0, polar: 1.14, dist: 7.0,
+    panel: 'menu', wait: 700 },
+  { name: '23-status', warp: [0.6, 0, 5.6], az: 0, polar: 1.14, dist: 7.0,
+    panel: 'menu', enter: 1, wait: 700 },
+  { name: '24-shop', warp: [0.6, 0, 5.6], az: 0, polar: 1.14, dist: 7.0,
+    panel: 'shop:town-forge', wait: 800 },
   { name: '10-town-from-meadow', warp: [0, 0, -30.0], az: Math.PI, polar: 1.30, dist: 9.0 },
 
   // Combat states. Each of these SPAWNS its own cast rather than hunting for a
@@ -284,8 +298,61 @@ for (const s of list) {
     });
   }, { ...s, setupSrc: s.setup ? s.setup.toString() : null, setup: undefined });
 
-  const buf = await page.screenshot({ type: 'jpeg', quality: 88 });
+  // OVERLAYS ARE OPENED AFTER THE WORLD IS POSED, AND ON REAL TIME.
+  //
+  // Everything above is stepped by `__sim`, which is deterministic and does not
+  // advance timers. A conversation is not: `Dialogue.play` awaits its data and
+  // the panel fades in on an 8 ms timer, so the only way to capture one is to
+  // pose the world, open the window, and then actually wait.
+  if (s.talk || s.panel) {
+    await page.evaluate(async (shot) => {
+      if (window.GS && window.GS.ready) await window.GS.ready;
+      if (shot.talk) {
+        const n = npcs.at(shot.talk);
+        if (n) { npcs.tryTalk() || window.Dialogue.play(n.node); }
+      } else if (shot.panel === 'menu') {
+        window.Menu.open();
+      } else if (String(shot.panel).startsWith('shop:')) {
+        window.Shop.openShop(String(shot.panel).slice(5));
+      }
+    }, s);
+    await page.waitForTimeout(s.wait ?? 700);
+    // step past the opening lines to reach a choice list
+    for (let i = 0; i < (s.advance || 0); i++) {
+      await page.evaluate(() => { Dialogue.finishLine(); Dialogue.key('confirm'); });
+      await page.waitForTimeout(140);
+    }
+    // ...or down into a menu screen
+    for (let i = 0; i < (s.enter || 0); i++) {
+      await page.evaluate(() => window.EBUI && window.EBUI.key
+        ? window.EBUI.key('confirm') : null).catch(() => {});
+      await page.keyboard.press('Enter');
+      await page.waitForTimeout(260);
+    }
+    await page.evaluate(() => __sim({ steps: 2 }));
+    await page.waitForTimeout(120);
+  }
+
+  // ANIMATIONS DISABLED, or a shot of a conversation never returns. Playwright
+  // waits for the page to settle before it captures, and the dialogue window's
+  // advance chevron blinks on an infinite CSS animation -- the first capture of
+  // a talking frame sat there until the 30 s timeout. Everything else in this
+  // sheet is stepped by `__sim` and holds still anyway, so there is nothing to
+  // lose by freezing CSS as well.
+  const buf = await page.screenshot({ type: 'jpeg', quality: 88, animations: 'disabled' });
   await writeFile(`${OUT}/${s.name}.jpg`, buf);
+  // CLOSE WHAT THIS SHOT OPENED. A panel holds UILOCK, a held lock takes the
+  // simulation's dt to zero, and the next forty shots would have been taken of
+  // a frozen world with a dialogue box over it.
+  if (s.talk || s.panel) {
+    await page.evaluate(() => {
+      if (window.Dialogue && Dialogue.isOpen) Dialogue.close();
+      if (window.Shop && Shop.isOpen) Shop.closeShop();
+      if (window.Menu && Menu.isOpen) Menu.close();
+    });
+    await page.waitForTimeout(260);
+    await page.evaluate(() => __sim({ steps: 2 }));
+  }
   const near = info.foes.filter((f) => f.d < 14);
   console.log(`${s.name}  ${info.draws} draws · ${(info.tris / 1000) | 0}k tris`
               + `  ${near.map((f) => f.k + ':' + f.s).join(',') || 'no foes in frame'}`);

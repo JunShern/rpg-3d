@@ -187,5 +187,7 @@ export function makeNpcs({ scene, chars, groundAt, hud }) {
     debug: () => npcs.map((n) =>
       `${n.id}@(${n.x.toFixed(1)},${n.z.toFixed(1)},y${n.gy.toFixed(2)})`).join(' '),
     at: (id) => npcs.find((n) => n.id === id) || null,
+    /** Every body, so a draw-budget probe can tell a person from a wall. */
+    get bodies() { return npcs.map((n) => n.b.group); },
   };
 }
