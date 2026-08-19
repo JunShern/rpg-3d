@@ -51,6 +51,19 @@ NAME = ["char"]        # set by main(); used only for log prefixes
 # Heights are a CASTING decision, not a measurement: the source meshes are all
 # normalised to roughly the same size, so scale is where the cast gets its
 # range.  Maren is seventeen and wiry, Lake a grown man, Vesper between them.
+# WHERE THE SOURCE MESHES COME FROM.
+#
+# `assets/source/` is gitignored -- it is ~40 MB of input and the BUILT
+# characters in public/assets are what the runtime ships. That is the right
+# trade for the repo and a bad one for reproducibility unless the provenance is
+# written down, so: every `-src.glb` below is the corresponding `<id>-v1.glb`
+# from the Emberbrook project, at
+#
+#     ~/projects/multiplayer-rpg/public/assets/characters/<id>/<id>-v1.glb
+#
+# They are Tripo image-to-3D generations on one shared 41-joint auto-rig, which
+# is the whole reason the intake is a table rather than code. To rebuild an
+# absent source:  cp <that path> assets/source/<id>-src.glb
 CHARACTERS = {
     "vesper": {"src": "assets/source/vesper-src.glb", "height": 1.70,
                "tint": (0.55, 0.62, 0.60)},
