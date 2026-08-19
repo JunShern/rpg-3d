@@ -30,8 +30,12 @@ hand-modelled assets and no downloaded ones.
 
 ```sh
 npm install
-PORT=3100 node server.js      # port 3000 is Emberbrook's
+npx playwright install chromium   # the browser is NOT in node_modules
+npm run serve                     # symlinks three into public/vendor, serves :3100
 ```
+
+See `CLAUDE.md` for what can and cannot be changed on a machine without Blender
+installed — the short version is everything except geometry and characters.
 
 Open **http://localhost:3100**. `WASD`/arrows move (camera-relative), drag to
 orbit, wheel to zoom, `space` to jump, `J` to swing, `shift` to slip, `Q` to
@@ -56,8 +60,11 @@ $B -b -P tools/char_build.py -- --name vesper   # or lake / maren
 
 ## Rebuild the assets
 
+Blender lives in a different place on every machine, so take it from the
+environment rather than hard-coding a mac path — the cloud boxes are Linux:
+
 ```sh
-B=/Applications/Blender.app/Contents/MacOS/Blender
+B=${BLENDER:-/Applications/Blender.app/Contents/MacOS/Blender}   # or /usr/bin/blender
 $B -b -P tools/hero_build.py -- --out public/assets/hero.glb --render docs/qa/hero
 $B -b -P tools/town_build.py -- --out public/assets/town.glb --render docs/qa/town
 $B -b -P tools/meadow_build.py -- --out public/assets/meadow.glb
