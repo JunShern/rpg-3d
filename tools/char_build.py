@@ -53,17 +53,26 @@ NAME = ["char"]        # set by main(); used only for log prefixes
 # range.  Maren is seventeen and wiry, Lake a grown man, Vesper between them.
 # WHERE THE SOURCE MESHES COME FROM.
 #
-# `assets/source/` is gitignored -- it is ~40 MB of input and the BUILT
-# characters in public/assets are what the runtime ships. That is the right
-# trade for the repo and a bad one for reproducibility unless the provenance is
-# written down, so: every `-src.glb` below is the corresponding `<id>-v1.glb`
-# from the Emberbrook project, at
+# `assets/source/` is gitignored -- ~40 MB of input against built characters
+# that are what the runtime actually ships. That is the right trade for the repo
+# and a bad one for reproducibility unless the provenance is written down. Every
+# `-src.glb` came from the Emberbrook project, under
+# ~/projects/multiplayer-rpg/public/assets/characters/<id>/ :
 #
-#     ~/projects/multiplayer-rpg/public/assets/characters/<id>/<id>-v1.glb
+#     vesper-src.glb  <-  vesper/vesper-v2.glb   (14,013,116 bytes)
+#     lake-src.glb    <-  lake/lake-v1.glb       (12,863,208)
+#     maren-src.glb   <-  maren/maren-v1.glb     (13,793,500)
+#     finn-src.glb    <-  finn/finn-v1.glb       (11,962,836)
+#     mara-src.glb    <-  mara/mara-v1.glb       (11,996,712)
+#     pip-src.glb     <-  pip/pip-v1.glb         (14,760,872)
+#
+# MATCHED BY SIZE against what is on disk, not inferred from the naming, because
+# the obvious pattern is wrong for the first character in the table: vesper is
+# -v2 and has no -v1 at all. I wrote the plausible version of this comment first
+# and it was wrong about one row in six.
 #
 # They are Tripo image-to-3D generations on one shared 41-joint auto-rig, which
-# is the whole reason the intake is a table rather than code. To rebuild an
-# absent source:  cp <that path> assets/source/<id>-src.glb
+# is the whole reason the intake below is a table rather than code.
 CHARACTERS = {
     "vesper": {"src": "assets/source/vesper-src.glb", "height": 1.70,
                "tint": (0.55, 0.62, 0.60)},
