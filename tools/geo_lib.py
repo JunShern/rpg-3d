@@ -733,9 +733,22 @@ def key(arm_obj, frame, pose, loc=None, scale=None):
 
 
 def rest(arm_obj):
+    """Put every bone back to its bind pose.
+
+    CLEARS THE QUATERNION TOO, and not for tidiness.  Rotation mode is a
+    property of the bone: builders work in euler XYZ, but a rig that came back
+    through the glTF importer is in QUATERNION, and the importer leaves it
+    posed on a frame rather than at rest.  Zeroing only `rotation_euler` on
+    such a rig does nothing at all -- it looks like a rest pose was applied and
+    the character stays bent.  That made a migration's before/after check
+    compare two different poses and report 61 mm of skin movement that was not
+    there."""
     for pb in arm_obj.pose.bones:
         pb.rotation_euler = (0, 0, 0)
+        pb.rotation_quaternion = (1, 0, 0, 0)
+        pb.rotation_axis_angle = (0, 0, 1, 0)
         pb.location = (0, 0, 0)
+        pb.scale = (1, 1, 1)
 
 
 def fcurves(act):

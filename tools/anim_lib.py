@@ -80,7 +80,7 @@ def anim_idle(rig, weapon=True):
         t = f / N
         breath = math.sin(t * math.tau)
         sway = math.sin(t * math.tau - 0.9)
-        K.key(rig, f, pose(t, breath, sway),
+        _key(rig, f, pose(t, breath, sway),
               loc={"hips": (0.0, -0.008 + 0.008 * breath, 0.0)})
     K.interp(act)
     return act
@@ -173,7 +173,7 @@ def anim_run(rig, weapon=True):
         (16, half("L", "R", +1.0), -0.055),
     ]
     for f, p, bob in keys:
-        K.key(rig, f, p, loc={"hips": (0.0, bob, 0.0)})
+        _key(rig, f, p, loc={"hips": (0.0, bob, 0.0)})
     K.interp(act)
     return act
 
@@ -214,6 +214,40 @@ def _neutral(weapon):
     return n
 
 
+# Bones whose rotation is SHARED with a segment further up the chain.  A pose
+# names `spine` because "how far is the torso bent" is one idea; a rig that has
+# been given a second spine segment splits that idea across both, which is what
+# makes a torso curve instead of hinge.
+#
+# CONDITIONAL ON THE RIG, always.  Halving `spine` on a character that has no
+# `spine2` to take the other half would quietly flatten every torso arc in the
+# library to half depth -- and K.key skips bones a rig does not have, so it
+# would do it without a word.
+SPREAD = {"spine": ("spine", "spine2")}
+
+
+def _spread(rig, pose):
+    out = None
+    for src, targets in SPREAD.items():
+        if src not in pose:
+            continue
+        if any(t not in rig.pose.bones for t in targets):
+            continue
+        if out is None:
+            out = dict(pose)
+        share = tuple(a / len(targets) for a in pose[src])
+        for t in targets:
+            # an explicit key for a segment wins over its share of the parent
+            if t == src or t not in pose:
+                out[t] = share
+    return out if out is not None else pose
+
+
+def _key(rig, frame, pose, loc=None):
+    """Every pose in this file goes through here, so the spread happens once."""
+    K.key(rig, frame, _spread(rig, pose), loc=loc)
+
+
 def clip(rig, name, keys):
     """The shape EVERY clip in this file has: key a series of poses, then set
     the interpolation.  `keys` is [(frame, pose, hips_offset), ...].
@@ -225,7 +259,7 @@ def clip(rig, name, keys):
     """
     act = K.action(rig, name)
     for f, pose, loc in keys:
-        K.key(rig, f, pose, loc={"hips": loc} if loc is not None else None)
+        _key(rig, f, pose, loc={"hips": loc} if loc is not None else None)
     K.interp(act)
     return act
 
@@ -297,7 +331,7 @@ def anim_jump(rig, weapon=True):
 
     for f, pose, up in [(0, base, -0.008), (3, crouch, -0.300),
                         (7, launch, 0.060), (12, AIRBORNE, -0.020)]:
-        K.key(rig, f, pose, loc={"hips": (0.0, up, 0.0)})
+        _key(rig, f, pose, loc={"hips": (0.0, up, 0.0)})
     K.interp(act)
     return act
 
@@ -319,7 +353,7 @@ def anim_land(rig, weapon=True):
 
     for f, pose, up in [(0, AIRBORNE, -0.020), (3, absorb, -0.340),
                         (9, base, -0.008)]:
-        K.key(rig, f, pose, loc={"hips": (0.0, up, 0.0)})
+        _key(rig, f, pose, loc={"hips": (0.0, up, 0.0)})
     K.interp(act)
     return act
 
@@ -567,7 +601,7 @@ def anim_airattack(rig, weapon=True):
         (5,  drive,    (0.0, 0.030, 0.075)),     # unfold straight down
         (26, drive,    (0.0, 0.026, 0.070)),     # HOLD -- the landing ends this
     ]:
-        K.key(rig, f, p, loc={"hips": loc})
+        _key(rig, f, p, loc={"hips": loc})
     K.interp(act)
     return act
 
@@ -648,7 +682,7 @@ def anim_dodge(rig, weapon=True):
         (13, catch, (0.0, 0.000, -0.040)),
         (20, n,     (0.0, 0.000, 0.000)),
     ]:
-        K.key(rig, f, p, loc={"hips": loc})
+        _key(rig, f, p, loc={"hips": loc})
     K.interp(act)
     return act
 
@@ -704,7 +738,7 @@ def anim_hurt(rig, weapon=True):
         (9, catch, (0.0,  0.045, -0.015)),
         (17, n,    (0.0,  0.000, 0.000)),
     ]:
-        K.key(rig, f, p, loc={"hips": loc})
+        _key(rig, f, p, loc={"hips": loc})
     K.interp(act)
     return act
 
