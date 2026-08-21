@@ -707,3 +707,247 @@ def anim_hurt(rig, weapon=True):
         K.key(rig, f, p, loc={"hips": loc})
     K.interp(act)
     return act
+
+
+# ------------------------------------------------------------------- magic
+#
+# A CAST IS NOT A SWING, and the difference is where the time goes.  A swing
+# spends its frames travelling: the interesting part is the blade crossing the
+# arc, and the pose either side of contact is just approach and decay.  A cast
+# spends its frames HELD.  The spell is the effect, the character's job is to
+# commit to a shape and stay in it long enough for the effect to read, and the
+# whole clip is built around a pose that does not move.
+#
+# So the feet stay planted.  A swing lunges -- every attack in this file carries
+# real hip translation and the runtime gets forward motion out of it for free.
+# A caster who slides forward looks like they are being pushed, so `cast`
+# defaults to travel that barely moves and spends its budget on the torso.
+
+# Planted: a few centimetres of settle and recoil, no ground covered.
+PLANTED = ((0.0, -0.008, 0.000),
+           (0.0, -0.030, -0.020),
+           (0.0, -0.014, 0.045),
+           (0.0, -0.020, 0.030),
+           (0.0, -0.008, 0.000))
+
+
+def cast(rig, name, *, gather, release, hold=None, timing, travel=PLANTED,
+         weapon=True, base=None):
+    """A spell, as four beats: gather, release, HOLD, recover.
+
+    Same five keys as `swing` and deliberately a separate function, because the
+    THIRD key means something different.  In a swing it is a follow-through
+    decaying towards neutral; here it is the pose the character is stuck in
+    while the spell happens, and it is the longest beat in the clip.  Calling it
+    `settle` and reusing `swing` would have hidden that -- and the timing is the
+    part a spell gets wrong first.
+    """
+    n = base if base is not None else _neutral(weapon)
+    p_gather = {**n, **gather}
+    p_release = {**n, **release}
+    p_hold = {**p_release, **(hold or {})}
+    return clip(rig, name, list(zip(timing, [n, p_gather, p_release, p_hold, n],
+                                    travel)))
+
+
+def anim_cast_fire(rig, weapon=True):
+    """FIRE: a straight thrust down the centre line.
+
+    The most aggressive of the three and the shortest -- it is the spell you
+    cast in someone's face.  The elbow folds to the ribs and snaps out, so the
+    silhouette from the side is one hard horizontal line.
+
+    +90 on the upper arm is horizontal FORWARD (measured: elev -1.4, fwd 0.69).
+    Written -88 first, reasoning that the wind-up of anim_attack sits at -128
+    and is "up behind the head" -- so negative must be up.  Negative is up and
+    BEHIND: -90 reaches 0.48 m backwards.  The thrust pointed out of the back of
+    the character, and from three-quarter it just looked like she was standing
+    still.  tools/pose_probe.py exists because of this.
+    """
+    return cast(
+        rig, "cast_fire", weapon=weapon,
+        gather={
+            "hips": (-4.0, -10.0, 0.0), "spine": (-2.0, -8.0, 0.0),
+            "chest": (-6.0, -14.0, 0.0), "neck": (2.0, 6.0, 0.0),
+            "head": (2.0, 8.0, 0.0),
+            "shoulder.R": (-6.0, 0.0, 10.0),
+            # cocked AT THE SHOULDER, elbow folded to the ribs, so the release
+            # is a punch and not a swing -- a bent arm that straightens reads
+            # as thrust
+            "upperarm.R": (-15.0, 0.0, 16.0), "forearm.R": (86.0, 0.0, 0.0),
+            "hand.R": (-30.0, 0.0, 0.0),
+            "upperarm.L": (-10.0, 0.0, -14.0), "forearm.L": (46.0, 0.0, 0.0),
+            "thigh.L": (-10.0, 0.0, 4.0), "shin.L": (14.0, 0.0, 0.0),
+            "foot.L": (-4.0, 0.0, 0.0),
+            "thigh.R": (12.0, 0.0, -6.0), "shin.R": (-16.0, 0.0, 0.0),
+            "foot.R": (8.0, 0.0, 0.0),
+        },
+        release={
+            "hips": (8.0, 12.0, 0.0), "spine": (8.0, 10.0, 0.0),
+            # +Y twist brings the RIGHT shoulder forward -- the same sign
+            # anim_attack's strike uses to follow a right-handed swing through
+            "chest": (12.0, 20.0, 0.0), "neck": (-6.0, -8.0, 0.0),
+            "head": (-8.0, -10.0, 0.0),
+            "shoulder.R": (8.0, 0.0, -8.0),
+            "upperarm.R": (90.0, 0.0, 0.0), "forearm.R": (6.0, 0.0, 0.0),
+            "hand.R": (10.0, 0.0, 0.0),
+            # left arm drives BACK as the right goes out, or the thrust has
+            # nothing to push against
+            "upperarm.L": (-30.0, 0.0, -20.0), "forearm.L": (58.0, 0.0, 0.0),
+            "thigh.L": (30.0, 0.0, 4.0), "shin.L": (-26.0, 0.0, 0.0),
+            "foot.L": (10.0, 0.0, 0.0),
+            "thigh.R": (-20.0, 0.0, -6.0), "shin.R": (-20.0, 0.0, 0.0),
+            "foot.R": (14.0, 0.0, 0.0),
+        },
+        hold={
+            "chest": (10.0, 16.0, 0.0), "head": (-4.0, -6.0, 0.0),
+            "upperarm.R": (84.0, 0.0, 0.0), "forearm.R": (14.0, 0.0, 0.0),
+        },
+        timing=(0, 5, 9, 20, 32),
+    )
+
+
+def anim_cast_ice(rig, weapon=True):
+    """BLIZZARD: a wide sweep that ends with the arm straight out to the side.
+
+    Where fire is a line down the centre, this is a line ACROSS -- it starts
+    folded over the chest and opens all the way out, so the two spells cannot be
+    confused at any distance.  Same argument as hit 2 against hit 1: two effects
+    that share a silhouette are one effect.
+
+    NEAR REST the module docstring holds and is what these numbers use: +Z
+    carries the RIGHT arm across the body, -Z opens it out (measured at X=0,
+    Z=-70: lat 0.67, elev 0.8).  That convention is only good near rest -- see
+    anim_cast_cure, which is nowhere near it.
+    """
+    return cast(
+        rig, "cast_ice", weapon=weapon,
+        gather={
+            "hips": (2.0, 16.0, 0.0), "spine": (2.0, 14.0, 0.0),
+            "chest": (4.0, 24.0, 0.0), "neck": (-2.0, -10.0, 0.0),
+            "head": (-4.0, -14.0, 0.0),
+            "shoulder.R": (2.0, 0.0, -4.0),
+            "upperarm.R": (15.0, 0.0, 45.0), "forearm.R": (60.0, 0.0, 0.0),
+            "hand.R": (-36.0, 0.0, 0.0),
+            "upperarm.L": (14.0, 0.0, 18.0), "forearm.L": (40.0, 0.0, 0.0),
+            "thigh.L": (12.0, 0.0, 4.0), "shin.L": (-18.0, 0.0, 0.0),
+            "thigh.R": (-6.0, 0.0, -6.0), "shin.R": (-14.0, 0.0, 0.0),
+        },
+        release={
+            "hips": (-4.0, -18.0, 0.0), "spine": (-3.0, -16.0, 0.0),
+            "chest": (-6.0, -28.0, 0.0), "neck": (3.0, 10.0, 0.0),
+            "head": (5.0, 14.0, 0.0),
+            "shoulder.R": (-8.0, 0.0, 8.0),
+            "upperarm.R": (5.0, 0.0, -66.0), "forearm.R": (14.0, 0.0, 0.0),
+            "hand.R": (4.0, 0.0, 0.0),
+            "upperarm.L": (-16.0, 0.0, -26.0), "forearm.L": (38.0, 0.0, 0.0),
+            "thigh.L": (-12.0, 0.0, 4.0), "shin.L": (-6.0, 0.0, 0.0),
+            "thigh.R": (22.0, 0.0, -6.0), "shin.R": (-30.0, 0.0, 0.0),
+            "foot.R": (10.0, 0.0, 0.0),
+        },
+        hold={
+            "chest": (-4.0, -22.0, 0.0),
+            "upperarm.R": (0.0, 0.0, -58.0), "forearm.R": (20.0, 0.0, 0.0),
+        },
+        timing=(0, 6, 11, 24, 38),
+    )
+
+
+def anim_cast_cure(rig, weapon=True):
+    """CURE: both arms open overhead, and the only one of the three not aimed at
+    anybody.
+
+    Support magic has to read as support from behind, at a glance, while the
+    player is looking at something else -- so it is the one cast that is
+    symmetrical, that opens the chest instead of closing it, and that looks UP.
+    It is also the slowest: nothing about being healed should feel like a jab.
+
+    THE ARMS GO UP THE FRONT, and both halves of that matter.
+
+    +180 and -180 are the same pose, and -180 measures marginally better, but
+    the number here is not a pose -- it is the END of an interpolation that
+    starts near zero.  Going negative takes the arms up BEHIND the back through
+    -90 and lands the same place having done a backward windmill.  Positive
+    passes through +90, which is a person raising their arms.
+
+    The Z signs are the ones the module docstring warns about, INVERTED, and
+    that is not a mistake: rotations are XYZ euler, so Z is applied in a frame X
+    has already turned most of the way over.  Measured at X=+180, the left arm
+    opens outward on -30 and the right on +30 -- the exact opposite of the rule
+    at rest.  Written the other way the arms cross overhead.
+    """
+    return cast(
+        rig, "cast_cure", weapon=weapon,
+        gather={
+            "hips": (8.0, 0.0, 0.0), "spine": (6.0, 0.0, 0.0),
+            "chest": (8.0, 0.0, 0.0), "neck": (-6.0, 0.0, 0.0),
+            "head": (10.0, 0.0, 0.0),
+            # drawn down and IN across the body: near rest, -Z closes the left
+            # arm and +Z closes the right
+            "shoulder.L": (0.0, 0.0, -8.0), "shoulder.R": (0.0, 0.0, 8.0),
+            "upperarm.L": (20.0, 0.0, -16.0), "forearm.L": (50.0, 0.0, 0.0),
+            "upperarm.R": (20.0, 0.0, 16.0), "forearm.R": (50.0, 0.0, 0.0),
+            "hand.L": (-14.0, 0.0, 0.0), "hand.R": (-14.0, 0.0, 0.0),
+            "thigh.L": (22.0, 0.0, 3.0), "shin.L": (-34.0, 0.0, 0.0),
+            "foot.L": (14.0, 0.0, 0.0),
+            "thigh.R": (22.0, 0.0, -3.0), "shin.R": (-34.0, 0.0, 0.0),
+            "foot.R": (14.0, 0.0, 0.0),
+        },
+        release={
+            "hips": (-6.0, 0.0, 0.0), "spine": (-6.0, 0.0, 0.0),
+            "chest": (-12.0, 0.0, 0.0), "neck": (8.0, 0.0, 0.0),
+            "head": (12.0, 0.0, 0.0),
+            "shoulder.L": (0.0, 0.0, -14.0), "shoulder.R": (0.0, 0.0, 14.0),
+            # measured: elev 77.4 / 77.5, lateral 0.15 both sides, symmetric to
+            # a tenth of a degree
+            "upperarm.L": (180.0, 0.0, -30.0), "forearm.L": (16.0, 0.0, 0.0),
+            "upperarm.R": (180.0, 0.0, 30.0), "forearm.R": (16.0, 0.0, 0.0),
+            "hand.L": (10.0, 0.0, 0.0), "hand.R": (10.0, 0.0, 0.0),
+            "thigh.L": (-6.0, 0.0, 3.0), "shin.L": (-4.0, 0.0, 0.0),
+            "foot.L": (2.0, 0.0, 0.0),
+            "thigh.R": (-6.0, 0.0, -3.0), "shin.R": (-4.0, 0.0, 0.0),
+            "foot.R": (2.0, 0.0, 0.0),
+        },
+        hold={
+            "chest": (-10.0, 0.0, 0.0), "head": (10.0, 0.0, 0.0),
+            "upperarm.L": (168.0, 0.0, -28.0),
+            "upperarm.R": (168.0, 0.0, 28.0),
+        },
+        # the slowest of the three, and the longest hold
+        timing=(0, 8, 14, 32, 48),
+        travel=((0.0, -0.008, 0.000),
+                (0.0, -0.055, -0.010),   # sink to gather
+                (0.0, 0.020, 0.005),     # rise onto the open pose
+                (0.0, 0.014, 0.000),
+                (0.0, -0.008, 0.000)),
+    )
+
+
+# ------------------------------------------------------------------ the set
+#
+# WHAT "THE LIBRARY" IS, in one place.  char_build listed the clips to author
+# and then listed them AGAIN to verify the export, which is rule (r) with the
+# two copies four lines apart -- and it meant adding a spell to this file did
+# not add it to any character, silently, because the list that decides what
+# gets built lived somewhere else entirely.
+
+def library(only=None):
+    """Every clip in this module, as [(function name, function), ...].
+
+    `only` names a subset, by function name, for previewing or for a character
+    that should not have the whole set.
+    """
+    names = ([n for n in globals() if n.startswith("anim_")]
+             if not only else list(only))
+    out = []
+    for n in sorted(names):
+        fn = globals().get(n)
+        if not callable(fn):
+            raise SystemExit(f"anim_lib has no clip {n!r}")
+        out.append((n, fn))
+    return out
+
+
+def clip_names(only=None):
+    """The names the CLIPS get, which is the function name without `anim_`."""
+    return [n.removeprefix("anim_") for n, _ in library(only)]

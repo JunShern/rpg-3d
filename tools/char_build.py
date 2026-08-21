@@ -348,10 +348,11 @@ def main():
 
     bpy.context.scene.render.fps = 24
     K.rest(rig)
-    for fn in (anim_lib.anim_idle, anim_lib.anim_run, anim_lib.anim_attack,
-               anim_lib.anim_attack2, anim_lib.anim_attack3,
-               anim_lib.anim_airattack, anim_lib.anim_dodge, anim_lib.anim_hurt,
-               anim_lib.anim_jump, anim_lib.anim_land):
+    # THE LIBRARY DECIDES WHAT A CHARACTER GETS, not a list kept here.  This was
+    # a tuple of ten functions with the same ten names repeated in the verify
+    # call below (rule (r)), which meant a clip added to anim_lib reached no
+    # character at all until someone remembered to edit both.
+    for _, fn in anim_lib.library():
         fn(rig, weapon=armed)          # the cast carries a sword; the town does not
     print(f"[{NAME[0]}] actions: {sorted(a.name for a in bpy.data.actions)}")
 
@@ -366,9 +367,7 @@ def main():
 
     K.rest(rig)
     path = K.export_glb(out, rig)
-    info = K.verify_glb(path, animations=["idle", "run", "attack", "attack2", "attack3",
-                                          "airattack", "dodge", "hurt",
-                                    "jump", "land"])
+    info = K.verify_glb(path, animations=anim_lib.clip_names())
     print(f"[{NAME[0]}] exported {path} ({os.path.getsize(path)/1024:.0f} KB)")
     print(f"[{NAME[0]}] verified: clips={info['animations']} images={info['images']}")
 

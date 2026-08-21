@@ -268,6 +268,13 @@ def main():
     at_keys = "--at-keys" in argv
     weapon = "--unarmed" not in argv
 
+    # --az takes an arbitrary azimuth in degrees, because the named views are
+    # not enough: "side" is azimuth 90, which looks at the character's LEFT,
+    # and every sword action in this game happens on the RIGHT.  A thrust
+    # photographed from the far side is a photograph of a coat.
+    az = opt("--az")
+    if az is not None:
+        VIEWS[view := f"az{az}"] = float(az)
     if view not in VIEWS:
         raise SystemExit(f"[preview] --view must be one of {sorted(VIEWS)}")
 
