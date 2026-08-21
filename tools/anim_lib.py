@@ -1008,3 +1008,195 @@ def write_manifest(path="public/assets/clips.manifest.json"):
         json.dump({"clips": names}, fh, indent=1)
         fh.write("\n")
     return names
+
+
+# ------------------------------------------------------------ out of combat
+#
+# EVERY CLIP ABOVE ASSUMES A FIGHT.  A town full of people holding swords at
+# chest height while they tell you about the weather is the single loudest
+# thing wrong with a JRPG town, and it is not fixed by better swings.
+#
+# Two rules run through this section.
+#
+# THE GESTURING HAND IS THE LEFT ONE.  The right hand carries the weapon --
+# `_neutral(weapon=True)` damps it for exactly that reason -- so a talk loop
+# authored on the right arm waves a blade around while discussing turnips.
+# The left arm is free on every character in the game, armed or not.
+#
+# AND THEY ARE SMALLER THAN THEY LOOK.  Combat poses are pushed well past life
+# because a toon ramp eats subtlety and a swing is read in five frames.  A talk
+# loop is read for thirty seconds at conversational distance, and the same
+# amplitude that makes a swing legible makes a conversation look like a
+# tantrum.  Nothing here goes much past forty degrees.
+
+
+def gesture(rig, name, keys, weapon=True, base=None, loop=True):
+    """A non-combat clip, as poses on a neutral base.
+
+    `loop` closes the clip back onto its own first pose, which is what a talk
+    cycle needs and what a one-shot must NOT have -- a chest-opening that
+    returns to frame 0 plays its own reverse every time it finishes.
+    """
+    n = base if base is not None else _neutral(weapon)
+    frames = [(f, {**n, **(delta or {})}, loc) for f, delta, loc in keys]
+    if loop:
+        last = frames[-1]
+        frames[-1] = (last[0], frames[0][1], frames[0][2])
+    return clip(rig, name, frames)
+
+
+def anim_talk(rig, weapon=True):
+    """The default speaking loop: a weight shift, a nod, one hand explaining.
+
+    Two beats rather than one, and deliberately uneven -- 20 frames then 28 --
+    because a gesture cycle that divides evenly into the dialogue's typing
+    rhythm starts to look like a metronome about four lines in.
+    """
+    return gesture(rig, "talk", weapon=weapon, keys=[
+        (0, None, (0.0, -0.008, 0.000)),
+        (10, {
+            "hips": (0.0, 4.0, 0.0), "spine": (2.0, 3.0, 0.0),
+            "chest": (0.0, 6.0, 0.0), "neck": (2.0, -2.0, 0.0),
+            "head": (4.0, -5.0, 2.0),
+            # open palm, forward and slightly out: the "here is the thing I am
+            # telling you" hand
+            "shoulder.L": (0.0, 0.0, -6.0),
+            "upperarm.L": (38.0, 0.0, 14.0), "forearm.L": (62.0, 0.0, 0.0),
+            "hand.L": (-18.0, 0.0, 0.0),
+        }, (0.0, -0.012, 0.004)),
+        (20, {
+            "hips": (0.0, 2.0, 0.0), "spine": (1.0, 1.0, 0.0),
+            "chest": (0.0, 2.0, 0.0), "neck": (-2.0, 0.0, 0.0),
+            "head": (-3.0, 0.0, 0.0),
+            "shoulder.L": (0.0, 0.0, -3.0),
+            "upperarm.L": (24.0, 0.0, 8.0), "forearm.L": (46.0, 0.0, 0.0),
+            "hand.L": (-6.0, 0.0, 0.0),
+        }, (0.0, -0.006, 0.000)),
+        (34, {
+            "hips": (0.0, -3.0, 0.0), "spine": (2.0, -2.0, 0.0),
+            "chest": (0.0, -5.0, 0.0), "neck": (1.0, 2.0, 0.0),
+            "head": (3.0, 4.0, -2.0),
+            "shoulder.L": (0.0, 0.0, -5.0),
+            "upperarm.L": (32.0, 0.0, 20.0), "forearm.L": (54.0, 0.0, 0.0),
+            "hand.L": (-12.0, 0.0, 0.0),
+        }, (0.0, -0.012, 0.002)),
+        (48, None, (0.0, -0.008, 0.000)),
+    ])
+
+
+def anim_talk_emphatic(rig, weapon=True):
+    """The louder register: both hands, a bigger lean.  For the shopkeeper
+    making a point and the guard telling you not to go that way."""
+    return gesture(rig, "talk_emphatic", weapon=weapon, keys=[
+        (0, None, (0.0, -0.008, 0.000)),
+        (8, {
+            "hips": (-2.0, 0.0, 0.0), "spine": (-3.0, 0.0, 0.0),
+            "chest": (-5.0, 0.0, 0.0), "neck": (3.0, 0.0, 0.0),
+            "head": (5.0, 0.0, 0.0),
+            # gathering: hands come in before they go out, or the gesture has
+            # no anticipation and reads as a twitch
+            "shoulder.L": (0.0, 0.0, -4.0),
+            "upperarm.L": (16.0, 0.0, 6.0), "forearm.L": (70.0, 0.0, 0.0),
+            "hand.L": (-20.0, 0.0, 0.0),
+        }, (0.0, -0.014, -0.006)),
+        (18, {
+            "hips": (4.0, 0.0, 0.0), "spine": (5.0, 0.0, 0.0),
+            "chest": (8.0, 0.0, 0.0), "neck": (-4.0, 0.0, 0.0),
+            "head": (-7.0, 0.0, 0.0),
+            "shoulder.L": (0.0, 0.0, -9.0),
+            "upperarm.L": (44.0, 0.0, 22.0), "forearm.L": (34.0, 0.0, 0.0),
+            "hand.L": (-24.0, 0.0, 0.0),
+        }, (0.0, -0.006, 0.012)),
+        (34, {
+            "hips": (1.0, 0.0, 0.0), "spine": (1.0, 0.0, 0.0),
+            "chest": (2.0, 0.0, 0.0),
+            "shoulder.L": (0.0, 0.0, -5.0),
+            "upperarm.L": (28.0, 0.0, 12.0), "forearm.L": (52.0, 0.0, 0.0),
+            "hand.L": (-10.0, 0.0, 0.0),
+        }, (0.0, -0.010, 0.002)),
+        (46, None, (0.0, -0.008, 0.000)),
+    ])
+
+
+def anim_point(rig, weapon=True):
+    """One-shot: point off at something, hold, drop.  The clip a townsperson
+    needs to send you anywhere."""
+    return gesture(rig, "point", weapon=weapon, loop=False, keys=[
+        (0, None, (0.0, -0.008, 0.000)),
+        (6, {
+            # a small wind-back, so the arm has somewhere to come from
+            "chest": (2.0, 8.0, 0.0), "head": (2.0, 6.0, 0.0),
+            "upperarm.L": (6.0, 0.0, -4.0), "forearm.L": (34.0, 0.0, 0.0),
+        }, (0.0, -0.010, -0.004)),
+        (14, {
+            "hips": (0.0, -6.0, 0.0), "spine": (0.0, -6.0, 0.0),
+            "chest": (-2.0, -14.0, 0.0), "neck": (2.0, 6.0, 0.0),
+            "head": (2.0, 10.0, 0.0),
+            "shoulder.L": (-4.0, 0.0, -8.0),
+            # arm straight: a bent arm does not point, it offers
+            "upperarm.L": (74.0, 0.0, 10.0), "forearm.L": (8.0, 0.0, 0.0),
+            "hand.L": (8.0, 0.0, 0.0),
+        }, (0.0, -0.006, 0.006)),
+        (30, {
+            "chest": (-2.0, -12.0, 0.0), "head": (2.0, 9.0, 0.0),
+            "shoulder.L": (-4.0, 0.0, -7.0),
+            "upperarm.L": (70.0, 0.0, 10.0), "forearm.L": (12.0, 0.0, 0.0),
+            "hand.L": (6.0, 0.0, 0.0),
+        }, (0.0, -0.006, 0.005)),
+        (44, None, (0.0, -0.008, 0.000)),
+    ])
+
+
+def anim_open(rig, weapon=True):
+    """Squat, lift a lid, stand.  A chest, a crate, anything on the ground.
+
+    WRITTEN AS A LEAN THE FIRST TIME and it read as a bow: the torso pitched
+    forty degrees, the knees bent a little, and the arms -- angled forward
+    relative to a torso already tipped that far -- came out hanging straight
+    down in world space, so the hands finished at her hips having reached for
+    nothing.  A squat is mostly KNEE, and the arms have to out-rotate the lean
+    rather than share it.  The hand height at the bottom is measured against
+    the floor, not guessed: a chest lid is knee-high, so that is where the
+    hands stop.
+    """
+    return gesture(rig, "open", weapon=weapon, loop=False, keys=[
+        (0, None, (0.0, -0.008, 0.000)),
+        (12, {
+            # KNEES, not spine.  The torso stays much closer to upright than it
+            # wants to -- what sells a squat is the hips dropping, not the chest
+            # tipping over the toes.
+            "hips": (8.0, 0.0, 0.0), "spine": (5.0, 0.0, 0.0),
+            "chest": (9.0, 0.0, 0.0), "neck": (-8.0, 0.0, 0.0),
+            "head": (-12.0, 0.0, 0.0),
+            "shoulder.L": (0.0, 0.0, -5.0), "shoulder.R": (0.0, 0.0, 5.0),
+            "upperarm.L": (48.0, 0.0, -8.0), "forearm.L": (40.0, 0.0, 0.0),
+            "hand.L": (-10.0, 0.0, 0.0),
+            "upperarm.R": (48.0, 0.0, 8.0), "forearm.R": (40.0, 0.0, 0.0),
+            "thigh.L": (72.0, 0.0, 5.0), "shin.L": (-96.0, 0.0, 0.0),
+            "foot.L": (34.0, 0.0, 0.0),
+            "thigh.R": (72.0, 0.0, -5.0), "shin.R": (-96.0, 0.0, 0.0),
+            "foot.R": (34.0, 0.0, 0.0),
+        }, (0.0, -0.335, 0.055)),
+        (20, {
+            "hips": (9.0, 0.0, 0.0), "spine": (6.0, 0.0, 0.0),
+            "chest": (10.0, 0.0, 0.0), "head": (-13.0, 0.0, 0.0),
+            "shoulder.L": (0.0, 0.0, -6.0), "shoulder.R": (0.0, 0.0, 6.0),
+            "upperarm.L": (54.0, 0.0, -8.0), "forearm.L": (32.0, 0.0, 0.0),
+            "upperarm.R": (54.0, 0.0, 8.0), "forearm.R": (32.0, 0.0, 0.0),
+            "thigh.L": (74.0, 0.0, 5.0), "shin.L": (-98.0, 0.0, 0.0),
+            "thigh.R": (74.0, 0.0, -5.0), "shin.R": (-98.0, 0.0, 0.0),
+        }, (0.0, -0.350, 0.070)),
+        (34, {
+            # THE LIFT: the hands stay out in front and rise, and the legs push
+            # the whole body up behind them
+            "hips": (2.0, 0.0, 0.0), "spine": (0.0, 0.0, 0.0),
+            "chest": (-4.0, 0.0, 0.0), "neck": (4.0, 0.0, 0.0),
+            "head": (5.0, 0.0, 0.0),
+            "shoulder.L": (-2.0, 0.0, -7.0), "shoulder.R": (-2.0, 0.0, 7.0),
+            "upperarm.L": (46.0, 0.0, -10.0), "forearm.L": (58.0, 0.0, 0.0),
+            "upperarm.R": (46.0, 0.0, 10.0), "forearm.R": (58.0, 0.0, 0.0),
+            "thigh.L": (22.0, 0.0, 4.0), "shin.L": (-30.0, 0.0, 0.0),
+            "thigh.R": (22.0, 0.0, -4.0), "shin.R": (-30.0, 0.0, 0.0),
+        }, (0.0, -0.060, 0.030)),
+        (50, None, (0.0, -0.008, 0.000)),
+    ])
