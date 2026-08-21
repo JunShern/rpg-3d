@@ -1005,7 +1005,10 @@ def write_manifest(path="public/assets/clips.manifest.json"):
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
     names = clip_names()
     with open(path, "w") as fh:
-        json.dump({"clips": names}, fh, indent=1)
+        json.dump({"clips": names,
+                   # the frame each clip hands the weapon over on; see HANDOFF
+                   "handoff": {k: v for k, v in HANDOFF.items() if k in names}},
+                  fh, indent=1)
         fh.write("\n")
     return names
 
@@ -1199,4 +1202,95 @@ def anim_open(rig, weapon=True):
             "thigh.R": (22.0, 0.0, -4.0), "shin.R": (-30.0, 0.0, 0.0),
         }, (0.0, -0.060, 0.030)),
         (50, None, (0.0, -0.008, 0.000)),
+    ])
+
+
+# The frame on which a clip HANDS THE WEAPON OVER -- from the fist to the hip
+# for `sheathe`, back again for `draw`.  The runtime re-parents the weapon node
+# on this frame, so it is not a detail of the animation, it is an interface:
+# too early and the blade jumps out of her hand on the way down, too late and
+# it is already at her hip while the hand is still carrying it.
+#
+# Emitted in the clip manifest rather than typed into main.js, because it is a
+# number derived from the pose and JavaScript has no way to check it (rule (a)
+# -- this is exactly the kind of joint the two halves disagree across).
+HANDOFF = {"sheathe": 15, "draw": 9}
+
+
+def anim_sheathe(rig, weapon=True):
+    """Put it away: reach across, hand it to the hip, come back to standing.
+
+    Crosses to the OPPOSITE hip, which is where a right-handed person wears a
+    sword and, more usefully here, is a move the camera can read -- a hand
+    dropping straight down to its own side is indistinguishable from an arm
+    relaxing, and the whole point of this clip is that the player sees the
+    weapon leave.
+    """
+    return gesture(rig, "sheathe", weapon=weapon, loop=False, keys=[
+        (0, None, (0.0, -0.008, 0.000)),
+        (7, {
+            # lift and turn the blade in before it travels
+            "chest": (2.0, 10.0, 0.0), "head": (2.0, 6.0, 0.0),
+            "shoulder.R": (2.0, 0.0, 6.0),
+            "upperarm.R": (-6.0, 0.0, 22.0), "forearm.R": (74.0, 0.0, 0.0),
+            "hand.R": (-40.0, 0.0, 0.0),
+            "upperarm.L": (8.0, 0.0, -6.0), "forearm.L": (30.0, 0.0, 0.0),
+        }, (0.0, -0.010, 0.004)),
+        (15, {
+            # HANDOFF.  The right hand is across at the left hip and the blade
+            # is pointing back and down -- the pose the hip anchor expects.
+            "hips": (0.0, 6.0, 0.0), "chest": (4.0, 18.0, 0.0),
+            "neck": (-2.0, -8.0, 0.0), "head": (-4.0, -10.0, 0.0),
+            "shoulder.R": (4.0, 0.0, 10.0),
+            "upperarm.R": (16.0, 0.0, 46.0), "forearm.R": (62.0, 0.0, 0.0),
+            "hand.R": (-26.0, 0.0, 0.0),
+            "upperarm.L": (12.0, 0.0, -10.0), "forearm.L": (38.0, 0.0, 0.0),
+        }, (0.0, -0.016, 0.006)),
+        (24, {
+            "chest": (2.0, 8.0, 0.0),
+            "upperarm.R": (10.0, 0.0, 24.0), "forearm.R": (40.0, 0.0, 0.0),
+            "hand.R": (-10.0, 0.0, 0.0),
+        }, (0.0, -0.010, 0.002)),
+        # ENDS UNARMED, so the last pose is the empty-handed neutral and not the
+        # one that keeps the wrist cocked around a grip that is no longer there
+        (36, _neutral(False), (0.0, -0.008, 0.000)),
+    ])
+
+
+def anim_draw(rig, weapon=True):
+    """Take it back: reach across to the hip, pull, settle into guard.
+
+    Not `sheathe` reversed.  Putting a sword away is careful and putting one on
+    is not -- the draw is half the length, the pull is the fast part, and it
+    finishes past the resting pose and settles back, which is the difference
+    between arming yourself and tidying up.
+    """
+    return gesture(rig, "draw", weapon=weapon, loop=False,
+                   base=_neutral(False), keys=[
+        (0, None, (0.0, -0.008, 0.000)),
+        (9, {
+            # HANDOFF -- hand has arrived at the hip and closed on the grip
+            "hips": (0.0, 5.0, 0.0), "chest": (3.0, 16.0, 0.0),
+            "neck": (-2.0, -7.0, 0.0), "head": (-3.0, -9.0, 0.0),
+            "shoulder.R": (4.0, 0.0, 9.0),
+            "upperarm.R": (14.0, 0.0, 44.0), "forearm.R": (60.0, 0.0, 0.0),
+            "hand.R": (-24.0, 0.0, 0.0),
+            "upperarm.L": (10.0, 0.0, -8.0), "forearm.L": (34.0, 0.0, 0.0),
+        }, (0.0, -0.014, 0.004)),
+        (16, {
+            # THE PULL, and it overshoots: the blade clears the hip and swings
+            # out wide before the arm brings it back to guard
+            "hips": (0.0, -6.0, 0.0), "chest": (-4.0, -18.0, 0.0),
+            "neck": (2.0, 8.0, 0.0), "head": (4.0, 11.0, 0.0),
+            "shoulder.R": (-6.0, 0.0, -8.0),
+            "upperarm.R": (-14.0, 0.0, -34.0), "forearm.R": (30.0, 0.0, 0.0),
+            "hand.R": (-18.0, 0.0, 0.0),
+            "upperarm.L": (-8.0, 0.0, -18.0), "forearm.L": (44.0, 0.0, 0.0),
+        }, (0.0, -0.012, 0.010)),
+        (24, {
+            "chest": (-1.0, -6.0, 0.0), "head": (1.0, 4.0, 0.0),
+            "upperarm.R": (0.0, 0.0, -4.0), "forearm.R": (34.0, 0.0, 0.0),
+            "hand.R": (-28.0, 0.0, 0.0),
+        }, (0.0, -0.010, 0.002)),
+        (34, _neutral(True), (0.0, -0.008, 0.000)),
     ])
