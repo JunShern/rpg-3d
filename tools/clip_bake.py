@@ -74,6 +74,8 @@ def bake(path, out=None, weapon=True, only=None):
 
     K.rest(rig)
     K.export_glb(out, rig)
+    if only is None:
+        anim_lib.write_manifest()
     gained = sorted(set(made) - set(had))
     lost = sorted(set(had) - set(made))
     print(f"[bake] {os.path.basename(path)}: {len(made)} clips "

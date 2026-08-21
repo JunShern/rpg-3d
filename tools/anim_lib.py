@@ -985,3 +985,26 @@ def library(only=None):
 def clip_names(only=None):
     """The names the CLIPS get, which is the function name without `anim_`."""
     return [n.removeprefix("anim_") for n, _ in library(only)]
+
+
+def write_manifest(path="public/assets/clips.manifest.json"):
+    """Emit the clip list where the RUNTIME's checks can read it.
+
+    The suite's clip check named its ten clips in JavaScript while the library
+    that decides them is Python -- rule (r) across a language boundary, which is
+    the version of it nobody notices, because neither copy looks duplicated from
+    where you are standing.  The check therefore went on asserting "all ten
+    clips" while the library grew to thirteen, and it would have gone on saying
+    `ok` if it had shrunk to nine.
+
+    Same shape as the collision manifests: a Blender run emits it, the runtime
+    and its checks read it.
+    """
+    import json
+    import os
+    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+    names = clip_names()
+    with open(path, "w") as fh:
+        json.dump({"clips": names}, fh, indent=1)
+        fh.write("\n")
+    return names

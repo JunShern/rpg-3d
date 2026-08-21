@@ -1,0 +1,17 @@
+{
+ "clips": [
+  "airattack",
+  "attack",
+  "attack2",
+  "attack3",
+  "cast_cure",
+  "cast_fire",
+  "cast_ice",
+  "dodge",
+  "hurt",
+  "idle",
+  "jump",
+  "land",
+  "run"
+ ]
+}

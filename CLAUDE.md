@@ -40,12 +40,38 @@ BLENDER=${BLENDER:-/usr/bin/blender}                                   # linux
 $BLENDER -b -P tools/meadow_build.py
 ```
 
+### Blender without Blender
+
+On a box with no Blender and no display — a cloud session, CI — install it as a
+Python module instead. It needs Python 3.11 and about 400 MB.
+
+```sh
+pip install bpy                     # 5.0.x; the committed art is 5.1
+python3 tools/meadow_build.py -- --out public/assets/meadow.glb
+```
+
+Same scripts, no `-b -P`: they already guard on `__main__` and read their own
+`--` arguments. `meadow.glb` rebuilt this way differs from the committed one in
+**three bytes**, all of them the exporter version stamp in the generator string.
+The geometry is byte-identical, so this is a real build and not an approximation.
+
+Rendering needs a GL stack even headless (`apt-get install libegl1 libgl1
+libglx-mesa0`), and then EEVEE runs on llvmpipe — which is why
+`tools/anim_preview.py` drops `taa_render_samples` to 8. At the default 64 a
+single 360x520 frame costs 61 s.
+
 ### Two things a fresh clone does NOT have
 
 1. **`assets/source/` is gitignored** — ~40 MB of Tripo source meshes that
    `char_build.py` consumes. Without them you cannot rebuild a character even
    with Blender installed. Provenance for all six is written at the top of
    `tools/char_build.py`, matched by file size against the Emberbrook repo.
+
+   You can still change a character's **animation** without them, which is most
+   of what anyone wants: the rig, the mesh and the weights are all inside the
+   built `.glb`, and `anim_lib` clips are pose data keyed by bone name, so they
+   bind to a character that already exists. `tools/clip_bake.py` does exactly
+   that. What needs the sources is changing the BODY.
 2. **The Emberbrook project** (`~/projects/multiplayer-rpg`) is where the
    vendored dialogue/menu/shop code and all the cut-in portrait art came from.
    Everything currently used is committed here, but re-vendoring or pulling more
@@ -78,6 +104,21 @@ Every one of these was paid for. They are in rough order of how often they recur
 - **(r) A constant written twice is a constant waiting to disagree.**
 - **(p) An effect you cannot see from where you trigger it is not a feature.**
   The bell nobody could see ring. The gold that landed silently in a save file.
+- **(s) ROTATION MODE IS A PROPERTY OF THE BONE, not of the clip.** `anim_lib`
+  authors euler XYZ; the glTF importer brings clips back as QUATERNIONS;
+  `K.action` sets every pose bone to XYZ as it starts. A bone whose mode
+  disagrees with its own F-curves does not error — Blender reads the channel the
+  mode names and ignores the other, so the rig sits at rest while the clip plays
+  perfectly. It cost a contact sheet of eight identical frames, and it is why
+  `clip_bake` re-authors the whole set instead of adding to it: one new clip on
+  an imported rig would have exported the other ten as valid, motionless
+  animations.
+- **(t) A convention is only true where it was measured.** The module docstring
+  says +Z opens the LEFT arm and closes the RIGHT. True at rest. Rotations are
+  XYZ euler, so by X=-170 the sign has flipped, and a cast written at -150 using
+  the rule learned at 0 folds the arms shut instead of opening them. Negative X
+  is up and BEHIND, not up. `tools/pose_probe.py` answers both questions in
+  metres instead of adjectives.
 
 ## Workflow
 
@@ -103,9 +144,39 @@ public/js/vendor/   Emberbrook's dialogue/menu/shop/game_state, byte-for-byte
 public/game/*.json  dialogue, items, shops, monsters, growth  -- all data, no code
 public/assets/      built glb + the manifests the runtime reads
 tools/*_build.py    Blender: geometry, characters, creatures
+tools/anim_lib.py   THE ANIMATION LIBRARY -- pose data, one set, every character
+tools/anim_preview.py  a clip as a contact sheet, off a built glb
+tools/pose_probe.py    where an angle actually puts a limb, in metres
+tools/clip_bake.py     put the library into a character that already exists
+tools/weapon_split.py  take a welded weapon out of a built character
+tools/rig_extend.py    give a built character a second spine segment
 tools/smoke.mjs     64 checks
 tools/shots.mjs     the capture sheet
 ```
+
+### Adding a move
+
+`anim_lib.library()` is the list — every `anim_*` function in the file, and both
+`char_build` and `clip_bake` read it, so a new function IS a new clip on every
+character. The loop is:
+
+```sh
+# write the clip, then look at it -- from the plane the motion happens in
+python3 tools/anim_preview.py -- --author anim_cast_fire --clip cast_fire --az -90
+
+# check an angle instead of assuming it
+python3 tools/pose_probe.py -- --want overhead
+
+# put it into the characters
+for c in vesper lake maren; do python3 tools/clip_bake.py -- --char public/assets/$c.glb; done
+```
+
+`swing()` and `cast()` take three pose dictionaries and a timing, so a new move
+is data. `--view side` is azimuth 90 and looks at the character's **left**;
+every sword action in this game happens on the right, so use `--az -90`.
+
+The weapon is its own node riding `hand.R`, not part of the skin — `cur.weapon`
+in `main.js`, null on anyone unarmed. `props.WEAPONS` is where a second one goes.
 
 Adding a character is a row in `char_build.CHARACTERS`. Adding an item, a shop
 or a monster is a JSON entry. Adding a townsperson is a row in `NPC_ROSTER` plus

@@ -273,16 +273,30 @@ async function run() {
 
   group('World');
 
-  await check('every character has all ten clips', () => {
-    const want = ['airattack', 'attack', 'attack2', 'attack3', 'dodge', 'hurt',
-                  'idle', 'jump', 'land', 'run'];
+  // EVERY character, against the LIBRARY -- not three names against ten
+  // strings typed here.  Both halves of that were wrong and neither could fail
+  // out loud.  The clip list lives in anim_lib.py, so a copy of it in
+  // JavaScript is rule (r) across a language boundary: the library grew to
+  // thirteen clips and this went on reporting `ok  ... all ten clips`, and it
+  // would have said the same if the library had shrunk. The roster was worse.
+  // It named vesper, lake and maren, so the check reported the breakdown
+  // `vesper, lake, maren` on every pass (rule (f) -- read it when it PASSES)
+  // while nine other characters went unchecked. hero.glb sat two clips short
+  // for long enough that combat.js was driving attack2 and attack3 on a
+  // character that had neither.
+  await check('every character has every clip in the library', async () => {
+    const want = (await (await fetch('/assets/clips.manifest.json')).json()).clips;
     const bad = [];
-    for (const name of ['vesper', 'lake', 'maren']) {
+    const seen = Object.keys(window.chars || {});
+    for (const name of seen) {
       const got = __clipNames(name);
       if (!got) { bad.push(`${name}:absent`); continue; }
       for (const w of want) if (!got.includes(w)) bad.push(`${name}:${w}`);
     }
-    return { ok: !bad.length, detail: bad.length ? bad.join(',') : 'vesper, lake, maren' };
+    if (!seen.length) return { ok: false, detail: 'no characters loaded' };
+    return { ok: !bad.length,
+             detail: bad.length ? bad.join(',')
+                                : `${seen.length} characters x ${want.length} clips` };
   });
 
   await check('all five species are loaded and alive', () => {

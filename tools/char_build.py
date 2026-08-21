@@ -367,6 +367,7 @@ def main():
 
     K.rest(rig)
     path = K.export_glb(out, rig)
+    anim_lib.write_manifest()
     info = K.verify_glb(path, animations=anim_lib.clip_names())
     print(f"[{NAME[0]}] exported {path} ({os.path.getsize(path)/1024:.0f} KB)")
     print(f"[{NAME[0]}] verified: clips={info['animations']} images={info['images']}")
