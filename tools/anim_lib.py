@@ -214,6 +214,54 @@ def _neutral(weapon):
     return n
 
 
+def clip(rig, name, keys):
+    """The shape EVERY clip in this file has: key a series of poses, then set
+    the interpolation.  `keys` is [(frame, pose, hips_offset), ...].
+
+    Worth its own function only because it is the part that is always the same,
+    and the part that is always the same is the part that drifts -- one clip
+    forgetting `K.interp` is a clip that moves in straight lines between poses
+    and looks mechanical for reasons nobody can see in the numbers.
+    """
+    act = K.action(rig, name)
+    for f, pose, loc in keys:
+        K.key(rig, f, pose, loc={"hips": loc} if loc is not None else None)
+    K.interp(act)
+    return act
+
+
+def swing(rig, name, *, draw, strike, settle=None, timing, travel,
+          weapon=True, base=None, from_draw=False):
+    """A sword swing, as four beats: load, hit, follow through, recover.
+
+    THIS IS THE SHAPE ALL THREE HITS OF THE CHAIN ALREADY HAD.  Each was
+    written out longhand -- same five keys, same neutral-draw-strike-settle-
+    neutral structure, same hips travel -- which made a new swing forty lines
+    of boilerplate around three interesting dictionaries.  A library the size
+    this game wants cannot be built at forty lines a move, and the boilerplate
+    is where the drift lives: `anim_attack` carried its own copy of NEUTRAL
+    (rule (r)) and so quietly ignored `weapon=`.
+
+    `draw`, `strike` and `settle` are DELTAS on the neutral pose, except that
+    `settle` layers on `strike` -- a follow-through is a strike decaying, not a
+    new pose, and writing it against neutral means restating the whole swing.
+
+    `timing` is five frame numbers and `travel` five hip offsets, because the
+    frames are set by combat.js's active window and not by taste: hit 1 opens
+    at 0.10 s and closes at 0.21 s, which at 24 fps is frames 2.4 to 5.0.
+    """
+    n = base if base is not None else _neutral(weapon)
+    p_draw = {**n, **draw}
+    p_strike = {**n, **strike}
+    p_settle = {**p_strike, **(settle or {})}
+    # `from_draw` opens the clip ALREADY LOADED instead of at neutral.  A link
+    # in the middle of a chain does not start from standing -- it starts where
+    # the previous hit left the blade -- and a swing that returns to neutral
+    # before winding up reads as a stutter between hits.
+    poses = [p_draw if from_draw else n, p_draw, p_strike, p_settle, n]
+    return clip(rig, name, list(zip(timing, poses, travel)))
+
+
 def anim_jump(rig, weapon=True):
     """Crouch, launch, tuck -- and HOLD the tuck.
 
@@ -279,68 +327,61 @@ def anim_land(rig, weapon=True):
 def anim_attack(rig, weapon=True):
     """Overhead sword swing: anticipation, strike, follow-through, recover.
     The lunge is real translation on the hips, so the runtime gets forward
-    motion out of the clip for free."""
-    act = K.action(rig, "attack")
+    motion out of the clip for free.
 
-    neutral = {
-        "hips": (-1.0, 0.0, 0.0), "spine": (1.5, 0.0, 0.0),
-        "chest": (-1.0, 0.0, 0.0), "neck": (1.0, 0.0, 0.0), "head": (2.0, 0.0, 0.0),
-        "shoulder.L": (0.0, 0.0, -3.0), "shoulder.R": (0.0, 0.0, 3.0),
-        "upperarm.L": (6.0, 0.0, -4.0), "forearm.L": (16.0, 0.0, 0.0),
-        "upperarm.R": (2.0, 0.0, 8.0), "forearm.R": (28.0, 0.0, 0.0),
-        "hand.L": (0.0, 0.0, 0.0), "hand.R": (-24.0, 0.0, 0.0),
-        "thigh.L": (5.0, 0.0, 2.0), "shin.L": (-9.0, 0.0, 0.0), "foot.L": (4.0, 0.0, 0.0),
-        "thigh.R": (5.0, 0.0, -2.0), "shin.R": (-9.0, 0.0, 0.0), "foot.R": (4.0, 0.0, 0.0),
-    }
-
-    windup = dict(neutral)
-    windup.update({
-        "hips": (-6.0, -14.0, 0.0), "spine": (-4.0, -12.0, 0.0),
-        "chest": (-8.0, -22.0, 0.0), "neck": (2.0, 8.0, 0.0), "head": (0.0, 14.0, 0.0),
-        "shoulder.R": (-14.0, 0.0, 16.0),
-        "upperarm.R": (-128.0, 0.0, 26.0), "forearm.R": (64.0, 0.0, 0.0),
-        # wrist cocked hard, so a held blade points UP behind the head at the
-        # top of the windup instead of trailing low
-        "hand.R": (-70.0, 0.0, 0.0),
-        "upperarm.L": (-22.0, 0.0, -18.0), "forearm.L": (52.0, 0.0, 0.0),
-        "thigh.L": (-14.0, 0.0, 4.0), "shin.L": (18.0, 0.0, 0.0), "foot.L": (-6.0, 0.0, 0.0),
-        "thigh.R": (10.0, 0.0, -6.0), "shin.R": (-14.0, 0.0, 0.0), "foot.R": (6.0, 0.0, 0.0),
-    })
-
-    strike = dict(neutral)
-    strike.update({
-        "hips": (10.0, 16.0, 0.0), "spine": (12.0, 14.0, 0.0),
-        "chest": (16.0, 24.0, 0.0), "neck": (-6.0, -8.0, 0.0), "head": (-10.0, -12.0, 0.0),
-        "shoulder.R": (10.0, 0.0, -6.0),
-        "upperarm.R": (78.0, 0.0, -14.0), "forearm.R": (8.0, 0.0, 0.0),
-        "hand.R": (14.0, 0.0, 0.0),
-        "upperarm.L": (-46.0, 0.0, -26.0), "forearm.L": (72.0, 0.0, 0.0),
-        "thigh.L": (36.0, 0.0, 4.0), "shin.L": (-30.0, 0.0, 0.0), "foot.L": (10.0, 0.0, 0.0),
-        "thigh.R": (-24.0, 0.0, -6.0), "shin.R": (-24.0, 0.0, 0.0), "foot.R": (16.0, 0.0, 0.0),
-    })
-
-    settle = dict(strike)
-    settle.update({
-        "hips": (6.0, 10.0, 0.0), "chest": (10.0, 16.0, 0.0),
-        "upperarm.R": (56.0, 0.0, -6.0), "forearm.R": (26.0, 0.0, 0.0),
-        "head": (-4.0, -6.0, 0.0),
-    })
-
-    # TIMED TO THE HITBOX.  combat.js opens hit 1's active window at 0.10 s and
-    # closes it at 0.21 s; at 24 fps that is frames 2.4 to 5.0.  The first
-    # version peaked the strike at frame 11, so damage landed less than halfway
-    # through the wind-up and the hit registered before the blade moved.
-    #   frame  pose     hips (x=side, y=up, z=forward) in bone-local units
-    for f, p, loc in [
-        (0,  neutral, (0.0, -0.008, 0.000)),
-        (2,  windup,  (0.0, -0.030, -0.055)),   # sink and load backwards
-        (5,  strike,  (0.0, -0.045,  0.140)),   # lunge through the swing
-        (9,  settle,  (0.0, -0.030,  0.110)),
-        (22, neutral, (0.0, -0.008,  0.000)),
-    ]:
-        K.key(rig, f, p, loc={"hips": loc})
-    K.interp(act)
-    return act
+    Its neutral used to be an inline copy of NEUTRAL, which meant this clip --
+    alone among the three -- ignored `weapon=` and cocked the wrist 24 degrees
+    for a grip an unarmed character does not have.  Rule (r), and it only
+    started to matter when characters stopped all being sword wielders.
+    """
+    return swing(
+        rig, "attack", weapon=weapon,
+        draw={
+            "hips": (-6.0, -14.0, 0.0), "spine": (-4.0, -12.0, 0.0),
+            "chest": (-8.0, -22.0, 0.0), "neck": (2.0, 8.0, 0.0),
+            "head": (0.0, 14.0, 0.0),
+            "shoulder.R": (-14.0, 0.0, 16.0),
+            "upperarm.R": (-128.0, 0.0, 26.0), "forearm.R": (64.0, 0.0, 0.0),
+            # wrist cocked hard, so a held blade points UP behind the head at
+            # the top of the windup instead of trailing low
+            "hand.R": (-70.0, 0.0, 0.0),
+            "upperarm.L": (-22.0, 0.0, -18.0), "forearm.L": (52.0, 0.0, 0.0),
+            "thigh.L": (-14.0, 0.0, 4.0), "shin.L": (18.0, 0.0, 0.0),
+            "foot.L": (-6.0, 0.0, 0.0),
+            "thigh.R": (10.0, 0.0, -6.0), "shin.R": (-14.0, 0.0, 0.0),
+            "foot.R": (6.0, 0.0, 0.0),
+        },
+        strike={
+            "hips": (10.0, 16.0, 0.0), "spine": (12.0, 14.0, 0.0),
+            "chest": (16.0, 24.0, 0.0), "neck": (-6.0, -8.0, 0.0),
+            "head": (-10.0, -12.0, 0.0),
+            "shoulder.R": (10.0, 0.0, -6.0),
+            "upperarm.R": (78.0, 0.0, -14.0), "forearm.R": (8.0, 0.0, 0.0),
+            "hand.R": (14.0, 0.0, 0.0),
+            "upperarm.L": (-46.0, 0.0, -26.0), "forearm.L": (72.0, 0.0, 0.0),
+            "thigh.L": (36.0, 0.0, 4.0), "shin.L": (-30.0, 0.0, 0.0),
+            "foot.L": (10.0, 0.0, 0.0),
+            "thigh.R": (-24.0, 0.0, -6.0), "shin.R": (-24.0, 0.0, 0.0),
+            "foot.R": (16.0, 0.0, 0.0),
+        },
+        settle={
+            "hips": (6.0, 10.0, 0.0), "chest": (10.0, 16.0, 0.0),
+            "upperarm.R": (56.0, 0.0, -6.0), "forearm.R": (26.0, 0.0, 0.0),
+            "head": (-4.0, -6.0, 0.0),
+        },
+        # TIMED TO THE HITBOX.  combat.js opens hit 1's active window at 0.10 s
+        # and closes it at 0.21 s; at 24 fps that is frames 2.4 to 5.0.  The
+        # first version peaked the strike at frame 11, so damage landed less
+        # than halfway through the wind-up and the hit registered before the
+        # blade moved.
+        timing=(0, 2, 5, 9, 22),
+        #       hips (x=side, y=up, z=forward) in bone-local units
+        travel=((0.0, -0.008, 0.000),
+                (0.0, -0.030, -0.055),   # sink and load backwards
+                (0.0, -0.045, 0.140),    # lunge through the swing
+                (0.0, -0.030, 0.110),
+                (0.0, -0.008, 0.000)),
+    )
 
 
 def anim_attack2(rig, weapon=True):
@@ -351,56 +392,47 @@ def anim_attack2(rig, weapon=True):
     other way, and travels up instead of down.  A combo whose second swing looks
     like its first is not a combo, and that was this build's largest fault.
     """
-    act = K.action(rig, "attack2")
-    n = _neutral(weapon)
-
-    # picks up from hit 1's follow-through: blade low, across to the off side
-    draw = dict(n)
-    draw.update({
-        "hips": (4.0, 18.0, 0.0), "spine": (3.0, 16.0, 0.0),
-        "chest": (6.0, 26.0, 0.0), "neck": (-3.0, -10.0, 0.0),
-        "head": (-5.0, -14.0, 0.0),
-        "shoulder.R": (4.0, 0.0, -6.0),
-        # +Z on the RIGHT arm pulls it ACROSS the body (see the module docstring)
-        "upperarm.R": (42.0, 0.0, 36.0), "forearm.R": (56.0, 0.0, 0.0),
-        "hand.R": (-42.0, 0.0, 0.0),
-        "upperarm.L": (18.0, 0.0, 22.0), "forearm.L": (44.0, 0.0, 0.0),
-        "thigh.L": (16.0, 0.0, 4.0), "shin.L": (-22.0, 0.0, 0.0),
-        "thigh.R": (-8.0, 0.0, -6.0), "shin.R": (-16.0, 0.0, 0.0),
-    })
-
-    # and sweeps OUT and UP to the sword side
-    sweep = dict(n)
-    sweep.update({
-        "hips": (-4.0, -20.0, 0.0), "spine": (-3.0, -18.0, 0.0),
-        "chest": (-8.0, -30.0, 0.0), "neck": (4.0, 12.0, 0.0),
-        "head": (6.0, 16.0, 0.0),
-        "shoulder.R": (-10.0, 0.0, 10.0),
-        "upperarm.R": (-34.0, 0.0, -48.0), "forearm.R": (16.0, 0.0, 0.0),
-        "hand.R": (8.0, 0.0, 0.0),
-        "upperarm.L": (-30.0, 0.0, -34.0), "forearm.L": (40.0, 0.0, 0.0),
-        "thigh.L": (-14.0, 0.0, 4.0), "shin.L": (-6.0, 0.0, 0.0),
-        "thigh.R": (26.0, 0.0, -6.0), "shin.R": (-34.0, 0.0, 0.0),
-        "foot.R": (12.0, 0.0, 0.0),
-    })
-
-    after = dict(sweep)
-    after.update({
-        "chest": (-4.0, -20.0, 0.0), "hips": (-2.0, -12.0, 0.0),
-        "upperarm.R": (-14.0, 0.0, -30.0), "forearm.R": (34.0, 0.0, 0.0),
-    })
-
-    # active window 0.09 s -> 0.20 s == frames 2.2 to 4.8
-    for f, p, loc in [
-        (0,  draw,  (0.0, -0.020, 0.020)),
-        (2,  draw,  (0.0, -0.030, -0.010)),
-        (5,  sweep, (0.0, -0.010, 0.115)),
-        (9,  after, (0.0, -0.020, 0.090)),
-        (22, n,     (0.0, -0.008, 0.000)),
-    ]:
-        K.key(rig, f, p, loc={"hips": loc})
-    K.interp(act)
-    return act
+    return swing(
+        rig, "attack2", weapon=weapon, from_draw=True,
+        # picks up from hit 1's follow-through: blade low, across to the off side
+        draw={
+            "hips": (4.0, 18.0, 0.0), "spine": (3.0, 16.0, 0.0),
+            "chest": (6.0, 26.0, 0.0), "neck": (-3.0, -10.0, 0.0),
+            "head": (-5.0, -14.0, 0.0),
+            "shoulder.R": (4.0, 0.0, -6.0),
+            # +Z on the RIGHT arm pulls it ACROSS the body (see the module
+            # docstring)
+            "upperarm.R": (42.0, 0.0, 36.0), "forearm.R": (56.0, 0.0, 0.0),
+            "hand.R": (-42.0, 0.0, 0.0),
+            "upperarm.L": (18.0, 0.0, 22.0), "forearm.L": (44.0, 0.0, 0.0),
+            "thigh.L": (16.0, 0.0, 4.0), "shin.L": (-22.0, 0.0, 0.0),
+            "thigh.R": (-8.0, 0.0, -6.0), "shin.R": (-16.0, 0.0, 0.0),
+        },
+        # and sweeps OUT and UP to the sword side
+        strike={
+            "hips": (-4.0, -20.0, 0.0), "spine": (-3.0, -18.0, 0.0),
+            "chest": (-8.0, -30.0, 0.0), "neck": (4.0, 12.0, 0.0),
+            "head": (6.0, 16.0, 0.0),
+            "shoulder.R": (-10.0, 0.0, 10.0),
+            "upperarm.R": (-34.0, 0.0, -48.0), "forearm.R": (16.0, 0.0, 0.0),
+            "hand.R": (8.0, 0.0, 0.0),
+            "upperarm.L": (-30.0, 0.0, -34.0), "forearm.L": (40.0, 0.0, 0.0),
+            "thigh.L": (-14.0, 0.0, 4.0), "shin.L": (-6.0, 0.0, 0.0),
+            "thigh.R": (26.0, 0.0, -6.0), "shin.R": (-34.0, 0.0, 0.0),
+            "foot.R": (12.0, 0.0, 0.0),
+        },
+        settle={
+            "chest": (-4.0, -20.0, 0.0), "hips": (-2.0, -12.0, 0.0),
+            "upperarm.R": (-14.0, 0.0, -30.0), "forearm.R": (34.0, 0.0, 0.0),
+        },
+        # active window 0.09 s -> 0.20 s == frames 2.2 to 4.8
+        timing=(0, 2, 5, 9, 22),
+        travel=((0.0, -0.020, 0.020),
+                (0.0, -0.030, -0.010),
+                (0.0, -0.010, 0.115),
+                (0.0, -0.020, 0.090),
+                (0.0, -0.008, 0.000)),
+    )
 
 
 def anim_attack3(rig, weapon=True):
@@ -412,60 +444,50 @@ def anim_attack3(rig, weapon=True):
     mash.  combat.js gives it more than double hit 1's damage and a launch, so
     the animation has to earn it.
     """
-    act = K.action(rig, "attack3")
-    n = _neutral(weapon)
-
-    load = dict(n)
-    load.update({
-        "hips": (-12.0, -16.0, 0.0), "spine": (-8.0, -14.0, 0.0),
-        "chest": (-16.0, -20.0, 0.0), "neck": (6.0, 10.0, 0.0),
-        "head": (4.0, 16.0, 0.0),
-        "shoulder.R": (-18.0, 0.0, 14.0),
-        "upperarm.R": (-152.0, 0.0, 18.0), "forearm.R": (58.0, 0.0, 0.0),
-        "hand.R": (-64.0, 0.0, 0.0),
-        # left hand comes up to meet the grip: this one is two-handed
-        "upperarm.L": (-124.0, 0.0, 30.0), "forearm.L": (66.0, 0.0, 0.0),
-        "hand.L": (-30.0, 0.0, 0.0),
-        "thigh.L": (-22.0, 0.0, 4.0), "shin.L": (26.0, 0.0, 0.0),
-        "foot.L": (-10.0, 0.0, 0.0),
-        "thigh.R": (14.0, 0.0, -6.0), "shin.R": (-20.0, 0.0, 0.0),
-        "foot.R": (10.0, 0.0, 0.0),
-    })
-
-    chop = dict(n)
-    chop.update({
-        "hips": (18.0, 4.0, 0.0), "spine": (18.0, 3.0, 0.0),
-        "chest": (28.0, 6.0, 0.0), "neck": (-12.0, 0.0, 0.0),
-        "head": (-18.0, 0.0, 0.0),
-        "shoulder.R": (14.0, 0.0, -8.0),
-        "upperarm.R": (104.0, 0.0, -8.0), "forearm.R": (4.0, 0.0, 0.0),
-        "hand.R": (26.0, 0.0, 0.0),
-        "upperarm.L": (86.0, 0.0, 12.0), "forearm.L": (16.0, 0.0, 0.0),
-        "hand.L": (16.0, 0.0, 0.0),
-        "thigh.L": (52.0, 0.0, 4.0), "shin.L": (-38.0, 0.0, 0.0),
-        "foot.L": (14.0, 0.0, 0.0),
-        "thigh.R": (-38.0, 0.0, -6.0), "shin.R": (-32.0, 0.0, 0.0),
-        "foot.R": (22.0, 0.0, 0.0),
-    })
-
-    hold = dict(chop)
-    hold.update({
-        "chest": (24.0, 5.0, 0.0), "head": (-12.0, 0.0, 0.0),
-        "upperarm.R": (92.0, 0.0, -4.0), "forearm.R": (18.0, 0.0, 0.0),
-        "upperarm.L": (70.0, 0.0, 14.0),
-    })
-
-    # active window 0.17 s -> 0.31 s == frames 4.1 to 7.4
-    for f, p, loc in [
-        (0,  n,    (0.0, -0.008, 0.000)),
-        (4,  load, (0.0, -0.052, -0.085)),   # sink deep and wind back
-        (8,  chop, (0.0, -0.070,  0.230)),   # step THROUGH it
-        (13, hold, (0.0, -0.060,  0.200)),
-        (34, n,    (0.0, -0.008,  0.000)),   # long recovery: this was a commitment
-    ]:
-        K.key(rig, f, p, loc={"hips": loc})
-    K.interp(act)
-    return act
+    return swing(
+        rig, "attack3", weapon=weapon,
+        draw={
+            "hips": (-12.0, -16.0, 0.0), "spine": (-8.0, -14.0, 0.0),
+            "chest": (-16.0, -20.0, 0.0), "neck": (6.0, 10.0, 0.0),
+            "head": (4.0, 16.0, 0.0),
+            "shoulder.R": (-18.0, 0.0, 14.0),
+            "upperarm.R": (-152.0, 0.0, 18.0), "forearm.R": (58.0, 0.0, 0.0),
+            "hand.R": (-64.0, 0.0, 0.0),
+            # left hand comes up to meet the grip: this one is two-handed
+            "upperarm.L": (-124.0, 0.0, 30.0), "forearm.L": (66.0, 0.0, 0.0),
+            "hand.L": (-30.0, 0.0, 0.0),
+            "thigh.L": (-22.0, 0.0, 4.0), "shin.L": (26.0, 0.0, 0.0),
+            "foot.L": (-10.0, 0.0, 0.0),
+            "thigh.R": (14.0, 0.0, -6.0), "shin.R": (-20.0, 0.0, 0.0),
+            "foot.R": (10.0, 0.0, 0.0),
+        },
+        strike={
+            "hips": (18.0, 4.0, 0.0), "spine": (18.0, 3.0, 0.0),
+            "chest": (28.0, 6.0, 0.0), "neck": (-12.0, 0.0, 0.0),
+            "head": (-18.0, 0.0, 0.0),
+            "shoulder.R": (14.0, 0.0, -8.0),
+            "upperarm.R": (104.0, 0.0, -8.0), "forearm.R": (4.0, 0.0, 0.0),
+            "hand.R": (26.0, 0.0, 0.0),
+            "upperarm.L": (86.0, 0.0, 12.0), "forearm.L": (16.0, 0.0, 0.0),
+            "hand.L": (16.0, 0.0, 0.0),
+            "thigh.L": (52.0, 0.0, 4.0), "shin.L": (-38.0, 0.0, 0.0),
+            "foot.L": (14.0, 0.0, 0.0),
+            "thigh.R": (-38.0, 0.0, -6.0), "shin.R": (-32.0, 0.0, 0.0),
+            "foot.R": (22.0, 0.0, 0.0),
+        },
+        settle={
+            "chest": (24.0, 5.0, 0.0), "head": (-12.0, 0.0, 0.0),
+            "upperarm.R": (92.0, 0.0, -4.0), "forearm.R": (18.0, 0.0, 0.0),
+            "upperarm.L": (70.0, 0.0, 14.0),
+        },
+        # active window 0.17 s -> 0.31 s == frames 4.1 to 7.4
+        timing=(0, 4, 8, 13, 34),
+        travel=((0.0, -0.008, 0.000),
+                (0.0, -0.052, -0.085),   # sink deep and wind back
+                (0.0, -0.070, 0.230),    # step THROUGH it
+                (0.0, -0.060, 0.200),
+                (0.0, -0.008, 0.000)),   # long recovery: this was a commitment
+    )
 
 
 def anim_airattack(rig, weapon=True):
