@@ -120,3 +120,56 @@ def place_in_hand(objs, rig, bone="hand.R", along=0.48, tweak=(0.0, 0.0, 0.0)):
     for o in objs:
         K.transform(o, matrix=m)
     return objs
+
+
+# The weapons a character can be built holding.  One entry today, and it is a
+# registry rather than an `if` because "not everyone is a sword wielder" is the
+# whole point of taking the blade out of the body: adding a staff or an axe
+# should be a row here and a builder beside `sword`, not a change to char_build.
+WEAPONS = {"sword": sword}
+
+
+def attach_to_bone(objs, rig, bone="hand.R", name="weapon"):
+    """Join prop parts into ONE object that RIDES a bone instead of being part
+    of the body.
+
+    Why this exists.  The sword used to be joined into the skinned mesh and the
+    comment said the runtime then "treats the sword as just another material on
+    the character".  That is true and it is also the end of the road: geometry
+    welded into a body can only ever go where the body's skin goes.  It cannot
+    be thrown, dropped, sheathed, swapped for an axe, or left off a character
+    who should not be armed -- and the last of those is not a hypothetical,
+    because every townsperson built armed was standing in the square gripping a
+    sword.
+
+    Parented to the bone rather than SKINNED to it, deliberately.  A one-bone
+    skin follows the hand and is rigid in every way that matters, but it is
+    welded to the skeleton, and detaching it mid-animation means unbinding a
+    SkinnedMesh.  A plain mesh under the bone node is a scene-graph child: in
+    three.js `scene.attach(weapon)` takes it off the hand keeping its world
+    transform, and `bone.attach(weapon)` puts it back.  That is the difference
+    between a weapon you can throw and one you can only hide.
+
+    THE PARENT INVERSE IS THE WHOLE TRICK.  `K.transform` bakes placement into
+    mesh data and leaves the object transform identity, so the vertices already
+    sit in the right place in armature space.  Parenting alone would then apply
+    the bone's matrix a SECOND time.  `matrix_parent_inverse` cancels the bone's
+    rest matrix, so rest stays exactly where `place_in_hand` put it and motion
+    follows the bone.  Blender parents to the bone's TAIL, hence the extra
+    length translation -- parenting to the head puts the grip one bone-length
+    out of the fist, which looks like a near miss rather than a bug.
+    """
+    obj = K.join(objs, name)
+    if obj is None:
+        return None
+    b = rig.data.bones[bone]
+    parent_m = (rig.matrix_world @ b.matrix_local
+                @ Matrix.Translation((0.0, b.length, 0.0)))
+    obj.parent = rig
+    obj.parent_type = 'BONE'
+    obj.parent_bone = bone
+    obj.matrix_parent_inverse = parent_m.inverted()
+    # the prop is its own object now, so it must not also be skinned
+    obj.modifiers.clear()
+    obj.vertex_groups.clear()
+    return obj

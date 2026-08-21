@@ -592,7 +592,14 @@ function buildCharacter(def, gltf) {
                // an action cannot be replayed on another one. An NPC clone
                // needs the underlying AnimationClips to bind its own.
                rawClips: gltf.animations,
-               hand: findBone(group, 'handr') };
+               hand: findBone(group, 'handr'),
+               // THE WEAPON IS ITS OWN NODE, hanging off hand.R rather than
+               // welded into the skin (see tools/props.attach_to_bone).  Held
+               // here because a thing you cannot name you cannot throw: this is
+               // the handle a disarm, a sheathe, a weapon swap or a thrown
+               // blade all need.  Null on anyone unarmed -- the townspeople are
+               // built without one, and that is the normal case, not an error.
+               weapon: findWeapon(root) };
   mixer.addEventListener('finished', (e) => {
     if (e.action === clips.land) {
       landing = false;
@@ -1015,6 +1022,25 @@ const _ax = new THREE.Vector3();
 const _o2 = new THREE.Vector3();
 const _q = new THREE.Quaternion(), _qp = new THREE.Quaternion();
 const _qi = new THREE.Quaternion(), _qt = new THREE.Quaternion();
+
+// The prop riding hand.R, if this character carries one.  Matched on the node
+// name the builders give it (`<Name>_Weapon`) and NOT on material, because the
+// outline pass adds shell meshes that wear the weapon's materials and would
+// match a material test twice.
+//
+// DO NOT TEST `isMesh` HERE.  The sword is three materials, so glTF stores it
+// as three primitives, and GLTFLoader turns a multi-primitive node into a GROUP
+// of meshes whose children carry generated names -- the only object wearing the
+// name the builder chose is the group itself.  An isMesh test finds nothing at
+// all, silently, on every character.  The group is also the right handle: it is
+// the whole weapon, which is what `scene.attach` has to take to throw it.
+function findWeapon(root) {
+  let hit = null;
+  root.traverse((o) => {
+    if (!hit && /_weapon$/i.test(o.name || '')) hit = o;
+  });
+  return hit;
+}
 
 function findBone(root, want) {
   let hit = null;

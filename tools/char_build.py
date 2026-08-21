@@ -255,7 +255,7 @@ def fit_skeleton(L, scale):
 
 
 def build(src, decimate=None, target_height=TARGET_HEIGHT,
-          tint=(0.6, 0.6, 0.6), with_sword=True):
+          tint=(0.6, 0.6, 0.6), with_weapon="sword"):
     body, src_arm, L = load_source(src)
 
     raw_h = max(v.co.z for v in body.data.vertices)
@@ -289,14 +289,23 @@ def build(src, decimate=None, target_height=TARGET_HEIGHT,
     rig = K.build_armature(NAME[0].capitalize() + "_Rig", spec)
     K._apply_weights(body, weights)
 
-    # give them something to swing.  The prop is generated, weighted to hand.R,
-    # and JOINED into the body so the character stays one skinned mesh -- the
-    # runtime then treats the sword as just another material on the character.
-    if with_sword:
-        blade = props.sword(bone="hand.R", scale=scale * 0.54, mats=props.palette())
-        props.place_in_hand(blade, rig, "hand.R", along=0.48, tweak=SWORD_TWEAK)
-        body = K.join([body] + blade, NAME[0].capitalize())
-        print(f"[{NAME[0]}] sword: {len(blade)} parts joined into the body")
+    # give them something to swing.  The prop is generated, placed in the hand's
+    # own frame, and left as ITS OWN OBJECT riding hand.R.  It used to be joined
+    # into the skinned mesh, which made the weapon a permanent feature of the
+    # body: not swappable, not droppable, and not absent on anyone unarmed.
+    # See props.attach_to_bone for why it is parented rather than skinned.
+    weapon = None
+    if with_weapon:
+        build = props.WEAPONS.get(with_weapon)
+        if build is None:
+            raise SystemExit(f"unknown weapon {with_weapon!r}; "
+                             f"know {sorted(props.WEAPONS)}")
+        parts = build(bone="hand.R", scale=scale * 0.54, mats=props.palette())
+        props.place_in_hand(parts, rig, "hand.R", along=0.48, tweak=SWORD_TWEAK)
+        weapon = props.attach_to_bone(parts, rig, "hand.R",
+                                      name=NAME[0].capitalize() + "_Weapon")
+        print(f"[{NAME[0]}] {with_weapon}: {len(weapon.data.vertices)} verts on "
+              f"hand.R, its own node")
 
     body.name = NAME[0].capitalize()
     K.check_weights(body)
@@ -335,7 +344,7 @@ def main():
     armed = "--no-sword" not in argv
 
     body, rig = build(src, decimate=decimate, target_height=cfg["height"],
-                      tint=cfg["tint"], with_sword=armed)
+                      tint=cfg["tint"], with_weapon="sword" if armed else None)
 
     bpy.context.scene.render.fps = 24
     K.rest(rig)

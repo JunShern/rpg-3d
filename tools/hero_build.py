@@ -33,6 +33,7 @@ from mathutils import Vector
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import geo_lib as K
 import face_tex
+import props
 
 TAU = math.tau
 FACE_TEX = [None]          # filled in by main(), read by build_face()
@@ -745,9 +746,15 @@ def main():
     for p in list(parts):
         if p.name.endswith(".L"):
             parts.append(K.mirror(p, p.name[:-2] + ".R"))
-    parts += build_sword()
 
     body = K.bind(parts, rig, name="Hero")
+    # THE WEAPON IS NOT PART OF THE BODY.  It used to be joined into the skinned
+    # mesh; it is now its own object riding hand.R, so it can be thrown, swapped
+    # or left off entirely.  See props.attach_to_bone.
+    weapon = props.attach_to_bone(build_sword(), rig, "hand.R",
+                                  name="Hero_Weapon")
+    print(f"[hero] weapon: {len(weapon.data.vertices)} verts on "
+          f"{weapon.parent_bone}, {len(weapon.data.materials)} materials")
 
     tris = sum(len(p.vertices) - 2 for p in body.data.polygons)
     print(f"[hero] {len(body.data.vertices)} verts, {tris} tris, "
