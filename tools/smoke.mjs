@@ -24,7 +24,29 @@
 //   node tools/smoke.mjs http://host:port
 import { chromium } from 'playwright';
 
-const URL = process.argv[2] || 'http://localhost:3100/';
+const URL = process.argv.find((a) => /^https?:/i.test(a)) || 'http://localhost:3100/';
+
+// Positional args narrow the run by substring, matching shots.mjs:
+//
+//   node tools/smoke.mjs                       all 64
+//   node tools/smoke.mjs clip budget people    only checks whose group or name
+//                                              contains one of those
+//
+// WHY THIS EXISTS: the full suite is ~45 minutes on the machine it was written
+// on and about five hours on a cloud box with no GPU, where every frame is
+// rasterised in software. Paying five hours to re-run the camera and the
+// economy because a weapon model changed is not a trade anybody should make.
+//
+// A NARROWED RUN IS NOT A PASS. The suite shares one page and one character
+// sheet on purpose, and checks lean on the state the checks before them left
+// (that is the whole of rule (q)). Skipping the setup a check depends on can
+// fail it, or -- worse -- pass it for the wrong reason. Use this to iterate;
+// use the full run as the gate.
+const ONLY = process.argv.slice(2).filter((a) => !/^https?:/i.test(a));
+let GROUP = '';
+let skipped = 0;
+const wanted = (name) => !ONLY.length
+  || ONLY.some((f) => `${GROUP} ${name}`.toLowerCase().includes(f.toLowerCase()));
 
 const results = [];
 let page;
@@ -37,6 +59,7 @@ function record(name, ok, detail) {
 
 /** Run `fn(arg)` in the page. It returns {ok, detail}; a throw is a failure. */
 async function check(name, fn, arg) {
+  if (!wanted(name)) { skipped++; return; }
   try {
     const r = await page.evaluate(fn, arg);
     record(name, !!(r && r.ok), r && r.detail);
@@ -45,7 +68,7 @@ async function check(name, fn, arg) {
   }
 }
 
-const group = (name) => console.log(`\n\x1b[1m${name}\x1b[0m`);
+const group = (name) => { GROUP = name; console.log(`\n\x1b[1m${name}\x1b[0m`); };
 
 // Headless renders every stepped frame, so "wait ten seconds for the AI to do
 // something" is the expensive part of this suite, not the assertions. Anything
@@ -2178,6 +2201,14 @@ async function run() {
 
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${results.length - failed.length}/${results.length} passed`);
+  // SAY IT LOUDLY. "63/63 passed" from a filtered run looks exactly like a
+  // clean sweep in a scrollback three days later, and the only thing telling
+  // the two apart is this line.
+  if (skipped) {
+    console.log(`\x1b[33mPARTIAL RUN\x1b[0m  ${skipped} checks skipped by `
+      + `filter [${ONLY.join(' ')}] -- this is NOT a pass, run with no `
+      + `arguments for the gate`);
+  }
   if (failed.length) {
     console.log(`\x1b[31mFAILED:\x1b[0m ${failed.map((f) => f.name).join(' · ')}`);
     process.exit(1);
