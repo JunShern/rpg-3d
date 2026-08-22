@@ -8,10 +8,20 @@
   "cast_fire",
   "cast_ice",
   "dodge",
+  "draw",
   "hurt",
   "idle",
   "jump",
   "land",
-  "run"
- ]
+  "open",
+  "point",
+  "run",
+  "sheathe",
+  "talk",
+  "talk_emphatic"
+ ],
+ "handoff": {
+  "sheathe": 15,
+  "draw": 9
+ }
 }

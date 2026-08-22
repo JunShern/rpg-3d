@@ -17,7 +17,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import bpy
 from mathutils import Matrix, Vector
 
+import char_build
 import geo_lib as K
+import props
 import weapon_lib
 
 
@@ -73,23 +75,60 @@ def rack(path, ids=None, mats=None):
     return path
 
 
-def export(out_dir, ids=None, mats=None):
-    """One .glb per weapon, in the canonical grip-at-origin frame."""
+REFERENCE = "public/assets/vesper.glb"
+
+
+def export(out_dir, ids=None, mats=None, reference=REFERENCE):
+    """One .glb per weapon, PLACED as if held by the reference character.
+
+    Not the canonical frame, and the difference is the whole design.  A weapon
+    exported grip-at-origin would need the runtime to reproduce
+    `props.place_in_hand` -- a basis matrix, a slide up the bone, a wrist tweak
+    -- in JavaScript, from Python, by hand.  That is precisely the joint this
+    codebase keeps getting bitten by (rule (a)), and it would be a silent one:
+    a sword held at a slightly wrong angle looks like a modelling mistake.
+
+    So the placement happens HERE, once, using the same function the builders
+    use, against a rig imported from a built character.  The runtime then has
+    no grip maths at all: it copies the local transform off the weapon node
+    that character already carries and drops the new mesh in at the same spot.
+
+    The cost is that the grip slide is measured on the reference character's
+    hand bone.  Hand bones across this cast differ by a few percent of about
+    0.1 m, so a different character wears the grip ~2 mm out of place.
+    """
     ids = ids or list(weapon_lib.CATALOGUE)
     os.makedirs(out_dir, exist_ok=True)
     written = []
     for wid in ids:
         K.clear_scene()
+        bpy.ops.import_scene.gltf(filepath=reference)
+        rig = next(o for o in bpy.data.objects if o.type == 'ARMATURE')
         M = mats or weapon_lib.palette()
-        obj = K.join(weapon_lib.build(wid, mats=M), wid.replace("-", "_"))
+        parts = weapon_lib.build(wid, mats=M)
+        props.place_in_hand(parts, rig, "hand.R", along=0.48,
+                            tweak=char_build.SWORD_TWEAK)
+        obj = K.join(parts, wid.replace("-", "_"))
         obj.vertex_groups.clear()
+        # the reference character has done its job
+        for o in list(bpy.data.objects):
+            if o is not obj:
+                bpy.data.objects.remove(o, do_unlink=True)
         path = os.path.join(out_dir, f"{wid}.glb")
         bpy.ops.object.select_all(action='DESELECT')
         obj.select_set(True)
         bpy.context.view_layer.objects.active = obj
         bpy.ops.export_scene.gltf(
             filepath=path, export_format='GLB', use_selection=True,
-            export_apply=True, export_animations=False, export_yup=True,
+            export_apply=True, export_animations=False,
+            # YUP=TRUE, matching the characters, and it was worth measuring
+            # rather than reasoning about.  These vertices are in the reference
+            # character's ARMATURE space and mount under a node from a file
+            # exported yup=True, so they must undergo the same Z-up to Y-up
+            # conversion that file did.  Exported yup=False they came out in
+            # Blender's frame -- identical in X, with Y and Z swapped -- which
+            # put the sword through the floor at right angles to her hand.
+            export_yup=True,
             export_materials='EXPORT', export_normals=True)
         print(f"[weapon] {wid:13} -> {path} "
               f"({os.path.getsize(path)/1024:.0f} KB, "

@@ -40,6 +40,10 @@ const HYST = 0.45;
 export function makeNpcs({ scene, chars, groundAt, hud }) {
   const npcs = [];
   let near = null;          // the one the prompt is for
+  // The person the OPEN window belongs to. Set when the conversation
+  // starts and never re-read from proximity, so walking away mid-line does
+  // not silently hand the gesture to somebody else.
+  let speaker = null;
   let armed = false;
 
   // ---- the prompt banner -------------------------------------------------
@@ -101,7 +105,25 @@ export function makeNpcs({ scene, chars, groundAt, hud }) {
       idle.time = (def.phase !== undefined ? def.phase : Math.random()) *
                   (idle.getClip().duration || 1);
     }
-    return { group, mixer, clips };
+    // WHICH GESTURE THIS PERSON USES, fixed per person rather than picked per
+    // conversation. A townsperson who talks with their hands should do it
+    // every time you speak to them -- that is what makes it read as character
+    // instead of as randomness -- and it costs one hash of the id.
+    let h = 0;
+    for (let i = 0; i < def.id.length; i++) h = (h * 31 + def.id.charCodeAt(i)) | 0;
+    const gesture = def.gesture ||
+      ((h & 3) === 0 ? 'talk_emphatic' : 'talk');
+    return { group, mixer, clips, current: idle || null, gesture };
+  }
+
+  // Same crossfade main.js uses on the player. Kept here rather than shared
+  // because npc.js owns its own mixers and main.js's `play` closes over `cur`.
+  function setClip(b, name, fade = 0.28) {
+    const next = b.clips[name];
+    if (!next || next === b.current) return;
+    next.reset().setEffectiveWeight(1).play();
+    if (b.current) next.crossFadeFrom(b.current, fade, false);
+    b.current = next;
   }
 
   function place(n) {
@@ -134,8 +156,14 @@ export function makeNpcs({ scene, chars, groundAt, hud }) {
 
   function update(dt, pos) {
     let best = null, bestD = 1e9;
+    // WHO IS SPEAKING, not who is nearest. `near` keeps moving while the
+    // window is open -- the player can still be nudged around by knockback or
+    // by the camera settling -- so reading it here would hand the gesture to
+    // whoever drifted closest mid-sentence.
+    const speaking = talking() ? speaker : null;
     for (const n of npcs) {
       n.b.mixer.update(dt);
+      setClip(n.b, n === speaking ? n.b.gesture : 'idle');
       const dx = n.x - pos.x, dz = n.z - pos.z;
       const d = Math.hypot(dx, dz);
       // TURN TO FACE YOU. It is the whole of the body language budget and it
@@ -175,6 +203,7 @@ export function makeNpcs({ scene, chars, groundAt, hud }) {
     if (!near || talking()) return false;
     if (!window.Dialogue || !window.Dialogue.play) return false;
     setPrompt(null);
+    speaker = near;
     window.Dialogue.play(near.node);
     return true;
   }

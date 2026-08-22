@@ -478,11 +478,21 @@ const HERO_LOOK = {
 const SKIN_RIM = { rimStrength: 0.45, rimColor: 0xffe0c8 };
 const CAST_LOOK = {
   vesper: SKIN_RIM, lake: SKIN_RIM, maren: SKIN_RIM,
-  // the sword is generated geometry joined into the body, so it arrives as
-  // extra materials on the same mesh
-  steel:   { rimStrength: 1.20, rimColor: 0xffffff },
-  brass:   { rimStrength: 1.00, rimColor: 0xfff0c0 },
-  leather: { rimStrength: 0.40 },
+  // WEAPON SURFACES. These used to arrive as extra materials on the character's
+  // own mesh, because the sword was joined into it. The blade is its own node
+  // now and may be loaded from public/assets/weapons at equip time, so these
+  // entries are read for both -- and the list is longer than the built-in
+  // sword needs, because a weapon that cannot change colour cannot look like a
+  // better weapon.
+  steel:     { rimStrength: 1.20, rimColor: 0xffffff },
+  bluesteel: { rimStrength: 1.35, rimColor: 0xdcecff },
+  iron:      { rimStrength: 0.85, rimColor: 0xf0f0ea },
+  darkiron:  { rimStrength: 0.65, rimColor: 0xc8c8d0 },
+  brass:     { rimStrength: 1.00, rimColor: 0xfff0c0 },
+  jewel:     { rimStrength: 1.40, rimColor: 0xbdf3ff },
+  wood:      { rimStrength: 0.35 },
+  wrap:      { rimStrength: 0.35 },
+  leather:   { rimStrength: 0.40 },
 };
 const FLAT_MATS = new Set(['eye', 'iris', 'pupil']);
 const NO_OUTLINE = new Set(['face']);   // a hull round a flat decal rings the face
@@ -620,6 +630,9 @@ function selectCharacter(name) {
   attacking = false;
   landing = false;
   play('idle', 0);
+  // Whoever just stepped forward carries what the sheet says they carry, and
+  // they may never have been synced -- GS's `change` only fires on a change.
+  syncWeapon();
   hud.dataset.who = name;
 }
 
@@ -734,7 +747,7 @@ Promise.all(ROSTER.concat(NPC_RIGS).map((def) =>
       if (st.maxHp > was) combat.player.hp += st.maxHp - was;
       combat.player.hp = Math.min(combat.player.hp, combat.player.maxHP);
     };
-    GS.on('change', () => { syncHP(); purse(); });
+    GS.on('change', () => { syncHP(); purse(); syncWeapon(); });
     // A LEVEL IS THE LOUDEST THING THE ECONOMY DOES, so it gets its own line
     // and its own colour. `grantXp` emits one event per member who levelled.
     // AN ARRAY of {char, level}, one per member who levelled -- `grantXp`
@@ -748,7 +761,7 @@ Promise.all(ROSTER.concat(NPC_RIGS).map((def) =>
         gain(`${String(name).toUpperCase()}  LEVEL ${ev.level}`, 'lvl');
       }
     });
-    if (GS.ready && GS.ready.then) GS.ready.then(() => { syncHP(); purse(); });
+    if (GS.ready && GS.ready.then) GS.ready.then(() => { syncHP(); purse(); syncWeapon(); });
   }
 
   drops = makeDrops({
@@ -1040,6 +1053,100 @@ function findWeapon(root) {
     if (!hit && /_weapon$/i.test(o.name || '')) hit = o;
   });
   return hit;
+}
+
+// ------------------------------------------------------------------ weapons
+//
+// THE BLADE INSIDE THE CHARACTER IS THE MOUNT, not the weapon.  It is already a
+// child of hand.R carrying the local transform `props.place_in_hand` worked out
+// in Blender -- a basis matrix, a slide up the bone, a wrist tweak -- so
+// anything parented to it inherits a correct grip for free.  Reproducing that
+// arithmetic here, in JavaScript, from Python, by hand, is exactly the joint
+// this codebase keeps paying for (rule (a)), and it would fail silently: a
+// sword held at a slightly wrong angle reads as a modelling mistake.
+//
+// So equipping swaps the CHILD and hides the built-in blade.  Weapon .glb files
+// are exported already placed against a reference rig, so they drop in at
+// identity.
+const weaponCache = new Map();
+
+function loadWeapon(id) {
+  let p = weaponCache.get(id);
+  if (p) return p;
+  p = new GLTFLoader().loadAsync(`/assets/weapons/${id}.glb`).then((g) => {
+    const meshes = [];
+    g.scene.traverse((o) => { o.frustumCulled = false; if (o.isMesh) meshes.push(o); });
+    for (const m of meshes) {
+      const name = surfaceOf(m.material?.name);
+      m.userData.matName = name;
+      const color = m.material?.color?.clone() || new THREE.Color(0xffffff);
+      m.material = surfaceMaterial(LOOK, color,
+                                   { key: 'weapon:' + name, ...(CAST_LOOK[name] || {}) });
+      m.material.transparent = true;
+      m.material.opacity = 1;
+      m.castShadow = true;
+      m.receiveShadow = false;      // same reason a character does not: see above
+    }
+    for (const m of meshes) addOutline(m, 0.0028);
+    return g.scene;
+  }).catch((e) => {
+    // A MISSING MODEL KEEPS THE BUILT-IN BLADE, because a character standing in
+    // a fight with empty hands is a worse answer than the wrong sword.
+    console.warn('[weapon] could not load', id, e.message || e);
+    return null;
+  });
+  weaponCache.set(id, p);
+  return p;
+}
+
+function builtInBlade(ch) {
+  if (!ch._blade) {
+    ch._blade = [];
+    ch.weapon.traverse((o) => { if (o.isMesh) ch._blade.push(o); });
+  }
+  return ch._blade;
+}
+
+function setWeapon(ch, id) {
+  if (!ch || !ch.weapon || ch.weaponId === id) return;
+  ch.weaponId = id;
+  if (!id) {
+    for (const m of builtInBlade(ch)) m.visible = false;
+    if (ch.mounted) { ch.weapon.remove(ch.mounted); ch.mounted = null; }
+    return;
+  }
+  loadWeapon(id).then((root) => {
+    // Equipping twice quickly resolves out of order; the id is the arbiter.
+    if (!root || ch.weaponId !== id) return;
+    if (ch.mounted) ch.weapon.remove(ch.mounted);
+    // CLONE, because two characters can carry the same model and a node
+    // belongs to one parent
+    // HIDE FIRST, THEN MOUNT.  builtInBlade() is lazy and traverses
+    // ch.weapon, so computing it after the new blade is parented captures the
+    // new blade too -- and the next line then hides the weapon it just
+    // mounted, leaving the character empty-handed with no error anywhere.
+    const blade = builtInBlade(ch);
+    ch.mounted = root.clone(true);
+    ch.weapon.add(ch.mounted);
+    for (const m of blade) m.visible = false;
+    ch.mounted.traverse((o) => { o.visible = true; });
+  });
+}
+
+/** The model id for whoever is active, or null for empty-handed. */
+function equippedWeapon() {
+  if (!window.GS || !GS.ok) return null;
+  const me = GS.state.party.find((m) => m.active) || GS.state.party[0];
+  const id = me && me.equip && me.equip.weapon;
+  if (!id) return null;
+  const def = GS.data?.items?.items?.[id];
+  // items.json may name a model; otherwise the item id IS the model name, which
+  // is why the three weapon files are called what the three items are called.
+  return (def && def.model) || id;
+}
+
+function syncWeapon() {
+  if (cur) setWeapon(cur, equippedWeapon());
 }
 
 function findBone(root, want) {
