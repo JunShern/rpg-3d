@@ -113,6 +113,15 @@ Every one of these was paid for. They are in rough order of how often they recur
   `clip_bake` re-authors the whole set instead of adding to it: one new clip on
   an imported rig would have exported the other ten as valid, motionless
   animations.
+- **(u) THE EXPORTER CONVERTS VERTICES, not just the root.** A character
+  exported `export_yup=True` has its mesh data rewritten from Blender's Z-up
+  into glTF's Y-up, so its *armature space* is Y-up and every bone-local frame
+  under it is too. A prop exported to sit in that space must take the same
+  conversion. Written `yup=False` on the reasoning that Blender coordinates
+  would match a bone-local frame, the new sword came out identical in X with Y
+  and Z swapped — through the floor, at right angles to the hand. Two renders
+  failed to explain it; comparing the two meshes' coordinate ranges settled it
+  in one step. **Compare the numbers of the thing that works.**
 - **(t) A convention is only true where it was measured.** The module docstring
   says +Z opens the LEFT arm and closes the RIGHT. True at rest. Rotations are
   XYZ euler, so by X=-170 the sign has flipped, and a cast written at -150 using
@@ -149,6 +158,8 @@ tools/anim_preview.py  a clip as a contact sheet, off a built glb
 tools/pose_probe.py    where an angle actually puts a limb, in metres
 tools/clip_bake.py     put the library into a character that already exists
 tools/weapon_split.py  take a welded weapon out of a built character
+tools/weapon_lib.py    weapons as parameters -- blade, guard, grip, pommel
+tools/weapon_build.py  build them, and render the rack you judge them from
 tools/rig_extend.py    give a built character a second spine segment
 tools/smoke.mjs     64 checks
 tools/shots.mjs     the capture sheet
@@ -175,8 +186,41 @@ for c in vesper lake maren; do python3 tools/clip_bake.py -- --char public/asset
 is data. `--view side` is azimuth 90 and looks at the character's **left**;
 every sword action in this game happens on the right, so use `--az -90`.
 
+### Adding a weapon
+
 The weapon is its own node riding `hand.R`, not part of the skin — `cur.weapon`
-in `main.js`, null on anyone unarmed. `props.WEAPONS` is where a second one goes.
+in `main.js`, null on anyone unarmed.
+
+```sh
+# a row in weapon_lib.CATALOGUE, then look at it beside the others
+python3 tools/weapon_build.py -- --rack docs/weapons/rack.png
+python3 tools/weapon_build.py -- --out public/assets/weapons
+```
+
+Then give `items.json` an item whose **id matches the .glb name** (or set
+`model`), and equipping it swaps the model. `GS.on('change')` drives that —
+nothing in `public/js/vendor/` was touched or may be.
+
+Two things about the frame, both of which cost a wrong sword:
+
+- Weapons are built **grip at the origin, blade down -Z**, which is what
+  `props.place_in_hand` expects. `weapon_build` applies that placement against
+  a reference character before export, so the runtime owns **no grip maths**
+  and mounts at identity. Do not move that arithmetic into JavaScript.
+- Export **`yup=True`**, matching the characters. See rule (u).
+
+The parameters in `weapon_lib` are the ones that survive a toon ramp at four to
+six metres — length, taper, guard span and style, pommel mass, metal colour.
+The guard changes a weapon's silhouette further than the blade does: it is the
+only horizontal on an otherwise vertical object.
+
+### Townspeople
+
+They already carry every clip the cast does — `npc.js` builds a mixer and the
+full action set per person and used to play only `idle`. A person's gesture is
+hashed from their id so it is theirs every time you speak to them, and only the
+NPC whose window is open gestures: that is `speaker`, captured when the
+conversation starts, **not** whoever is nearest while it runs.
 
 Adding a character is a row in `char_build.CHARACTERS`. Adding an item, a shop
 or a monster is a JSON entry. Adding a townsperson is a row in `NPC_ROSTER` plus
