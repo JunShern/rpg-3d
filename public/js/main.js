@@ -590,7 +590,8 @@ function buildCharacter(def, gltf) {
   for (const clip of gltf.animations) {
     const a = mixer.clipAction(clip);
     clips[clip.name] = a;
-    if (clip.name === 'attack' || clip.name === 'jump' || clip.name === 'land') {
+    if (clip.name === 'attack' || clip.name === 'jump' || clip.name === 'land'
+        || clip.name === 'sheathe' || clip.name === 'draw') {
       a.setLoop(THREE.LoopOnce, 1);
       a.clampWhenFinished = true;        // `jump` HOLDS its airborne pose
     }
@@ -1189,13 +1190,21 @@ function bindMatrix(ch, bone) {
   return new THREE.Matrix4().copy(skin.skeleton.boneInverses[i]).invert();
 }
 
-// Where a sheathed weapon rides, as a rigid move in CHARACTER space (+x is her
-// left, +y up, +z forward): across to the far hip, down, and tilted back so the
-// blade trails instead of standing up like an aerial.
-const SHEATH_OFFSET = new THREE.Matrix4().compose(
-  new THREE.Vector3(0.32, -0.28, -0.04),
-  new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.38, 0, 0.20)),
-  new THREE.Vector3(1, 1, 1));
+// Where a sheathed weapon rides, RELATIVE TO THE HIPS, and how it is tilted.
+// +x is her left, +y up, +z forward. Worn on the left hip because the right
+// hand draws it.
+const SHEATH_AT = new THREE.Vector3(0.17, -0.03, -0.04);
+// Tilt is applied ABOUT THE GRIP, not about the character's origin, and that
+// distinction is the whole of why the first attempt failed. Composed as a
+// plain offset the rotation pivots on the point between her feet, so 22
+// degrees swings the blade through an enormous arc: it measured 0.43 m lower
+// and 0.40 m further back than asked for, and the x-shift vanished into the
+// same lever. Rotating about the grip is what "hang it on her hip at an angle"
+// actually means.
+// Positive X, and the sign was worth measuring rather than assuming. The blade
+// hangs BELOW the grip, so a rotation about X sweeps it through -y: negative X
+// carries the tip forward, which is the opposite of trailing.
+const SHEATH_TILT = new THREE.Euler(0.38, 0.0, 0.22);
 
 /**
  * The node a sheathed weapon hangs from, built once per character.
@@ -1214,13 +1223,31 @@ function sheathAnchor(ch) {
   const bHips = bindMatrix(ch, hips);
   const bHand = bindMatrix(ch, hand);
   if (!hips || !bHips || !bHand) return null;
+  // The grip sits at the hand, so the hand's bind position IS the pivot and
+  // the thing being placed. Both come straight off the rig, so a taller
+  // character wears the sword on their own hip rather than on Vesper's.
+  const gripAt = new THREE.Vector3().setFromMatrixPosition(bHand);
+  const hipsAt = new THREE.Vector3().setFromMatrixPosition(bHips);
+  const target = hipsAt.clone().add(SHEATH_AT);
+
   //   world = hips.matrixWorld * local
-  // and at rest we want   world = OFFSET * bind(hand) * T
+  // and at rest we want the drawn placement, rotated about its own grip and
+  // moved so that grip lands on the hip:
+  //   world = T(target) * R(tilt) * T(-grip) * bind(hand) * T
+  const place = new THREE.Matrix4()
+    .makeTranslation(target.x, target.y, target.z)
+    .multiply(new THREE.Matrix4().makeRotationFromEuler(SHEATH_TILT))
+    .multiply(new THREE.Matrix4().makeTranslation(-gripAt.x, -gripAt.y, -gripAt.z));
   const local = new THREE.Matrix4()
     .copy(bHips).invert()
-    .multiply(SHEATH_OFFSET)
+    .multiply(place)
     .multiply(bHand)
     .multiply(ch.weapon.matrix);
+  // The sanity check from the plan: on a 1.70 m character the hips bind near
+  // y=0.9 and the hand near x=-0.3. If these are wildly off, the frame is
+  // wrong and no amount of tuning SHEATH_AT will rescue it.
+  console.log(`[carry] hips bind y=${hipsAt.y.toFixed(3)}, `
+    + `grip x=${gripAt.x.toFixed(3)} y=${gripAt.y.toFixed(3)}`);
   const node = new THREE.Object3D();
   node.name = (ch.name || 'char') + '_Sheath';
   node.matrixAutoUpdate = false;
@@ -2379,8 +2406,14 @@ const LOCK_POLAR = 1.06;
 
   if (cur) { cur.group.position.copy(pos); cur.group.rotation.y = facing; }
 
-  // locomotion only reclaims the body once we are grounded and done landing
-  if (cur && !attacking && grounded && !landing && slip.t <= 0 && !staggered) {
+  // locomotion only reclaims the body once we are grounded and done landing --
+  // AND once a draw or sheathe has finished. Without `!carry` the idle clip
+  // crossfaded straight back over the sheathe and three.js stopped it dead at
+  // 0.23 s, so the handoff frame at 0.625 s never arrived and the sword simply
+  // stayed in her hand. Nothing errored: the state machine sat there holding a
+  // clip that was no longer running.
+  if (cur && !attacking && !carry && grounded && !landing && slip.t <= 0
+      && !staggered) {
     play(isMoving ? 'run' : 'idle');
   }
 
@@ -2935,6 +2968,15 @@ globalThis.__face = (x, z) => {
   return facing;
 };
 // hooks the smoke test needs and nothing else does
+// What the carrying state machine thinks, so a sheathe that silently refuses
+// can be asked why instead of guessed at.
+globalThis.__carry = () => ({
+  sheathed, carrying: carry ? carry.name : null,
+  mounted: !!(cur && cur.mounted),
+  hasClips: !!(cur && cur.clips.sheathe && cur.clips.draw),
+  handoff: HANDOFF, attacking, locked: uiLocked(),
+});
+
 globalThis.__clipNames = (n) => (chars[n] ? Object.keys(chars[n].clips).sort() : null);
 Object.defineProperty(globalThis, '__terrainProbes', {
   get: () => terrainProbes, configurable: true,
