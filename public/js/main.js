@@ -841,6 +841,7 @@ addEventListener('keydown', (e) => {
   if (e.code === 'KeyJ' || e.code === 'KeyE') { e.preventDefault(); attack(); }
   if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') { e.preventDefault(); dodge(); }
   if (e.code === 'KeyC') { e.preventDefault(); cycleCharacter(); }
+  if (e.code === 'KeyR') { e.preventDefault(); toggleCarry(); }
   if (e.code === 'KeyQ') { e.preventDefault(); if (combat) combat.toggleLock(); }
   if (e.code === 'Tab') { e.preventDefault(); if (combat) combat.cycleLock(); }
 });
@@ -913,6 +914,11 @@ function dodge() {
 
 function attack() {
   if (!cur || !combat || combat.isStaggered()) return;
+  // PRESSING ATTACK WITH THE BLADE AWAY DRAWS IT AND SWINGS, on one press.
+  // Making the player press R first would be a second thing to learn for no
+  // reason -- nobody has ever wanted to draw a sword and then not use it.
+  if (sheathed && !carry) { startCarry('hand', true); return; }
+  if (carry) return;                 // mid draw or sheathe: the clip owns this
   // airborne presses run the falling cut instead of the ground chain
   combat.attack(!grounded);
 }
@@ -1147,6 +1153,127 @@ function equippedWeapon() {
 
 function syncWeapon() {
   if (cur) setWeapon(cur, equippedWeapon());
+}
+
+// ---------------------------------------------------------------- carrying
+//
+// MANUAL, and not location-driven.  Sheathing on entering a "safe" area needs
+// the game to have an opinion about where a fight can start, which it does not
+// and should not: R puts it away, R takes it back, and pressing attack does
+// both in one press.  Nothing here reads the world.
+let sheathed = false;
+let carry = null;         // the draw/sheathe in flight, or null
+let HANDOFF = {};         // frame numbers, from the clip manifest
+
+// The frames the weapon changes hands on are AUTHORED, not chosen here -- see
+// anim_lib.HANDOFF.  Fetched rather than typed, because a number that lives in
+// two languages is a number waiting to disagree.
+fetch('/assets/clips.manifest.json').then((r) => r.json())
+  .then((m) => { HANDOFF = m.handoff || {}; })
+  .catch((e) => console.warn('[carry] no clip manifest', e.message || e));
+
+// The draw is 34 frames but its pull is done by 16, and a full second of
+// animation before a swing lands is a combat problem rather than a fidelity
+// win.  So a queued attack fires on the pull, not at the end of the clip.
+const DRAW_ATTACK_FRAME = 16;
+const FPS = 24;
+
+/** A bone's world matrix in the BIND pose -- the one animation cannot move. */
+function bindMatrix(ch, bone) {
+  if (!bone) return null;
+  let skin = null;
+  ch.group.traverse((o) => { if (!skin && o.isSkinnedMesh) skin = o; });
+  if (!skin) return null;
+  const i = skin.skeleton.bones.indexOf(bone);
+  if (i < 0) return null;
+  return new THREE.Matrix4().copy(skin.skeleton.boneInverses[i]).invert();
+}
+
+// Where a sheathed weapon rides, as a rigid move in CHARACTER space (+x is her
+// left, +y up, +z forward): across to the far hip, down, and tilted back so the
+// blade trails instead of standing up like an aerial.
+const SHEATH_OFFSET = new THREE.Matrix4().compose(
+  new THREE.Vector3(0.32, -0.28, -0.04),
+  new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.38, 0, 0.20)),
+  new THREE.Vector3(1, 1, 1));
+
+/**
+ * The node a sheathed weapon hangs from, built once per character.
+ *
+ * A WEAPON'S VERTICES ARE IN THE CHARACTER'S REST SPACE -- that is what lets
+ * the runtime own no grip maths -- so the hip node has to undo the hand
+ * placement and redo it at the hip.  Doing that from CURRENT matrices would
+ * bake in whichever frame of `idle` happened to be playing, and the sword would
+ * sit a few millimetres differently every time it was put away.  Bind matrices
+ * are the rest pose and animation cannot touch them.
+ */
+function sheathAnchor(ch) {
+  if (ch._sheath) return ch._sheath;
+  const hips = findBone(ch.group, 'hips');
+  const hand = ch.hand;
+  const bHips = bindMatrix(ch, hips);
+  const bHand = bindMatrix(ch, hand);
+  if (!hips || !bHips || !bHand) return null;
+  //   world = hips.matrixWorld * local
+  // and at rest we want   world = OFFSET * bind(hand) * T
+  const local = new THREE.Matrix4()
+    .copy(bHips).invert()
+    .multiply(SHEATH_OFFSET)
+    .multiply(bHand)
+    .multiply(ch.weapon.matrix);
+  const node = new THREE.Object3D();
+  node.name = (ch.name || 'char') + '_Sheath';
+  node.matrixAutoUpdate = false;
+  node.matrix.copy(local);
+  hips.add(node);
+  ch._sheath = node;
+  return node;
+}
+
+function moveWeapon(ch, to) {
+  const target = to === 'hip' ? sheathAnchor(ch) : ch.weapon;
+  if (!target || !ch.mounted) return;
+  target.add(ch.mounted);
+  // ADD, not attach: attach preserves the world transform, which is the exact
+  // opposite of what snapping a sword onto a hip wants.
+  ch.mounted.position.set(0, 0, 0);
+  ch.mounted.quaternion.identity();
+  ch.mounted.scale.set(1, 1, 1);
+  sheathed = (to === 'hip');
+}
+
+function startCarry(to, thenAttack = false) {
+  if (!cur || !cur.mounted || carry) return false;
+  const name = to === 'hip' ? 'sheathe' : 'draw';
+  if (!cur.clips[name]) return false;
+  playOnce(name, 0.08);
+  carry = { name, to, thenAttack,
+            at: (HANDOFF[name] || 0) / FPS,
+            attackAt: DRAW_ATTACK_FRAME / FPS,
+            moved: false, swung: false };
+  return true;
+}
+
+/** Watch the clip's own clock and hand the weapon over on the authored frame. */
+function stepCarry() {
+  if (!carry || !cur) return;
+  const a = cur.clips[carry.name];
+  if (!a) { carry = null; return; }
+  if (!carry.moved && a.time >= carry.at) {
+    moveWeapon(cur, carry.to);
+    carry.moved = true;
+  }
+  if (carry.thenAttack && !carry.swung && a.time >= carry.attackAt) {
+    carry.swung = true;
+    if (combat && !combat.isStaggered()) combat.attack(!grounded);
+  }
+  if (a.time >= (a.getClip().duration || 0) - 1e-3) carry = null;
+}
+
+function toggleCarry() {
+  if (!cur || !cur.mounted || carry || attacking) return;
+  if (combat && combat.isStaggered()) return;
+  startCarry(sheathed ? 'hand' : 'hip');
 }
 
 function findBone(root, want) {
@@ -2680,7 +2807,7 @@ function frame(dt) {
   const sdt = dt * scale;
   const isMoving = step(sdt);
   updateCombat(dt, dt);
-  if (cur) { cur.mixer.update(sdt); applyFootIK(cur, sdt); }
+  if (cur) { cur.mixer.update(sdt); stepCarry(); applyFootIK(cur, sdt); }
   updateTrail(sdt);
   updateThreatLines(sdt);
   updateSmash(sdt);
