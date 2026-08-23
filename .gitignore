@@ -21,3 +21,10 @@ public/vendor/
 # ad-hoc probes; the durable ones live in tools/shots.mjs and tools/smoke.mjs
 tools/scratch/
 docs/shots/_*
+
+# One-off browser probes. A throwaway playwright script has to sit in the repo
+# root because ESM resolves `playwright` from ./node_modules and NODE_PATH does
+# not apply to ESM -- so it cannot live in a scratch directory the way the
+# python ones do. Named `_*.mjs` and ignored rather than left to dirty the tree
+# on every run.
+/_*.mjs
