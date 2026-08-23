@@ -1193,7 +1193,7 @@ function bindMatrix(ch, bone) {
 // Where a sheathed weapon rides, RELATIVE TO THE HIPS, and how it is tilted.
 // +x is her left, +y up, +z forward. Worn on the left hip because the right
 // hand draws it.
-const SHEATH_AT = new THREE.Vector3(0.17, -0.03, -0.04);
+let SHEATH_AT = new THREE.Vector3(0.17, -0.03, -0.04);
 // Tilt is applied ABOUT THE GRIP, not about the character's origin, and that
 // distinction is the whole of why the first attempt failed. Composed as a
 // plain offset the rotation pivots on the point between her feet, so 22
@@ -1204,7 +1204,7 @@ const SHEATH_AT = new THREE.Vector3(0.17, -0.03, -0.04);
 // Positive X, and the sign was worth measuring rather than assuming. The blade
 // hangs BELOW the grip, so a rotation about X sweeps it through -y: negative X
 // carries the tip forward, which is the opposite of trailing.
-const SHEATH_TILT = new THREE.Euler(0.38, 0.0, 0.22);
+let SHEATH_TILT = new THREE.Euler(0.38, 0.0, 0.22);
 
 /**
  * The node a sheathed weapon hangs from, built once per character.
@@ -2970,6 +2970,18 @@ globalThis.__face = (x, z) => {
 // hooks the smoke test needs and nothing else does
 // What the carrying state machine thinks, so a sheathe that silently refuses
 // can be asked why instead of guessed at.
+// Retune where the sword rides without a rebuild. These two are TASTE, not
+// correctness -- the frame around them is measured and checked -- so they are
+// the one part of this worth putting in front of a person and comparing.
+globalThis.__setSheath = (at, tilt) => {
+  if (at) SHEATH_AT = new THREE.Vector3(...at);
+  if (tilt) SHEATH_TILT = new THREE.Euler(...tilt);
+  for (const c of Object.values(chars)) {
+    if (c._sheath) { c._sheath.parent.remove(c._sheath); c._sheath = null; }
+  }
+  return { at: SHEATH_AT.toArray(), tilt: [SHEATH_TILT.x, SHEATH_TILT.y, SHEATH_TILT.z] };
+};
+
 globalThis.__carry = () => ({
   sheathed, carrying: carry ? carry.name : null,
   mounted: !!(cur && cur.mounted),
