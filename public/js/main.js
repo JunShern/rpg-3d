@@ -1193,7 +1193,7 @@ function bindMatrix(ch, bone) {
 // Where a sheathed weapon rides, RELATIVE TO THE HIPS, and how it is tilted.
 // +x is her left, +y up, +z forward. Worn on the left hip because the right
 // hand draws it.
-let SHEATH_AT = new THREE.Vector3(0.17, -0.03, -0.04);
+let SHEATH_AT = new THREE.Vector3(0.24, -0.02, -0.03);
 // Tilt is applied ABOUT THE GRIP, not about the character's origin, and that
 // distinction is the whole of why the first attempt failed. Composed as a
 // plain offset the rotation pivots on the point between her feet, so 22
@@ -1204,7 +1204,7 @@ let SHEATH_AT = new THREE.Vector3(0.17, -0.03, -0.04);
 // Positive X, and the sign was worth measuring rather than assuming. The blade
 // hangs BELOW the grip, so a rotation about X sweeps it through -y: negative X
 // carries the tip forward, which is the opposite of trailing.
-let SHEATH_TILT = new THREE.Euler(0.38, 0.0, 0.22);
+let SHEATH_TILT = new THREE.Euler(0.34, 0.0, 0.34);
 
 /**
  * The node a sheathed weapon hangs from, built once per character.
