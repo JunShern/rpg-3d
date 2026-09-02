@@ -418,7 +418,9 @@ def build_terrain(M, step=TERRAIN_STEP):
                 # map cannot draw its bedding; the vertex colour can. Bands
                 # of 3.3 m -- two grid rows -- so the mesh can actually hold
                 # them, each a shade off the last.
-                strata = 0.84 + 0.16 * math.sin(verts[-1].z * 1.9 + x * 0.05)
+                # 0.68-1.0, not 0.84-1.0: a shaded flank shows only the fill,
+                # and a 16% band under a flat fill measured as nothing
+                strata = 0.68 + 0.32 * (0.5 + 0.5 * math.sin(verts[-1].z * 1.9 + x * 0.05))
                 c = mix(c, tuple(v * strata for v in ROCK), min(1.0, rk * 1.3))
             cols.append(c)
     for j in range(ny - 1):
