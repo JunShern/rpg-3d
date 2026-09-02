@@ -3172,7 +3172,7 @@ Object.defineProperty(globalThis, 'cur', { get: () => cur, configurable: true })
 Object.defineProperty(globalThis, 'npcs', { get: () => npcs, configurable: true });
 Object.defineProperty(globalThis, 'drops', { get: () => drops, configurable: true });
 Object.assign(globalThis, { scene, camera, renderer, chars, OUTLINES, THREE,
-                            selectCharacter,
+                            selectCharacter, key, hemi, ambient, sky,
                             pos, cam, get SOLIDS() { return SOLIDS; }, FLOORS });
 
 /**
