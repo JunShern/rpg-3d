@@ -718,13 +718,15 @@ const NPC_ROSTER = [
     x: 3.4,  z: 1.2,   facing: 40,  dialogue: 'nell.hail', speed: 1.35,
     path: [[7.6, -3.2], [6.0, -7.6], [3.4, 1.2]] },
   { id: 'finn',   name: 'Finn',       rig: 'finn.npc',
-    x: 6.4,  z: 16.6,  facing: 180, dialogue: 'finn.hail', speed: 1.0,
-    path: [[2.0, 14.6], [-3.5, 15.0], [6.4, 16.6]] },
+    // (6.4, 16.6) was INSIDE the east building's collision box -- reachable
+    // only because reach is longer than the box edge is far. On the paving now.
+    x: 3.2,  z: 12.0,  facing: 180, dialogue: 'finn.hail', speed: 1.0,
+    path: [[3.2, 8.0], [-2.4, 8.4], [3.2, 12.0]] },
   { id: 'mara',   name: 'Mara',       rig: 'mara.npc',
     x: 25.0, z: -4.6,  facing: 300, dialogue: 'mara.hail', y: 1.2 },
   { id: 'pip',    name: 'Pip',        rig: 'pip.npc',
-    x: 1.6,  z: -9.4,  facing: 20,  dialogue: 'pip.hail', speed: 1.25,
-    path: [[-4.5, -5.0], [-7.0, 1.0], [1.6, -9.4]] },
+    x: 1.2,  z: -9.0,  facing: 20,  dialogue: 'pip.hail', speed: 1.25,
+    path: [[-2.6, -6.6], [-2.9, 0.6], [-3.0, -4.6], [1.2, -9.0]] },
   // THE TWO TRAVELLERS ARE OUT IN IT. Lake never leaves the step he found;
   // Maren is at the ruin, thirty metres off the road, which is the point of
   // the ruin. Finding somebody you know out in the meadow is worth more than
