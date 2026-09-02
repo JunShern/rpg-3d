@@ -353,14 +353,20 @@ def build_terrain(M, step=TERRAIN_STEP):
     # and the toon ramp's lit band is 255 -- so the vertex colour is carrying
     # the whole of the hue with nothing pulling it down.
     GRASS = (0.36, 0.55, 0.25)
-    VERGE = (0.47, 0.53, 0.32)
-    DIRT = (0.58, 0.49, 0.37)
+    VERGE = (0.45, 0.51, 0.30)
+    # DIRT AT 0.50, NOT 0.58. The key is 2.8 and the toon ramp's lit band is
+    # 0.97 of it, so a sun-facing slope in earth colour lands at 1.6 before
+    # the tone map and comes out cream. The pass cutting -- a third of the
+    # frame at the top of the north road, facing the sun -- was one pale mass
+    # through four attempts on the texture, the tint and the rim. It was the
+    # albedo all along: earth is darker than that.
+    DIRT = (0.50, 0.41, 0.30)
     # GRASS DOES NOT GROW ON A CLIFF. The ravine was cut four metres deep into
     # the same green as the field it runs through, so from the rim it read as a
     # crease in a lawn rather than as rock -- and the same was true of the
     # landmark hill's steep flank and of anything else the height function cut
     # hard. Slope is already known at every vertex; this just believes it.
-    ROCK = (0.46, 0.43, 0.39)
+    ROCK = (0.40, 0.37, 0.33)
 
     def mix(a, b, k):
         return tuple(a[i] + (b[i] - a[i]) * k for i in range(3))
