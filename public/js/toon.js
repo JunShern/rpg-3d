@@ -148,7 +148,7 @@ export const LOOKS = {
     hemi: { sky: 0x7d8cc4, ground: 0x6c4e3e, intensity: 0.95 },
     ambient: { color: 0x5a6494, intensity: 0.34 },
     exposure: 0.98, albedo: 1, ramp: 'painted',
-    sky: { top: 0x24407a, mid: 0xc9744f, horizon: 0xffc98a, sun: 0xffb070 },
+    sky: { top: 0x2c4a8a, mid: 0xd0895c, horizon: 0xffcf96, sun: 0xffb070 },
     fog: { color: 0xd9a488, near: 30, far: 150 },
     lamps: 2.8,
   },
