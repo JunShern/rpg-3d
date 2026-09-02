@@ -128,32 +128,15 @@ export const LOOKS = {
     // olive. The bounce from the ground is warm too, the sky fill is blue,
     // and a little cool ambient keeps the shadow side from going dead.
     key: { color: 0xffe2bc, intensity: 2.8, position: [11, 17, 8] },
-    hemi: { sky: 0xbdd0ee, ground: 0x9c8668, intensity: 1.0 },
-    ambient: { color: 0x8a8ea8, intensity: 0.22 },
+    // THE FILL IS THE SHADOW. Hemisphere light is not ramped, so whatever it
+    // adds is a flat term over every shaded face -- at 1.0 a shaded cliff was
+    // a single pale value with nothing for a texture to work on. 0.85 keeps
+    // the shadows blue and gives them a little room to be dark.
+    hemi: { sky: 0xbdd0ee, ground: 0x9c8668, intensity: 0.85 },
+    ambient: { color: 0x8a8ea8, intensity: 0.20 },
     exposure: 1.0,
     albedo: 1,
     ramp: 'painted',
-    sky: { top: 0x3b76c9, mid: 0x9cc3e8, horizon: 0xeddfcc, sun: 0xffe3ba },
-    fog: { color: 0xe0dcd0, near: 38, far: 160 },
-  },
-  // exposure candidates under review -- the key at 2.8 clips anything over
-  // 0.36 albedo into the lit band's ceiling, which is why sunlit earth came
-  // out cream. Collapsed into `painted` once one is chosen.
-  p2: {
-    label: 'p2', lit: false, outlines: true, rim: 1.0,
-    key: { color: 0xffe2bc, intensity: 1.7, position: [11, 17, 8] },
-    hemi: { sky: 0xbdd0ee, ground: 0x9c8668, intensity: 1.0 },
-    ambient: { color: 0x8a8ea8, intensity: 0.22 },
-    exposure: 1.15, albedo: 1, ramp: 'painted',
-    sky: { top: 0x3b76c9, mid: 0x9cc3e8, horizon: 0xeddfcc, sun: 0xffe3ba },
-    fog: { color: 0xe0dcd0, near: 38, far: 160 },
-  },
-  p3: {
-    label: 'p3', lit: false, outlines: true, rim: 1.0,
-    key: { color: 0xffe2bc, intensity: 2.2, position: [11, 17, 8] },
-    hemi: { sky: 0xbdd0ee, ground: 0x9c8668, intensity: 0.9 },
-    ambient: { color: 0x8a8ea8, intensity: 0.22 },
-    exposure: 1.05, albedo: 1, ramp: 'painted',
     sky: { top: 0x3b76c9, mid: 0x9cc3e8, horizon: 0xeddfcc, sun: 0xffe3ba },
     fog: { color: 0xe0dcd0, near: 38, far: 160 },
   },

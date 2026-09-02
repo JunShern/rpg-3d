@@ -413,7 +413,13 @@ def build_terrain(M, step=TERRAIN_STEP):
             # were painted as dirt and rendered as one pale sandy mass.
             rk = _ramp(math.hypot(gx, gy), 0.55, 0.95)
             if rk > 0:
-                c = mix(c, ROCK, min(1.0, rk * 1.3))
+                # STRATA IN THE VERTICES. A cut wall lives on the shadow side
+                # of the valley and shows only the fill light, so the detail
+                # map cannot draw its bedding; the vertex colour can. Bands
+                # of 3.3 m -- two grid rows -- so the mesh can actually hold
+                # them, each a shade off the last.
+                strata = 0.84 + 0.16 * math.sin(verts[-1].z * 1.9 + x * 0.05)
+                c = mix(c, tuple(v * strata for v in ROCK), min(1.0, rk * 1.3))
             cols.append(c)
     for j in range(ny - 1):
         for i in range(nx - 1):
