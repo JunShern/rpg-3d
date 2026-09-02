@@ -399,11 +399,15 @@ def build_terrain(M, step=TERRAIN_STEP):
             e = step * 0.5
             gx = (height(x + e, y) - height(x - e, y)) / (2 * e)
             gy = (height(x, y + e) - height(x, y - e)) / (2 * e)
-            # 0.80 is 39 degrees and 1.45 is 55. The meadow's flanking hills run
-            # about 0.58, so the horizon stays green; a ravine wall is over 2.
-            rk = _ramp(math.hypot(gx, gy), 0.80, 1.45)
+            # 0.55 is 29 degrees and 0.95 is 44. The meadow's flanking hills run
+            # about 0.58, so the horizon stays green (2% rock); a ravine wall
+            # is over 2. The PASS CUTTING is the case that set these: six
+            # metres deep over eight of run is 0.75, and at the old 0.80 floor
+            # its walls -- a third of the frame at the top of the north road --
+            # were painted as dirt and rendered as one pale sandy mass.
+            rk = _ramp(math.hypot(gx, gy), 0.55, 0.95)
             if rk > 0:
-                c = mix(c, ROCK, rk * (0.55 + 0.45 * rk))
+                c = mix(c, ROCK, min(1.0, rk * 1.3))
             cols.append(c)
     for j in range(ny - 1):
         for i in range(nx - 1):
