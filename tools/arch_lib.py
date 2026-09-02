@@ -66,6 +66,7 @@ def palette():
         "brass":     (0.86, 0.68, 0.30),
         "awning":    (0.84, 0.30, 0.28),
         "leaf":      (0.42, 0.64, 0.34),
+        "ivy":       (0.30, 0.50, 0.28),
         # DARKER THAN THE GROUND IT SITS IN. At 0.38/0.72/0.84 the toon ramp
         # pushed the lit band to near-white and a stream across a green meadow
         # read as a drift of snow. Water is the one surface here that should
@@ -1099,6 +1100,40 @@ def bunting(t, a, b, sag=0.85, pitch=0.42, seed=0):
         flag = K._new_obj(f"bunting_flag{i}", verts, [(0, 1, 2), (2, 1, 0)],
                           mat=mats[(i + seed) % 3], smooth=False, recalc=False)
         out.append(flag)
+    return t.add(*out) and out
+
+
+def ivy(t, x, y, out_yaw=0.0, h=5.0, z0=0.3, seed=0, spread=0.9):
+    """Ivy up a wall: a strip of small leaf blobs climbing from the foot,
+    wandering sideways as it rises, standing a hand's width proud of the
+    plaster. `out_yaw` is the direction the wall FACES, in degrees. Two
+    greens, so it reads as foliage and not as a green stain. Nine plaster
+    boxes with sharp corners is a set; one with something growing on it is
+    a place with weather."""
+    M, out = t.M, []
+    rnd = _lcg_local(seed + 77)
+    a = math.radians(out_yaw)
+    ox, oy = math.cos(a), math.sin(a)          # out of the wall
+    lx, ly = -oy, ox                            # along the wall
+    z = z0
+    drift = 0.0
+    k = 0
+    while z < z0 + h:
+        drift += (rnd() - 0.5) * 0.36
+        drift = max(-spread, min(spread, drift))
+        r = 0.20 + rnd() * 0.14
+        px = x + lx * drift + ox * (0.10 + r * 0.45)
+        py = y + ly * drift + oy * (0.10 + r * 0.45)
+        out.append(K.blob(f"ivy{k}", (px, py, z), (r * 1.2, r * 1.2, r * 0.8), None,
+                          M["ivy"] if k % 3 else M["leaf"], seg=7, rings=5, squircle=2.3))
+        # a side shoot every third clump, so the strip has width
+        if k % 3 == 2:
+            sd = drift + (0.5 if rnd() < 0.5 else -0.5)
+            out.append(K.blob(f"ivy{k}b", (x + lx * sd + ox * 0.18, y + ly * sd + oy * 0.18,
+                                            z - 0.12), (r, r, r * 0.7), None, M["leaf"],
+                              seg=7, rings=5, squircle=2.3))
+        z += 0.36 + rnd() * 0.10
+        k += 1
     return t.add(*out) and out
 
 

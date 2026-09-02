@@ -269,6 +269,10 @@ def build_props(t):
     # 3 m, and the camera the player is given sits at 3 m: every frame in the
     # square had a rope across the character's face. Masts at 5 m beside
     # the lamps put the lowest point of the sag a metre over the camera.
+    # IVY on two facades that face the square: the west range's north house
+    # and the north range's east house, both plain plaster from the fountain.
+    A.ivy(t, -12.95, 6.2, out_yaw=0, h=5.2, seed=3)
+    A.ivy(t, 12.1, -9.95, out_yaw=90, h=4.6, seed=5, spread=0.7)
     MASTS = ((-9.3, -6.6), (9.3, -6.6), (-9.3, 8.2), (5.8, 9.6))
     for mx, my in MASTS:
         A.mast(t, mx, my, h=5.0)
