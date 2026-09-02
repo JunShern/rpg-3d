@@ -24,7 +24,7 @@ const GRASS_GLSL = /* glsl */`
     #else
       vec2 ph = vec2(0.0);
     #endif
-    float hh = clamp(position.y / 0.40, 0.0, 1.0);
+    float hh = clamp(position.y / 0.30, 0.0, 1.0);
     // one gust rolling across the field, phase from where the clump stands
     float g = sin(uWind * 1.15 + ph.x * 0.32 + ph.y * 0.19) * 0.5 + 0.5;
     float f = sin(uWind * 2.3 + ph.x * 1.7 - ph.y * 1.1) * 0.5 + 0.5;
@@ -38,13 +38,17 @@ function clumpGeometry() {
   // three tapered blades, two segments each, leaning outward; colour runs
   // dark at the foot to light at the tip so a clump shades itself
   const pos = [], col = [], idx = [], nrm = [];
-  const H = 0.40;
+  // SHORT, NARROW, NEARLY UPRIGHT. The first clump was three 40 cm blades
+  // leaning out at 10 cm with white-lit tips, and a field of them read as
+  // agave. Four blades at 30 cm, 2 cm wide, leaning 5, with the tip held
+  // under full white so the ramp's lit band does not bloom every one.
+  const H = 0.30;
   let base = 0;
-  for (let k = 0; k < 3; k++) {
-    const a = (k / 3) * Math.PI + 0.3;
+  for (let k = 0; k < 4; k++) {
+    const a = (k / 4) * Math.PI + 0.2;
     const dx = Math.cos(a), dz = Math.sin(a);           // blade's width axis
-    const lx = -dz * 0.10, lz = dx * 0.10;               // outward lean at tip
-    const rows = [[0.0, 0.030, 0.42], [0.55, 0.022, 0.72], [1.0, 0.0, 1.0]];
+    const lx = -dz * 0.05, lz = dx * 0.05;               // outward lean at tip
+    const rows = [[0.0, 0.022, 0.50], [0.55, 0.016, 0.78], [1.0, 0.0, 0.92]];
     for (const [t, w, c] of rows) {
       const y = t * H, ox = lx * t * t, oz = lz * t * t;
       pos.push(ox - dx * w, y, oz - dz * w, ox + dx * w, y, oz + dz * w);
@@ -65,7 +69,7 @@ function clumpGeometry() {
   return g;
 }
 
-export function makeGrass({ scene, terrain, material, spacing = 0.72, chunks = 8 }) {
+export function makeGrass({ scene, terrain, material, spacing = 0.50, chunks = 8 }) {
   const { gateY, x0, x1, y1, streamY, streamHalf, streamX0, streamX1 } = terrain.cfg;
   const streamLine = (x) =>
     streamY + 3.4 * Math.sin(x * 0.055) + 1.5 * Math.sin(x * 0.128 + 1.1);
@@ -79,7 +83,7 @@ export function makeGrass({ scene, terrain, material, spacing = 0.72, chunks = 8
   const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
 
   const geo = clumpGeometry();
-  const mat = material({ vertexColors: true, key: 'grassfield', rimStrength: 0.18 });
+  const mat = material({ vertexColors: true, key: 'grassfield', rimStrength: 0.06 });
   const prev = mat.onBeforeCompile;
   mat.onBeforeCompile = (shader) => {
     if (prev) prev(shader);
@@ -112,11 +116,11 @@ export function makeGrass({ scene, terrain, material, spacing = 0.72, chunks = 8
       const gx = (terrain.heightXY(px + e, py) - terrain.heightXY(px - e, py)) / (2 * e);
       const gy = (terrain.heightXY(px, py + e) - terrain.heightXY(px, py - e)) / (2 * e);
       if (Math.hypot(gx, gy) > 0.85) continue;
-      if (rnd() < 0.12) continue;
+      if (rnd() < 0.10) continue;
       // the jitter can put a clump a hair outside its row's chunk band
       const ci = Math.max(0, Math.min(chunks - 1, Math.floor((px - x0) / cw)));
       const cj = Math.max(0, Math.min(chunks - 1, Math.floor((py - yA) / ch)));
-      const s = 0.75 + rnd() * 0.6;
+      const s = 0.8 + rnd() * 0.5;
       lists[cj * chunks + ci].push([px, h - 0.02, -py, rnd() * Math.PI * 2, s, rnd()]);
       placed++;
     }

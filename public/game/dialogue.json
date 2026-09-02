@@ -1,929 +1,2154 @@
 {
  "_schema": "nodes keyed by id. A node: {if, else, speaker, lines[{text, expr, if}], choices[{text, to, if}], chooserExpr, effects{setFlags, giveItem, giveQty, gold, shop}, next}. `if` is {flag, notFlag, hasItem} (all must hold) or a bare flag name. A node whose `if` fails falls through to `else`. THE LADDER: each person's `.again` is the top of a chain of one-shot reaction nodes ordered by what matters most; every reaction sets a `said.*` flag so it plays once, and the chain bottoms out in a plain greeting. Flags the WORLD sets (flags.js): npc.met.*, seen.<place>, caps.N, kill.first, kill.<species>, weapon.<item>, sheathed, bell.rung, beacon.lit, chest.opened.",
- "defaults": { "cps": 46, "bustPx": 190, "players": ["vesper"] },
+ "defaults": {
+  "cps": 46,
+  "bustPx": 190,
+  "players": [
+   "vesper"
+  ]
+ },
  "speakers": {
-  "vesper": { "name": "Vesper", "color": "#7fb3a3", "portrait": "vesper" },
-  "lake":   { "name": "Lake", "color": "#8fa6c8", "portrait": "lake" },
-  "maren":  { "name": "Maren", "color": "#c8a37f", "portrait": "maren" },
-  "finn":   { "name": "Finn", "color": "#b8975f", "portrait": "finn" },
-  "mara":   { "name": "Mara", "color": "#a8b0bc", "portrait": "mara" },
-  "pip":    { "name": "Pip", "color": "#9fbf86", "portrait": "pip" },
-  "tally":  { "name": "Tally", "color": "#d09a6a", "portrait": "elder-woman" },
-  "hobb":   { "name": "Hobb", "color": "#c47a52", "portrait": "hobb" },
-  "sexton": { "name": "The Sexton", "color": "#9a93b8", "portrait": "tally" },
-  "nell":   { "name": "Nell", "color": "#c9b46a", "portrait": "child-girl" }
+  "vesper": {
+   "name": "Vesper",
+   "color": "#7fb3a3",
+   "portrait": "vesper"
+  },
+  "lake": {
+   "name": "Lake",
+   "color": "#8fa6c8",
+   "portrait": "lake"
+  },
+  "maren": {
+   "name": "Maren",
+   "color": "#c8a37f",
+   "portrait": "maren"
+  },
+  "finn": {
+   "name": "Finn",
+   "color": "#b8975f",
+   "portrait": "finn"
+  },
+  "mara": {
+   "name": "Mara",
+   "color": "#a8b0bc",
+   "portrait": "mara"
+  },
+  "pip": {
+   "name": "Pip",
+   "color": "#9fbf86",
+   "portrait": "pip"
+  },
+  "tally": {
+   "name": "Tally",
+   "color": "#d09a6a",
+   "portrait": "elder-woman"
+  },
+  "hobb": {
+   "name": "Hobb",
+   "color": "#c47a52",
+   "portrait": "hobb"
+  },
+  "sexton": {
+   "name": "The Sexton",
+   "color": "#9a93b8",
+   "portrait": "tally"
+  },
+  "nell": {
+   "name": "Nell",
+   "color": "#c9b46a",
+   "portrait": "child-girl"
+  }
  },
  "nodes": {
-
   "tally.hail": {
-   "if": { "notFlag": "npc.met.tally" }, "else": "tally.again",
+   "if": {
+    "notFlag": "npc.met.tally"
+   },
+   "else": "tally.again",
    "speaker": "tally",
    "lines": [
-    { "text": "Mind the crates, mind the crates. You'd think a square this size would be room enough for four stalls and one cart, and you would be wrong.", "expr": "happy" },
-    { "text": "Tally. I sell what the road brings in, which this month is apples and opinions." },
-    { "text": "And the opinion is this: the beacon up the north road has been out three nights, and nobody in this square will say it out loud. So I have." }
+    {
+     "text": "Mind the crates, mind the crates. You'd think a square this size would be room enough for four stalls and one cart, and you would be wrong.",
+     "expr": "happy"
+    },
+    {
+     "text": "Tally. I sell what the road brings in, which this month is apples and opinions."
+    },
+    {
+     "text": "And the opinion is this: the beacon up the north road has been out three nights, and nobody in this square will say it out loud. So I have."
+    }
    ],
-   "effects": { "setFlags": { "npc.met.tally": true, "knows.beacon": true, "quest.beacon": true } },
+   "effects": {
+    "setFlags": {
+     "npc.met.tally": true,
+     "knows.beacon": true,
+     "quest.beacon": true
+    }
+   },
    "next": "tally.ask"
   },
   "tally.again": {
-   "if": { "flag": "chest.opened", "notFlag": "said.tally.chest" }, "else": "tally.again2",
+   "if": {
+    "flag": "chest.opened",
+    "notFlag": "said.tally.chest"
+   },
+   "else": "tally.again2",
    "speaker": "tally",
    "lines": [
-    { "text": "Nell's been telling the whole square you went along the lead. She's telling it like she sent you.", "expr": "happy" },
-    { "text": "Let her. She's eight. Go on, then." }
+    {
+     "text": "Nell's been telling the whole square you went along the lead. She's telling it like she sent you.",
+     "expr": "happy"
+    },
+    {
+     "text": "Let her. She's eight. Go on, then."
+    }
    ],
-   "effects": { "setFlags": { "said.tally.chest": true } },
+   "effects": {
+    "setFlags": {
+     "said.tally.chest": true
+    }
+   },
    "next": "tally.ask"
   },
   "tally.again2": {
-   "if": { "flag": "bell.rung", "notFlag": "said.tally.rung" }, "else": "tally.again3",
+   "if": {
+    "flag": "bell.rung",
+    "notFlag": "said.tally.rung"
+   },
+   "else": "tally.again3",
    "speaker": "tally",
    "lines": [
-    { "text": "That was you on the rope. I know the Sexton's pull and that wasn't it — his is apologetic." },
-    { "text": "Good. The valley wanted telling.", "expr": "happy" }
+    {
+     "text": "That was you on the rope. I know the Sexton's pull and that wasn't it — his is apologetic."
+    },
+    {
+     "text": "Good. The valley wanted telling.",
+     "expr": "happy"
+    }
    ],
-   "effects": { "setFlags": { "said.tally.rung": true } },
+   "effects": {
+    "setFlags": {
+     "said.tally.rung": true
+    }
+   },
    "next": "tally.ask"
   },
   "tally.again3": {
-   "if": { "flag": "beacon.lit", "notFlag": "said.tally.lit" }, "else": "tally.again4",
+   "if": {
+    "flag": "beacon.lit",
+    "notFlag": "said.tally.lit"
+   },
+   "else": "tally.again4",
    "speaker": "tally",
    "lines": [
-    { "text": "You can't see it from here, you know. Not from the square. Hobb will tell you that as if it's news." },
-    { "text": "But Pip saw it from the ford, and Pip doesn't see much. So it's lit. So thank you.", "expr": "happy" }
+    {
+     "text": "You can't see it from here, you know. Not from the square. Hobb will tell you that as if it's news."
+    },
+    {
+     "text": "But Pip saw it from the ford, and Pip doesn't see much. So it's lit. So thank you.",
+     "expr": "happy"
+    }
    ],
-   "effects": { "setFlags": { "said.tally.lit": true } },
+   "effects": {
+    "setFlags": {
+     "said.tally.lit": true
+    }
+   },
    "next": "tally.ask"
   },
   "tally.again4": {
-   "if": { "flag": "caps.5", "notFlag": "said.tally.caps5" }, "else": "tally.again5",
+   "if": {
+    "flag": "caps.5",
+    "notFlag": "said.tally.caps5"
+   },
+   "else": "tally.again5",
    "speaker": "tally",
    "lines": [
-    { "text": "Your pockets are glowing. That's a basketful — that's enough to light anything that wants lighting.", "expr": "happy" },
-    { "text": "The road's north, past Pip's cart, and it only goes one way." }
+    {
+     "text": "Your pockets are glowing. That's a basketful — that's enough to light anything that wants lighting.",
+     "expr": "happy"
+    },
+    {
+     "text": "The road's north, past Pip's cart, and it only goes one way."
+    }
    ],
-   "effects": { "setFlags": { "said.tally.caps5": true } },
+   "effects": {
+    "setFlags": {
+     "said.tally.caps5": true
+    }
+   },
    "next": "tally.ask"
   },
   "tally.again5": {
-   "if": { "flag": "seen.orchard", "notFlag": "said.tally.orchard" }, "else": "tally.again6",
+   "if": {
+    "flag": "seen.orchard",
+    "notFlag": "said.tally.orchard"
+   },
+   "else": "tally.again6",
    "speaker": "tally",
    "lines": [
-    { "text": "You've been in my orchard. Don't deny it, you smell of it.", "expr": "happy" },
-    { "text": "Take what's on the ground. What's on the tree is mine, and the tree knows the difference." }
+    {
+     "text": "You've been in my orchard. Don't deny it, you smell of it.",
+     "expr": "happy"
+    },
+    {
+     "text": "Take what's on the ground. What's on the tree is mine, and the tree knows the difference."
+    }
    ],
-   "effects": { "setFlags": { "said.tally.orchard": true } },
+   "effects": {
+    "setFlags": {
+     "said.tally.orchard": true
+    }
+   },
    "next": "tally.ask"
   },
   "tally.again6": {
-   "if": { "flag": "kill.first", "notFlag": "said.tally.kill" }, "else": "tally.plain",
+   "if": {
+    "flag": "kill.first",
+    "notFlag": "said.tally.kill"
+   },
+   "else": "tally.plain",
    "speaker": "tally",
    "lines": [
-    { "text": "You've blood on your boots. Don't wipe it on my crates." },
-    { "text": "Finn said the meadow had things in it that weren't there last season. I suppose it has one fewer.", "expr": "happy" }
+    {
+     "text": "You've blood on your boots. Don't wipe it on my crates."
+    },
+    {
+     "text": "Finn said the meadow had things in it that weren't there last season. I suppose it has one fewer.",
+     "expr": "happy"
+    }
    ],
-   "effects": { "setFlags": { "said.tally.kill": true } },
+   "effects": {
+    "setFlags": {
+     "said.tally.kill": true
+    }
+   },
    "next": "tally.ask"
   },
   "tally.plain": {
    "speaker": "tally",
    "lines": [
-    { "text": "Back again. Go on then.", "expr": "happy", "if": { "notFlag": "sheathed" } },
-    { "text": "Back again, and unarmed. I prefer it. Go on then.", "expr": "happy", "if": { "flag": "sheathed" } }
+    {
+     "text": "Back again. Go on then.",
+     "expr": "happy",
+     "if": {
+      "notFlag": "sheathed"
+     }
+    },
+    {
+     "text": "Back again, and unarmed. I prefer it. Go on then.",
+     "expr": "happy",
+     "if": {
+      "flag": "sheathed"
+     }
+    }
    ],
    "next": "tally.ask"
   },
   "tally.ask": {
-   "speaker": "tally", "lines": [], "chooserExpr": "happy",
+   "speaker": "tally",
+   "lines": [],
+   "chooserExpr": "happy",
    "choices": [
-    { "text": "What are you selling?", "to": "tally.shop" },
-    { "text": "What's worth buying?", "to": "tally.wares" },
-    { "text": "About the beacon.", "to": "tally.beacon", "if": { "notFlag": "beacon.lit" } },
-    { "text": "Those glowing things in the grass.", "to": "tally.caps" },
-    { "text": "Who rings the bell?", "to": "tally.bell", "if": { "notFlag": "bell.rung" } },
-    { "text": "Nothing. Good day.", "to": null }
+    {
+     "text": "What are you selling?",
+     "to": "tally.shop"
+    },
+    {
+     "text": "What's worth buying?",
+     "to": "tally.wares"
+    },
+    {
+     "text": "About the beacon.",
+     "to": "tally.beacon",
+     "if": {
+      "notFlag": "beacon.lit"
+     }
+    },
+    {
+     "text": "Those glowing things in the grass.",
+     "to": "tally.caps"
+    },
+    {
+     "text": "Who rings the bell?",
+     "to": "tally.bell",
+     "if": {
+      "notFlag": "bell.rung"
+     }
+    },
+    {
+     "text": "Nothing. Good day.",
+     "to": null
+    }
    ]
   },
   "tally.beacon": {
    "speaker": "tally",
    "lines": [
-    { "text": "It's a basket of iron on a post at the top of the cutting. When it's lit, the fold and the far farms know the road's watched. When it's not, they don't." },
-    { "text": "It's been not for three nights. And the meadow's got braver every one of them — ask Finn what's moved into the long grass." },
-    { "text": "It burns embercaps. Five will take. The Sexton keeps saying he'll go up. The Sexton is sixty-one.", "expr": "happy" }
+    {
+     "text": "It's a basket of iron on a post at the top of the cutting. When it's lit, the fold and the far farms know the road's watched. When it's not, they don't."
+    },
+    {
+     "text": "It's been not for three nights. And the meadow's got braver every one of them — ask Finn what's moved into the long grass."
+    },
+    {
+     "text": "It burns embercaps. Five will take. The Sexton keeps saying he'll go up. The Sexton is sixty-one.",
+     "expr": "happy"
+    }
    ],
-   "effects": { "setFlags": { "knows.beacon": true, "quest.beacon": true } },
+   "effects": {
+    "setFlags": {
+     "knows.beacon": true,
+     "quest.beacon": true
+    }
+   },
    "next": "tally.ask"
   },
   "tally.wares": {
    "speaker": "tally",
    "lines": [
-    { "text": "Off me? Apples, and the apples are honest. The orchard's out past the gate, east of the road — you'll smell it before you see it." },
-    { "text": "If you want steel, that's Hobb, and Hobb is in a mood. If you want anything else, that's Finn, and Finn will talk your ear clean off.", "expr": "happy" }
+    {
+     "text": "Off me? Apples, and the apples are honest. The orchard's out past the gate, east of the road — you'll smell it before you see it."
+    },
+    {
+     "text": "If you want steel, that's Hobb, and Hobb is in a mood. If you want anything else, that's Finn, and Finn will talk your ear clean off.",
+     "expr": "happy"
+    }
    ],
    "next": "tally.ask"
   },
   "tally.caps": {
    "speaker": "tally",
    "lines": [
-    { "text": "Embercaps. They come up after rain along the walls and down the ravine, and they keep their light a good while after you knock them loose." },
-    { "text": "Children collect them. Grown adults with swords also collect them, and pretend it's for a reason.", "expr": "happy", "if": { "notFlag": "knows.beacon" } },
-    { "text": "You've got a reason now. Five for the basket. Knock them with the flat and they come away whole.", "expr": "happy", "if": { "flag": "knows.beacon" } }
+    {
+     "text": "Embercaps. They come up after rain along the walls and down the ravine, and they keep their light a good while after you knock them loose."
+    },
+    {
+     "text": "Children collect them. Grown adults with swords also collect them, and pretend it's for a reason.",
+     "expr": "happy",
+     "if": {
+      "notFlag": "knows.beacon"
+     }
+    },
+    {
+     "text": "You've got a reason now. Five for the basket. Knock them with the flat and they come away whole.",
+     "expr": "happy",
+     "if": {
+      "flag": "knows.beacon"
+     }
+    }
    ],
-   "effects": { "setFlags": { "knows.embercaps": true } },
+   "effects": {
+    "setFlags": {
+     "knows.embercaps": true
+    }
+   },
    "next": "tally.ask"
   },
   "tally.bell": {
    "speaker": "tally",
    "lines": [
-    { "text": "The Sexton, when the Sexton remembers. The rope's hanging in the tower's ground room — you can reach it yourself, and everyone does once." },
-    { "text": "Pull it twice and you'll be found and spoken to. So: once." }
+    {
+     "text": "The Sexton, when the Sexton remembers. The rope's hanging in the tower's ground room — you can reach it yourself, and everyone does once."
+    },
+    {
+     "text": "Pull it twice and you'll be found and spoken to. So: once."
+    }
    ],
-   "effects": { "setFlags": { "knows.bell": true } },
+   "effects": {
+    "setFlags": {
+     "knows.bell": true
+    }
+   },
    "next": "tally.ask"
   },
   "tally.shop": {
    "speaker": "tally",
-   "lines": [ { "text": "Have a look. Mind the crates.", "expr": "happy" } ],
-   "effects": { "shop": "town-stall" }
+   "lines": [
+    {
+     "text": "Have a look. Mind the crates.",
+     "expr": "happy"
+    }
+   ],
+   "effects": {
+    "shop": "town-stall"
+   }
   },
-
   "hobb.hail": {
-   "if": { "notFlag": "npc.met.hobb" }, "else": "hobb.again",
+   "if": {
+    "notFlag": "npc.met.hobb"
+   },
+   "else": "hobb.again",
    "speaker": "hobb",
    "lines": [
-    { "text": "Don't lean on that. It's been hot since before you were up." },
-    { "text": "Hobb. This is a forge, not a gallery, but you're in it now so you may as well ask." }
+    {
+     "text": "Don't lean on that. It's been hot since before you were up."
+    },
+    {
+     "text": "Hobb. This is a forge, not a gallery, but you're in it now so you may as well ask."
+    }
    ],
-   "effects": { "setFlags": { "npc.met.hobb": true } },
+   "effects": {
+    "setFlags": {
+     "npc.met.hobb": true
+    }
+   },
    "next": "hobb.ask"
   },
   "hobb.again": {
-   "if": { "flag": "weapon.river-steel", "notFlag": "said.hobb.river" }, "else": "hobb.again2",
+   "if": {
+    "flag": "weapon.river-steel",
+    "notFlag": "said.hobb.river"
+   },
+   "else": "hobb.again2",
    "speaker": "hobb",
    "lines": [
-    { "text": "Stop. Where did you get that." },
-    { "text": "That's river steel. That's the one I put aside. I put it in a box and I put the box somewhere a child couldn't — " },
-    { "text": "Never mind. Never mind. It's on a hip that'll use it, which is more than it was doing on a roof. Keep the edge on it." }
+    {
+     "text": "Stop. Where did you get that."
+    },
+    {
+     "text": "That's river steel. That's the one I put aside. I put it in a box and I put the box somewhere a child couldn't — "
+    },
+    {
+     "text": "Never mind. Never mind. It's on a hip that'll use it, which is more than it was doing on a roof. Keep the edge on it."
+    }
    ],
-   "effects": { "setFlags": { "said.hobb.river": true } },
+   "effects": {
+    "setFlags": {
+     "said.hobb.river": true
+    }
+   },
    "next": "hobb.ask"
   },
   "hobb.again2": {
-   "if": { "flag": "beacon.lit", "notFlag": "said.hobb.lit" }, "else": "hobb.again3",
+   "if": {
+    "flag": "beacon.lit",
+    "notFlag": "said.hobb.lit"
+   },
+   "else": "hobb.again3",
    "speaker": "hobb",
    "lines": [
-    { "text": "Pip came in from the ford shouting about a light. I told him it was the sun going down. It wasn't the sun going down." },
-    { "text": "I'd have gone up myself. I'd have gone up next week. You went up." },
-    { "text": "That's the Sexton's rope now, not mine. Go and tell him it took." }
+    {
+     "text": "Pip came in from the ford shouting about a light. I told him it was the sun going down. It wasn't the sun going down."
+    },
+    {
+     "text": "I'd have gone up myself. I'd have gone up next week. You went up."
+    },
+    {
+     "text": "That's the Sexton's rope now, not mine. Go and tell him it took."
+    }
    ],
-   "effects": { "setFlags": { "said.hobb.lit": true } },
+   "effects": {
+    "setFlags": {
+     "said.hobb.lit": true
+    }
+   },
    "next": "hobb.ask"
   },
   "hobb.again3": {
-   "if": { "flag": "weapon.smiths-edge", "notFlag": "said.hobb.edge" }, "else": "hobb.again4",
+   "if": {
+    "flag": "weapon.smiths-edge",
+    "notFlag": "said.hobb.edge"
+   },
+   "else": "hobb.again4",
    "speaker": "hobb",
    "lines": [
-    { "text": "That's one of mine on your hip. Good. Now you can stop swinging that town blade like it owes you money." }
+    {
+     "text": "That's one of mine on your hip. Good. Now you can stop swinging that town blade like it owes you money."
+    }
    ],
-   "effects": { "setFlags": { "said.hobb.edge": true } },
+   "effects": {
+    "setFlags": {
+     "said.hobb.edge": true
+    }
+   },
    "next": "hobb.ask"
   },
   "hobb.again4": {
-   "if": { "flag": "kill.bellow", "notFlag": "said.hobb.bellow" }, "else": "hobb.again5",
+   "if": {
+    "flag": "kill.bellow",
+    "notFlag": "said.hobb.bellow"
+   },
+   "else": "hobb.again5",
    "speaker": "hobb",
    "lines": [
-    { "text": "Mara says you put a bellow down. On your own." },
-    { "text": "Then the blade's not the problem, is it. Never was. I'll stop saying it is." }
+    {
+     "text": "Mara says you put a bellow down. On your own."
+    },
+    {
+     "text": "Then the blade's not the problem, is it. Never was. I'll stop saying it is."
+    }
    ],
-   "effects": { "setFlags": { "said.hobb.bellow": true } },
+   "effects": {
+    "setFlags": {
+     "said.hobb.bellow": true
+    }
+   },
    "next": "hobb.ask"
   },
   "hobb.again5": {
-   "if": { "flag": "sheathed", "notFlag": "said.hobb.sheath" }, "else": "hobb.plain",
+   "if": {
+    "flag": "sheathed",
+    "notFlag": "said.hobb.sheath"
+   },
+   "else": "hobb.plain",
    "speaker": "hobb",
    "lines": [
-    { "text": "Put that away in my — oh. You have." },
-    { "text": "Most of them don't. Most of them walk in here with it out like the anvil might start something." }
+    {
+     "text": "Put that away in my — oh. You have."
+    },
+    {
+     "text": "Most of them don't. Most of them walk in here with it out like the anvil might start something."
+    }
    ],
-   "effects": { "setFlags": { "said.hobb.sheath": true } },
+   "effects": {
+    "setFlags": {
+     "said.hobb.sheath": true
+    }
+   },
    "next": "hobb.ask"
   },
   "hobb.plain": {
    "speaker": "hobb",
-   "lines": [ { "text": "Still hot. Still busy. Go on." } ],
+   "lines": [
+    {
+     "text": "Still hot. Still busy. Go on."
+    }
+   ],
    "next": "hobb.ask"
   },
   "hobb.ask": {
-   "speaker": "hobb", "lines": [],
+   "speaker": "hobb",
+   "lines": [],
    "choices": [
-    { "text": "What are you working on?", "to": "hobb.work" },
-    { "text": "Show me the rack.", "to": "hobb.shop" },
-    { "text": "Is this blade any good?", "to": "hobb.blade" },
-    { "text": "What's up the north road?", "to": "hobb.north" },
-    { "text": "About the beacon.", "to": "hobb.beacon", "if": { "flag": "knows.beacon", "notFlag": "beacon.lit" } },
-    { "text": "That's all.", "to": null }
+    {
+     "text": "What are you working on?",
+     "to": "hobb.work"
+    },
+    {
+     "text": "Show me the rack.",
+     "to": "hobb.shop"
+    },
+    {
+     "text": "Is this blade any good?",
+     "to": "hobb.blade"
+    },
+    {
+     "text": "What's up the north road?",
+     "to": "hobb.north"
+    },
+    {
+     "text": "About the beacon.",
+     "to": "hobb.beacon",
+     "if": {
+      "flag": "knows.beacon",
+      "notFlag": "beacon.lit"
+     }
+    },
+    {
+     "text": "That's all.",
+     "to": null
+    }
    ]
   },
   "hobb.work": {
    "speaker": "hobb",
    "lines": [
-    { "text": "Cart bands. Pip's axle went at the ford and that cart came home on a bad wheel, which is Pip all over." },
-    { "text": "Before that, the bell's clapper pin. Before that, cart bands." }
+    {
+     "text": "Cart bands. Pip's axle went at the ford and that cart came home on a bad wheel, which is Pip all over."
+    },
+    {
+     "text": "Before that, the bell's clapper pin. Before that, cart bands."
+    }
    ],
    "next": "hobb.ask"
   },
   "hobb.blade": {
    "speaker": "hobb",
    "lines": [
-    { "text": "It has. You swing it like you mean it and land it like you don't.", "if": { "notFlag": "kill.first" } },
-    { "text": "Nothing to be done at this anvil about that. Hit the things that stop moving when you do — barrels, crates, the caps in the grass. They'll teach you the weight.", "if": { "notFlag": "kill.first" } },
-    { "text": "It's done what it was asked. That's all a blade's for.", "if": { "flag": "kill.first" } },
-    { "text": "If you want one that asks less of you, there's the rack. The river steel's not on it. The river steel's put by.", "if": { "flag": "kill.first", "notFlag": "chest.opened" } }
+    {
+     "text": "It has. You swing it like you mean it and land it like you don't.",
+     "if": {
+      "notFlag": "kill.first"
+     }
+    },
+    {
+     "text": "Nothing to be done at this anvil about that. Hit the things that stop moving when you do — barrels, crates, the caps in the grass. They'll teach you the weight.",
+     "if": {
+      "notFlag": "kill.first"
+     }
+    },
+    {
+     "text": "It's done what it was asked. That's all a blade's for.",
+     "if": {
+      "flag": "kill.first"
+     }
+    },
+    {
+     "text": "If you want one that asks less of you, there's the rack. The river steel's not on it. The river steel's put by.",
+     "if": {
+      "flag": "kill.first",
+      "notFlag": "chest.opened"
+     }
+    }
    ],
    "next": "hobb.ask"
   },
   "hobb.north": {
    "speaker": "hobb",
    "lines": [
-    { "text": "The road climbs. Past the last field wall it stops pretending to be a road and starts being a hill." },
-    { "text": "It comes out at the cutting — two rock faces and a beacon somebody's let go out. Stand at the top and look back and you'll see this whole square no bigger than a plate.", "if": { "notFlag": "beacon.lit" } },
-    { "text": "It comes out at the cutting — two rock faces and a beacon that's lit, now. Stand at the top and look back and you'll see this whole square no bigger than a plate.", "if": { "flag": "beacon.lit" } }
+    {
+     "text": "The road climbs. Past the last field wall it stops pretending to be a road and starts being a hill."
+    },
+    {
+     "text": "It comes out at the cutting — two rock faces and a beacon somebody's let go out. Stand at the top and look back and you'll see this whole square no bigger than a plate.",
+     "if": {
+      "notFlag": "beacon.lit"
+     }
+    },
+    {
+     "text": "It comes out at the cutting — two rock faces and a beacon that's lit, now. Stand at the top and look back and you'll see this whole square no bigger than a plate.",
+     "if": {
+      "flag": "beacon.lit"
+     }
+    }
    ],
-   "effects": { "setFlags": { "knows.pass": true } },
+   "effects": {
+    "setFlags": {
+     "knows.pass": true
+    }
+   },
    "next": "hobb.ask"
   },
   "hobb.beacon": {
    "speaker": "hobb",
    "lines": [
-    { "text": "I made the basket. Nine ribs, and a post I'd stake the forge on. It's not the iron that's failed." },
-    { "text": "It wants feeding, is all, and it's a long way up for an old man with a bad knee to feed it. Tally will have told you what it eats." },
-    { "text": "Caps. The glowing ones. Five in the basket and it'll hold a week." }
+    {
+     "text": "I made the basket. Nine ribs, and a post I'd stake the forge on. It's not the iron that's failed."
+    },
+    {
+     "text": "It wants feeding, is all, and it's a long way up for an old man with a bad knee to feed it. Tally will have told you what it eats."
+    },
+    {
+     "text": "Caps. The glowing ones. Five in the basket and it'll hold a week."
+    }
    ],
-   "effects": { "setFlags": { "knows.beacon": true, "quest.beacon": true } },
+   "effects": {
+    "setFlags": {
+     "knows.beacon": true,
+     "quest.beacon": true
+    }
+   },
    "next": "hobb.ask"
   },
   "hobb.shop": {
    "speaker": "hobb",
-   "lines": [ { "text": "Rack on the wall. Prices are on the rack. Don't haggle, I'm working." } ],
-   "effects": { "shop": "town-forge" }
+   "lines": [
+    {
+     "text": "Rack on the wall. Prices are on the rack. Don't haggle, I'm working."
+    }
+   ],
+   "effects": {
+    "shop": "town-forge"
+   }
   },
-
   "sexton.hail": {
-   "if": { "notFlag": "npc.met.sexton" }, "else": "sexton.again",
+   "if": {
+    "notFlag": "npc.met.sexton"
+   },
+   "else": "sexton.again",
    "speaker": "sexton",
    "lines": [
-    { "text": "You've been looking up at it. Everybody does, and then everybody goes in." },
-    { "text": "The stair's sound. Hold the inside as you climb — the treads are narrower than they look from below." },
-    { "text": "I'd ask you something, if you're the sort that gets asked things. The beacon's out. The bell answers the beacon; that's the whole arrangement, older than me. With it dark I've nothing to ring for." }
+    {
+     "text": "You've been looking up at it. Everybody does, and then everybody goes in."
+    },
+    {
+     "text": "The stair's sound. Hold the inside as you climb — the treads are narrower than they look from below."
+    },
+    {
+     "text": "I'd ask you something, if you're the sort that gets asked things. The beacon's out. The bell answers the beacon; that's the whole arrangement, older than me. With it dark I've nothing to ring for.",
+     "if": {
+      "notFlag": "beacon.lit"
+     }
+    },
+    {
+     "text": "I'd ask you something, if you're the sort that gets asked things — except you've already done it. That was you on the rope. Once was right, and it carried.",
+     "if": {
+      "flag": "bell.rung"
+     }
+    },
+    {
+     "text": "I'd ask you something, if you're the sort that gets asked things. The beacon's lit — I saw it take from the roof. The bell answers the beacon; that's the whole arrangement. So it wants ringing, and the rope's in the ground room.",
+     "if": {
+      "flag": "beacon.lit",
+      "notFlag": "bell.rung"
+     }
+    }
    ],
-   "effects": { "setFlags": { "npc.met.sexton": true, "knows.tower": true, "knows.beacon": true, "quest.beacon": true } },
+   "effects": {
+    "setFlags": {
+     "npc.met.sexton": true,
+     "knows.tower": true,
+     "knows.beacon": true,
+     "quest.beacon": true
+    }
+   },
    "next": "sexton.ask"
   },
   "sexton.again": {
-   "if": { "flag": "bell.rung", "notFlag": "said.sexton.rung" }, "else": "sexton.again2",
+   "if": {
+    "flag": "bell.rung",
+    "notFlag": "said.sexton.rung"
+   },
+   "else": "sexton.again2",
    "speaker": "sexton",
    "lines": [
-    { "text": "I heard it. Everyone heard it. Mara heard it in the yard and the sheep heard it in the fold, and the fold is a mile off." },
-    { "text": "That's a proper ring. That's the first one in a month that meant anything." },
-    { "text": "There's a thing I don't tell people, because they're not you. Ask Nell about the east lead. Tell her I said." }
+    {
+     "text": "I heard it. Everyone heard it. Mara heard it in the yard and the sheep heard it in the fold, and the fold is a mile off."
+    },
+    {
+     "text": "That's a proper ring. That's the first one in a month that meant anything."
+    },
+    {
+     "text": "There's a thing I don't tell people, because they're not you. Ask Nell about the east lead. Tell her I said."
+    }
    ],
-   "effects": { "setFlags": { "said.sexton.rung": true, "sexton.sent.nell": true } },
+   "effects": {
+    "setFlags": {
+     "said.sexton.rung": true,
+     "sexton.sent.nell": true
+    }
+   },
    "next": "sexton.ask"
   },
   "sexton.again2": {
-   "if": { "flag": "beacon.lit", "notFlag": "said.sexton.lit" }, "else": "sexton.again3",
+   "if": {
+    "flag": "beacon.lit",
+    "notFlag": "said.sexton.lit"
+   },
+   "else": "sexton.again3",
    "speaker": "sexton",
    "lines": [
-    { "text": "It took. I went up the belfry to be sure and there it was, a coal at the top of the world." },
-    { "text": "So the bell has something to say again. And it's yours to say. The rope's in the ground room — a proper pull, mind. Not a tug." }
+    {
+     "text": "It took. I went up the belfry to be sure and there it was, a coal at the top of the world."
+    },
+    {
+     "text": "So the bell has something to say again. And it's yours to say. The rope's in the ground room — a proper pull, mind. Not a tug."
+    }
    ],
-   "effects": { "setFlags": { "said.sexton.lit": true, "knows.bell": true } },
+   "effects": {
+    "setFlags": {
+     "said.sexton.lit": true,
+     "knows.bell": true
+    }
+   },
    "next": "sexton.ask"
   },
   "sexton.again3": {
-   "if": { "flag": "seen.belfry", "notFlag": "said.sexton.belfry" }, "else": "sexton.again4",
+   "if": {
+    "flag": "seen.belfry",
+    "notFlag": "said.sexton.belfry"
+   },
+   "else": "sexton.again4",
    "speaker": "sexton",
    "lines": [
-    { "text": "You went up. All the way, or I'd not have heard the top door." },
-    { "text": "That's the best look at the roofs there is. People your age get ideas about the leads. They're not wrong." }
+    {
+     "text": "You went up. All the way, or I'd not have heard the top door."
+    },
+    {
+     "text": "That's the best look at the roofs there is. People your age get ideas about the leads. They're not wrong."
+    }
    ],
-   "effects": { "setFlags": { "said.sexton.belfry": true, "knows.rooftops": true } },
+   "effects": {
+    "setFlags": {
+     "said.sexton.belfry": true,
+     "knows.rooftops": true
+    }
+   },
    "next": "sexton.ask"
   },
   "sexton.again4": {
-   "if": { "flag": "caps.5", "notFlag": "said.sexton.caps5" }, "else": "sexton.plain",
+   "if": {
+    "flag": "caps.5",
+    "notFlag": "said.sexton.caps5"
+   },
+   "else": "sexton.plain",
    "speaker": "sexton",
    "lines": [
-    { "text": "Five. I can see them from here. You'll do." },
-    { "text": "North, past the last wall, and keep going until the rock closes in on both sides. It's on the shoulder of the road. You can't miss it, and I say that as a man who has." }
+    {
+     "text": "Five. I can see them from here. You'll do."
+    },
+    {
+     "text": "North, past the last wall, and keep going until the rock closes in on both sides. It's on the shoulder of the road. You can't miss it, and I say that as a man who has."
+    }
    ],
-   "effects": { "setFlags": { "said.sexton.caps5": true } },
+   "effects": {
+    "setFlags": {
+     "said.sexton.caps5": true
+    }
+   },
    "next": "sexton.ask"
   },
   "sexton.plain": {
    "speaker": "sexton",
-   "lines": [ { "text": "Mind the treads." } ],
+   "lines": [
+    {
+     "text": "Mind the treads."
+    }
+   ],
    "next": "sexton.ask"
   },
   "sexton.ask": {
-   "speaker": "sexton", "lines": [],
+   "speaker": "sexton",
+   "lines": [],
    "choices": [
-    { "text": "Can I ring it?", "to": "sexton.ring" },
-    { "text": "What's at the top?", "to": "sexton.belfry" },
-    { "text": "About the beacon.", "to": "sexton.beacon", "if": { "notFlag": "beacon.lit" } },
-    { "text": "Why does the bell answer the beacon?", "to": "sexton.why", "if": { "flag": "knows.beacon" } },
-    { "text": "That's all.", "to": null }
+    {
+     "text": "Can I ring it?",
+     "to": "sexton.ring"
+    },
+    {
+     "text": "What's at the top?",
+     "to": "sexton.belfry"
+    },
+    {
+     "text": "About the beacon.",
+     "to": "sexton.beacon",
+     "if": {
+      "notFlag": "beacon.lit"
+     }
+    },
+    {
+     "text": "Why does the bell answer the beacon?",
+     "to": "sexton.why",
+     "if": {
+      "flag": "knows.beacon"
+     }
+    },
+    {
+     "text": "That's all.",
+     "to": null
+    }
    ]
   },
   "sexton.ring": {
    "speaker": "sexton",
    "lines": [
-    { "text": "You will whether I say so or not. The rope's in the ground room, and it wants a proper pull, not a tug.", "if": { "notFlag": "beacon.lit" } },
-    { "text": "Though I'd rather you didn't, yet. A bell with nothing to answer is just a noise, and this town's had enough of those.", "if": { "notFlag": "beacon.lit" } },
-    { "text": "Yes. Now, yes. Go and pull it like you mean it.", "if": { "flag": "beacon.lit", "notFlag": "bell.rung" } },
-    { "text": "You already have. Once was right.", "if": { "flag": "bell.rung" } },
-    { "text": "Watch the rope, not the roof. That's how you'll know it took." }
+    {
+     "text": "You will whether I say so or not. The rope's in the ground room, and it wants a proper pull, not a tug.",
+     "if": {
+      "notFlag": "beacon.lit"
+     }
+    },
+    {
+     "text": "Though I'd rather you didn't, yet. A bell with nothing to answer is just a noise, and this town's had enough of those.",
+     "if": {
+      "notFlag": "beacon.lit"
+     }
+    },
+    {
+     "text": "Yes. Now, yes. Go and pull it like you mean it.",
+     "if": {
+      "flag": "beacon.lit",
+      "notFlag": "bell.rung"
+     }
+    },
+    {
+     "text": "You already have. Once was right.",
+     "if": {
+      "flag": "bell.rung"
+     }
+    },
+    {
+     "text": "Watch the rope, not the roof. That's how you'll know it took."
+    }
    ],
-   "effects": { "setFlags": { "knows.bell": true } },
+   "effects": {
+    "setFlags": {
+     "knows.bell": true
+    }
+   },
    "next": "sexton.ask"
   },
   "sexton.belfry": {
    "speaker": "sexton",
    "lines": [
-    { "text": "The bell, and the best look at the roofs there is. You can see where the leads run between the ranges — people your age get ideas about that." },
-    { "text": "They're not wrong. Just don't come to me about it afterwards." }
+    {
+     "text": "The bell, and the best look at the roofs there is. You can see where the leads run between the ranges — people your age get ideas about that."
+    },
+    {
+     "text": "They're not wrong. Just don't come to me about it afterwards."
+    }
    ],
-   "effects": { "setFlags": { "knows.rooftops": true } },
+   "effects": {
+    "setFlags": {
+     "knows.rooftops": true
+    }
+   },
    "next": "sexton.ask"
   },
   "sexton.beacon": {
    "speaker": "sexton",
    "lines": [
-    { "text": "Top of the north road, where the rock closes in. Hobb made the basket; it wants five caps to take, and it's been wanting them for three nights." },
-    { "text": "Light it, and come back and tell me, and I'll let you tell the valley yourself." }
+    {
+     "text": "Top of the north road, where the rock closes in. Hobb made the basket; it wants five caps to take, and it's been wanting them for three nights."
+    },
+    {
+     "text": "Light it, and come back and tell me, and I'll let you tell the valley yourself."
+    }
    ],
-   "effects": { "setFlags": { "knows.beacon": true, "quest.beacon": true } },
+   "effects": {
+    "setFlags": {
+     "knows.beacon": true,
+     "quest.beacon": true
+    }
+   },
    "next": "sexton.ask"
   },
   "sexton.why": {
    "speaker": "sexton",
    "lines": [
-    { "text": "Because the fold can't see the square and the square can't see the fold, but both can see the cutting, and both can hear the tower." },
-    { "text": "Beacon lit means the road's watched. Bell rung means someone's at the rope to watch it. One without the other is a rumour." }
+    {
+     "text": "Because the fold can't see the square and the square can't see the fold, but both can see the cutting, and both can hear the tower."
+    },
+    {
+     "text": "Beacon lit means the road's watched. Bell rung means someone's at the rope to watch it. One without the other is a rumour."
+    }
    ],
    "next": "sexton.ask"
   },
-
   "nell.hail": {
-   "if": { "notFlag": "npc.met.nell" }, "else": "nell.again",
+   "if": {
+    "notFlag": "npc.met.nell"
+   },
+   "else": "nell.again",
    "speaker": "nell",
    "lines": [
-    { "text": "You're the one with the sword.", "expr": "happy", "if": { "notFlag": "sheathed" } },
-    { "text": "You're the one with the sword. Where is it? Is it in your coat?", "expr": "happy", "if": { "flag": "sheathed" } },
-    { "text": "I'm Nell. I know four ways onto the roofs and one way under the square and I'm not telling you the under one." }
+    {
+     "text": "You're the one with the sword.",
+     "expr": "happy",
+     "if": {
+      "notFlag": "sheathed"
+     }
+    },
+    {
+     "text": "You're the one with the sword. Where is it? Is it in your coat?",
+     "expr": "happy",
+     "if": {
+      "flag": "sheathed"
+     }
+    },
+    {
+     "text": "I'm Nell. I know four ways onto the roofs and one way under the square and I'm not telling you the under one."
+    }
    ],
-   "effects": { "setFlags": { "npc.met.nell": true } },
+   "effects": {
+    "setFlags": {
+     "npc.met.nell": true
+    }
+   },
    "next": "nell.ask"
   },
   "nell.again": {
-   "if": { "flag": "chest.opened", "notFlag": "said.nell.chest" }, "else": "nell.again2",
+   "if": {
+    "flag": "chest.opened",
+    "notFlag": "said.nell.chest"
+   },
+   "else": "nell.again2",
    "speaker": "nell",
    "lines": [
-    { "text": "You went ALL the way along. Nobody goes all the way along. I go most of the way along.", "expr": "happy" },
-    { "text": "Was it good? It was good, wasn't it. I said it was good." }
+    {
+     "text": "You went ALL the way along. Nobody goes all the way along. I go most of the way along.",
+     "expr": "happy"
+    },
+    {
+     "text": "Was it good? It was good, wasn't it. I said it was good."
+    }
    ],
-   "effects": { "setFlags": { "said.nell.chest": true } },
+   "effects": {
+    "setFlags": {
+     "said.nell.chest": true
+    }
+   },
    "next": "nell.ask"
   },
   "nell.again2": {
-   "if": { "flag": "sexton.sent.nell", "notFlag": "said.nell.sent" }, "else": "nell.again3",
+   "if": {
+    "flag": "sexton.sent.nell",
+    "notFlag": "said.nell.sent"
+   },
+   "else": "nell.again3",
    "speaker": "nell",
    "lines": [
-    { "text": "The Sexton SENT you? He never sends anyone. He mostly sends people away.", "expr": "happy" },
-    { "text": "Fine. Fine. Gallery steps, up, keep going up, and the lead that runs the whole east range. There's a box at the far end that Hobb thinks nobody knows about." },
-    { "text": "Everybody knows about it. Nobody can get there. You can." }
+    {
+     "text": "The Sexton SENT you? He never sends anyone. He mostly sends people away.",
+     "expr": "happy"
+    },
+    {
+     "text": "Fine. Fine. Gallery steps, up, keep going up, and the lead that runs the whole east range. There's a box at the far end that Hobb thinks nobody knows about."
+    },
+    {
+     "text": "Everybody knows about it. Nobody can get there. You can."
+    }
    ],
-   "effects": { "setFlags": { "said.nell.sent": true, "knows.rooftops": true, "knows.chest": true } },
+   "effects": {
+    "setFlags": {
+     "said.nell.sent": true,
+     "knows.rooftops": true,
+     "knows.chest": true
+    }
+   },
    "next": "nell.ask"
   },
   "nell.again3": {
-   "if": { "flag": "seen.cellar", "notFlag": "said.nell.cellar" }, "else": "nell.again4",
+   "if": {
+    "flag": "seen.cellar",
+    "notFlag": "said.nell.cellar"
+   },
+   "else": "nell.again4",
    "speaker": "nell",
    "lines": [
-    { "text": "You found the under one." },
-    { "text": "...Fine. It's a good under one. Did you hear feet? You hear feet.", "expr": "happy" }
+    {
+     "text": "You found the under one."
+    },
+    {
+     "text": "...Fine. It's a good under one. Did you hear feet? You hear feet.",
+     "expr": "happy"
+    }
    ],
-   "effects": { "setFlags": { "said.nell.cellar": true } },
+   "effects": {
+    "setFlags": {
+     "said.nell.cellar": true
+    }
+   },
    "next": "nell.ask"
   },
   "nell.again4": {
-   "if": { "flag": "seen.roofs", "notFlag": "said.nell.roofs" }, "else": "nell.again5",
+   "if": {
+    "flag": "seen.roofs",
+    "notFlag": "said.nell.roofs"
+   },
+   "else": "nell.again5",
    "speaker": "nell",
    "lines": [
-    { "text": "I saw you up there. On the lead. You went the wrong way at the chimney but you went.", "expr": "happy" }
+    {
+     "text": "I saw you up there. On the lead. You went the wrong way at the chimney but you went.",
+     "expr": "happy"
+    }
    ],
-   "effects": { "setFlags": { "said.nell.roofs": true } },
+   "effects": {
+    "setFlags": {
+     "said.nell.roofs": true
+    }
+   },
    "next": "nell.ask"
   },
   "nell.again5": {
-   "if": { "flag": "beacon.lit", "notFlag": "said.nell.lit" }, "else": "nell.plain",
+   "if": {
+    "flag": "beacon.lit",
+    "notFlag": "said.nell.lit"
+   },
+   "else": "nell.plain",
    "speaker": "nell",
    "lines": [
-    { "text": "Everyone's saying you lit the thing. Was it hot? Did it go WHUMP? Tally says it went whump.", "expr": "happy" }
+    {
+     "text": "Everyone's saying you lit the thing. Was it hot? Did it go WHUMP? Tally says it went whump.",
+     "expr": "happy"
+    }
    ],
-   "effects": { "setFlags": { "said.nell.lit": true } },
+   "effects": {
+    "setFlags": {
+     "said.nell.lit": true
+    }
+   },
    "next": "nell.ask"
   },
   "nell.plain": {
    "speaker": "nell",
    "lines": [
-    { "text": "Still not telling you the under one.", "expr": "happy", "if": { "notFlag": "seen.cellar" } },
-    { "text": "Hello again.", "expr": "happy", "if": { "flag": "seen.cellar" } }
+    {
+     "text": "Still not telling you the under one.",
+     "expr": "happy",
+     "if": {
+      "notFlag": "seen.cellar"
+     }
+    },
+    {
+     "text": "Hello again.",
+     "expr": "happy",
+     "if": {
+      "flag": "seen.cellar"
+     }
+    }
    ],
    "next": "nell.ask"
   },
   "nell.ask": {
-   "speaker": "nell", "lines": [], "chooserExpr": "happy",
+   "speaker": "nell",
+   "lines": [],
+   "chooserExpr": "happy",
    "choices": [
-    { "text": "How do I get on the roofs?", "to": "nell.roofs" },
-    { "text": "What's under the square?", "to": "nell.cellar" },
-    { "text": "Have you been out past the gate?", "to": "nell.out" },
-    { "text": "What's at the end of the lead?", "to": "nell.lead", "if": { "flag": "knows.rooftops", "notFlag": "chest.opened" } },
-    { "text": "Bye, Nell.", "to": null }
+    {
+     "text": "How do I get on the roofs?",
+     "to": "nell.roofs"
+    },
+    {
+     "text": "What's under the square?",
+     "to": "nell.cellar"
+    },
+    {
+     "text": "Have you been out past the gate?",
+     "to": "nell.out"
+    },
+    {
+     "text": "What's at the end of the lead?",
+     "to": "nell.lead",
+     "if": {
+      "flag": "knows.rooftops",
+      "notFlag": "chest.opened"
+     }
+    },
+    {
+     "text": "Bye, Nell.",
+     "to": null
+    }
    ]
   },
   "nell.roofs": {
    "speaker": "nell",
    "lines": [
-    { "text": "The gallery steps, obviously. Everyone finds those. Go up them and keep going up.", "expr": "happy" },
-    { "text": "There's a lead that runs the whole east range. Somebody left something good at the far end of it and it's still there, so nobody's been all the way along.", "if": { "notFlag": "chest.opened" } },
-    { "text": "There's a lead that runs the whole east range. You know. You've been.", "if": { "flag": "chest.opened" } }
+    {
+     "text": "The gallery steps, obviously. Everyone finds those. Go up them and keep going up.",
+     "expr": "happy"
+    },
+    {
+     "text": "There's a lead that runs the whole east range. Somebody left something good at the far end of it and it's still there, so nobody's been all the way along.",
+     "if": {
+      "notFlag": "chest.opened"
+     }
+    },
+    {
+     "text": "There's a lead that runs the whole east range. You know. You've been.",
+     "if": {
+      "flag": "chest.opened"
+     }
+    }
    ],
-   "effects": { "setFlags": { "knows.rooftops": true } },
+   "effects": {
+    "setFlags": {
+     "knows.rooftops": true
+    }
+   },
    "next": "nell.ask"
   },
   "nell.lead": {
    "speaker": "nell",
    "lines": [
-    { "text": "A box. A proper one, with bands. Hobb put it there when I was small so I wouldn't get it, which is a stupid place to put something from a person who can climb.", "expr": "happy" },
-    { "text": "I can't get the lid up. It's heavy and I'm eight. You're not eight." }
+    {
+     "text": "A box. A proper one, with bands. Hobb put it there when I was small so I wouldn't get it, which is a stupid place to put something from a person who can climb.",
+     "expr": "happy"
+    },
+    {
+     "text": "I can't get the lid up. It's heavy and I'm eight. You're not eight."
+    }
    ],
-   "effects": { "setFlags": { "knows.chest": true } },
+   "effects": {
+    "setFlags": {
+     "knows.chest": true
+    }
+   },
    "next": "nell.ask"
   },
   "nell.cellar": {
    "speaker": "nell",
    "lines": [
-    { "text": "There's a way down. It's not a secret because it's hidden, it's a secret because you have to want it." },
-    { "text": "It's cold down there and the ceiling is the square, which I like. You can hear feet.", "expr": "happy" }
+    {
+     "text": "There's a way down. It's not a secret because it's hidden, it's a secret because you have to want it."
+    },
+    {
+     "text": "It's cold down there and the ceiling is the square, which I like. You can hear feet.",
+     "expr": "happy"
+    }
    ],
-   "effects": { "setFlags": { "knows.cellar": true } },
+   "effects": {
+    "setFlags": {
+     "knows.cellar": true
+    }
+   },
    "next": "nell.ask"
   },
   "nell.out": {
    "speaker": "nell",
    "lines": [
-    { "text": "Past the gate? To the ford and back. Not further. There are things in the long grass that don't run away when you shout at them." },
-    { "text": "I shouted at one for a while to check.", "if": { "notFlag": "kill.first" } },
-    { "text": "You didn't shout at yours. Mara says you didn't say anything at all. That's better, probably.", "if": { "flag": "kill.first" } }
+    {
+     "text": "Past the gate? To the ford and back. Not further. There are things in the long grass that don't run away when you shout at them."
+    },
+    {
+     "text": "I shouted at one for a while to check.",
+     "if": {
+      "notFlag": "kill.first"
+     }
+    },
+    {
+     "text": "You didn't shout at yours. Mara says you didn't say anything at all. That's better, probably.",
+     "if": {
+      "flag": "kill.first"
+     }
+    }
    ],
    "next": "nell.ask"
   },
-
   "finn.hail": {
-   "if": { "notFlag": "npc.met.finn" }, "else": "finn.again",
+   "if": {
+    "notFlag": "npc.met.finn"
+   },
+   "else": "finn.again",
    "speaker": "finn",
    "lines": [
-    { "text": "Come in, come in — mind the step, everyone forgets the step.", "expr": "happy" },
-    { "text": "Finn. If it isn't nailed down and isn't a sheep, I've probably had one through here." }
+    {
+     "text": "Come in, come in — mind the step, everyone forgets the step.",
+     "expr": "happy"
+    },
+    {
+     "text": "Finn. If it isn't nailed down and isn't a sheep, I've probably had one through here."
+    }
    ],
-   "effects": { "setFlags": { "npc.met.finn": true } },
+   "effects": {
+    "setFlags": {
+     "npc.met.finn": true
+    }
+   },
    "next": "finn.ask"
   },
   "finn.again": {
-   "if": { "flag": "beacon.lit", "notFlag": "said.finn.lit" }, "else": "finn.again2",
+   "if": {
+    "flag": "beacon.lit",
+    "notFlag": "said.finn.lit"
+   },
+   "else": "finn.again2",
    "speaker": "finn",
    "lines": [
-    { "text": "Well now. Well NOW. I had a man in from the fold this morning, first time in a month, and do you know what he said?", "expr": "happy" },
-    { "text": "He said the light was back. That's what he said. He bought twine. Nobody buys twine. That's what a lit beacon does for trade." }
+    {
+     "text": "Well now. Well NOW. I had a man in from the fold this morning, first time in a month, and do you know what he said?",
+     "expr": "happy"
+    },
+    {
+     "text": "He said the light was back. That's what he said. He bought twine. Nobody buys twine. That's what a lit beacon does for trade."
+    }
    ],
-   "effects": { "setFlags": { "said.finn.lit": true } },
+   "effects": {
+    "setFlags": {
+     "said.finn.lit": true
+    }
+   },
    "next": "finn.ask"
   },
   "finn.again2": {
-   "if": { "flag": "kill.nettle", "notFlag": "said.finn.nettle" }, "else": "finn.again3",
+   "if": {
+    "flag": "kill.nettle",
+    "notFlag": "said.finn.nettle"
+   },
+   "else": "finn.again3",
    "speaker": "finn",
    "lines": [
-    { "text": "You met the nettles, then. The moving ones. I told Tally, I said, nettles that move, and she said I'd been at the — well. Anyway. You met them." },
-    { "text": "Did they sting? They look like they'd sting.", "expr": "happy" }
+    {
+     "text": "You met the nettles, then. The moving ones. I told Tally, I said, nettles that move, and she said I'd been at the — well. Anyway. You met them."
+    },
+    {
+     "text": "Did they sting? They look like they'd sting.",
+     "expr": "happy"
+    }
    ],
-   "effects": { "setFlags": { "said.finn.nettle": true } },
+   "effects": {
+    "setFlags": {
+     "said.finn.nettle": true
+    }
+   },
    "next": "finn.ask"
   },
   "finn.again3": {
-   "if": { "flag": "seen.ford", "notFlag": "said.finn.ford" }, "else": "finn.plain",
+   "if": {
+    "flag": "seen.ford",
+    "notFlag": "said.finn.ford"
+   },
+   "else": "finn.plain",
    "speaker": "finn",
    "lines": [
-    { "text": "You've been down to the ford. Your boots say so, they're the colour of the ford.", "expr": "happy" },
-    { "text": "A hop, wasn't it? I said it was a hop. Pip says it's a wade but Pip's had a cart in it." }
+    {
+     "text": "You've been down to the ford. Your boots say so, they're the colour of the ford.",
+     "expr": "happy"
+    },
+    {
+     "text": "A hop, wasn't it? I said it was a hop. Pip says it's a wade but Pip's had a cart in it."
+    }
    ],
-   "effects": { "setFlags": { "said.finn.ford": true } },
+   "effects": {
+    "setFlags": {
+     "said.finn.ford": true
+    }
+   },
    "next": "finn.ask"
   },
   "finn.plain": {
    "speaker": "finn",
-   "lines": [ { "text": "Back in. Mind the step.", "expr": "happy" } ],
+   "lines": [
+    {
+     "text": "Back in. Mind the step.",
+     "expr": "happy"
+    }
+   ],
    "next": "finn.ask"
   },
   "finn.ask": {
-   "speaker": "finn", "lines": [], "chooserExpr": "happy",
+   "speaker": "finn",
+   "lines": [],
+   "chooserExpr": "happy",
    "choices": [
-    { "text": "What have you got?", "to": "finn.shop" },
-    { "text": "Any news?", "to": "finn.news" },
-    { "text": "Who's who around here?", "to": "finn.folk" },
-    { "text": "Everyone's talking about the beacon.", "to": "finn.beacon", "if": { "flag": "knows.beacon", "notFlag": "beacon.lit" } },
-    { "text": "That's all, thanks.", "to": null }
+    {
+     "text": "What have you got?",
+     "to": "finn.shop"
+    },
+    {
+     "text": "Any news?",
+     "to": "finn.news"
+    },
+    {
+     "text": "Who's who around here?",
+     "to": "finn.folk"
+    },
+    {
+     "text": "Everyone's talking about the beacon.",
+     "to": "finn.beacon",
+     "if": {
+      "flag": "knows.beacon",
+      "notFlag": "beacon.lit"
+     }
+    },
+    {
+     "text": "That's all, thanks.",
+     "to": null
+    }
    ]
   },
   "finn.news": {
    "speaker": "finn",
    "lines": [
-    { "text": "The stream's up, so the ford's a hop rather than a wade. The old fold out west has sheep in it again — first time in a good while." },
-    { "text": "And something's got into the meadow that wasn't in it last season. Nettles that move. I'd rather you than me.", "if": { "notFlag": "beacon.lit" } },
-    { "text": "And the meadow's quieter since the light came back. Not quiet. Quieter. I'll take quieter.", "if": { "flag": "beacon.lit" } }
+    {
+     "text": "The stream's up, so the ford's a hop rather than a wade. The old fold out west has sheep in it again — first time in a good while."
+    },
+    {
+     "text": "And something's got into the meadow that wasn't in it last season. Nettles that move. I'd rather you than me.",
+     "if": {
+      "notFlag": "beacon.lit"
+     }
+    },
+    {
+     "text": "And the meadow's quieter since the light came back. Not quiet. Quieter. I'll take quieter.",
+     "if": {
+      "flag": "beacon.lit"
+     }
+    }
    ],
    "next": "finn.ask"
   },
   "finn.folk": {
    "speaker": "finn",
    "lines": [
-    { "text": "Tally's out at the stall shouting at the crates. Hobb's at the fire. The Sexton is wherever the tower is, which is a joke she's heard." },
-    { "text": "Mara's up in the yard with the woolts, and Pip's by the gate with a cart that shouldn't be moving.", "expr": "happy" },
-    { "text": "And Lake's on the step by the gallery, which is where Lake is. Maren went out to the ruin days ago and hasn't come back, which is where Maren is.", "if": { "notFlag": "npc.met.maren" } }
+    {
+     "text": "Tally's out at the stall shouting at the crates. Hobb's at the fire. The Sexton is wherever the tower is, which is a joke she's heard."
+    },
+    {
+     "text": "Mara's up in the yard with the woolts, and Pip's by the gate with a cart that shouldn't be moving.",
+     "expr": "happy"
+    },
+    {
+     "text": "And Lake's on the step by the gallery, which is where Lake is. Maren went out to the ruin days ago and hasn't come back, which is where Maren is.",
+     "if": {
+      "notFlag": "npc.met.maren"
+     }
+    }
    ],
    "next": "finn.ask"
   },
   "finn.beacon": {
    "speaker": "finn",
    "lines": [
-    { "text": "They are, and they've been talking about it for three nights instead of doing anything about it, which is this town all over.", "expr": "happy" },
-    { "text": "I'd go. I would. But somebody has to mind the shop, and the somebody is me, and the step is treacherous." }
+    {
+     "text": "They are, and they've been talking about it for three nights instead of doing anything about it, which is this town all over.",
+     "expr": "happy"
+    },
+    {
+     "text": "I'd go. I would. But somebody has to mind the shop, and the somebody is me, and the step is treacherous."
+    }
    ],
    "next": "finn.ask"
   },
   "finn.shop": {
    "speaker": "finn",
-   "lines": [ { "text": "Everything on the shelf and a few things under it. Take your time.", "expr": "happy" } ],
-   "effects": { "shop": "town-goods" }
+   "lines": [
+    {
+     "text": "Everything on the shelf and a few things under it. Take your time.",
+     "expr": "happy"
+    }
+   ],
+   "effects": {
+    "shop": "town-goods"
+   }
   },
-
   "mara.hail": {
-   "if": { "notFlag": "npc.met.mara" }, "else": "mara.again",
+   "if": {
+    "notFlag": "npc.met.mara"
+   },
+   "else": "mara.again",
    "speaker": "mara",
    "lines": [
-    { "text": "Shut the gate behind you or I'll be up on the roofs after them all afternoon." },
-    { "text": "Mara. These four are the last of the town flock. The rest are out at the fold now the wall's mended." }
+    {
+     "text": "Shut the gate behind you or I'll be up on the roofs after them all afternoon."
+    },
+    {
+     "text": "Mara. These four are the last of the town flock. The rest are out at the fold now the wall's mended."
+    }
    ],
-   "effects": { "setFlags": { "npc.met.mara": true } },
+   "effects": {
+    "setFlags": {
+     "npc.met.mara": true
+    }
+   },
    "next": "mara.ask"
   },
   "mara.again": {
-   "if": { "flag": "bell.rung", "notFlag": "said.mara.rung" }, "else": "mara.again2",
+   "if": {
+    "flag": "bell.rung",
+    "notFlag": "said.mara.rung"
+   },
+   "else": "mara.again2",
    "speaker": "mara",
    "lines": [
-    { "text": "I heard it up here. The four of them put their heads up all at once, like it was a name they knew." },
-    { "text": "It's been a long time since the bell meant the road was safe. My grandfather would've liked that it was you and not the Sexton. He never liked the Sexton." }
+    {
+     "text": "I heard it up here. The four of them put their heads up all at once, like it was a name they knew."
+    },
+    {
+     "text": "It's been a long time since the bell meant the road was safe. My grandfather would've liked that it was you and not the Sexton. He never liked the Sexton."
+    }
    ],
-   "effects": { "setFlags": { "said.mara.rung": true } },
+   "effects": {
+    "setFlags": {
+     "said.mara.rung": true
+    }
+   },
    "next": "mara.ask"
   },
   "mara.again2": {
-   "if": { "flag": "seen.fold", "notFlag": "said.mara.fold" }, "else": "mara.again3",
+   "if": {
+    "flag": "seen.fold",
+    "notFlag": "said.mara.fold"
+   },
+   "else": "mara.again3",
    "speaker": "mara",
    "lines": [
-    { "text": "You went out to the fold. I can tell — you've the look of someone who's counted sheep and got a different number twice." },
-    { "text": "Was the cairn standing? Good. He said he stacked it. I've decided to believe him." }
+    {
+     "text": "You went out to the fold. I can tell — you've the look of someone who's counted sheep and got a different number twice."
+    },
+    {
+     "text": "Was the cairn standing? Good. He said he stacked it. I've decided to believe him."
+    }
    ],
-   "effects": { "setFlags": { "said.mara.fold": true } },
+   "effects": {
+    "setFlags": {
+     "said.mara.fold": true
+    }
+   },
    "next": "mara.ask"
   },
   "mara.again3": {
-   "if": { "flag": "kill.woolt", "notFlag": "said.mara.woolt" }, "else": "mara.again4",
+   "if": {
+    "flag": "kill.woolt",
+    "notFlag": "said.mara.woolt"
+   },
+   "else": "mara.again4",
    "speaker": "mara",
    "lines": [
-    { "text": "That was a woolt. In the meadow. That you — " },
-    { "text": "No. No, they're not mine, the wild ones. They're nobody's. But you might have shouted first. They run if you shout." }
+    {
+     "text": "That was a woolt. In the meadow. That you — "
+    },
+    {
+     "text": "No. No, they're not mine, the wild ones. They're nobody's. But you might have shouted first. They run if you shout."
+    }
    ],
-   "effects": { "setFlags": { "said.mara.woolt": true } },
+   "effects": {
+    "setFlags": {
+     "said.mara.woolt": true
+    }
+   },
    "next": "mara.ask"
   },
   "mara.again4": {
-   "if": { "flag": "beacon.lit", "notFlag": "said.mara.lit" }, "else": "mara.plain",
+   "if": {
+    "flag": "beacon.lit",
+    "notFlag": "said.mara.lit"
+   },
+   "else": "mara.plain",
    "speaker": "mara",
    "lines": [
-    { "text": "The fold can see the cutting. They'll have seen it go up. They'll sleep tonight, the ones out there — first time in a week." }
+    {
+     "text": "The fold can see the cutting. They'll have seen it go up. They'll sleep tonight, the ones out there — first time in a week."
+    }
    ],
-   "effects": { "setFlags": { "said.mara.lit": true } },
+   "effects": {
+    "setFlags": {
+     "said.mara.lit": true
+    }
+   },
    "next": "mara.ask"
   },
   "mara.plain": {
    "speaker": "mara",
-   "lines": [ { "text": "Gate. Thank you." } ],
+   "lines": [
+    {
+     "text": "Gate. Thank you."
+    }
+   ],
    "next": "mara.ask"
   },
   "mara.ask": {
-   "speaker": "mara", "lines": [],
+   "speaker": "mara",
+   "lines": [],
    "choices": [
-    { "text": "Where's the fold?", "to": "mara.fold" },
-    { "text": "Are they safe out there?", "to": "mara.safe" },
-    { "text": "Why does the fold care about a beacon?", "to": "mara.beacon", "if": { "flag": "knows.beacon" } },
-    { "text": "I'll shut the gate.", "to": null }
+    {
+     "text": "Where's the fold?",
+     "to": "mara.fold"
+    },
+    {
+     "text": "Are they safe out there?",
+     "to": "mara.safe"
+    },
+    {
+     "text": "Why does the fold care about a beacon?",
+     "to": "mara.beacon",
+     "if": {
+      "flag": "knows.beacon"
+     }
+    },
+    {
+     "text": "I'll shut the gate.",
+     "to": null
+    }
    ]
   },
   "mara.fold": {
    "speaker": "mara",
    "lines": [
-    { "text": "Drystone, four walls, gate downhill. It's a fair walk — out past the ford, then west off the road where the rock spine runs." },
-    { "text": "Get up on the spine and look west and you'll see it below you, and the cairn on the rise above it. My grandfather stacked that cairn. Or said he did." }
+    {
+     "text": "Drystone, four walls, gate downhill. It's a fair walk — out past the ford, then west off the road where the rock spine runs."
+    },
+    {
+     "text": "Get up on the spine and look west and you'll see it below you, and the cairn on the rise above it. My grandfather stacked that cairn. Or said he did."
+    }
    ],
-   "effects": { "setFlags": { "knows.fold": true } },
+   "effects": {
+    "setFlags": {
+     "knows.fold": true
+    }
+   },
    "next": "mara.ask"
   },
   "mara.safe": {
    "speaker": "mara",
    "lines": [
-    { "text": "Safe as anything is. A woolt's whole plan is to be somewhere else very suddenly, and it's a better plan than most." },
-    { "text": "Walk up on one and you'll see it work.", "if": { "notFlag": "beacon.lit" } },
-    { "text": "Safer now. Whatever came down off the hill when the light went out has gone back up it. Mostly.", "if": { "flag": "beacon.lit" } }
+    {
+     "text": "Safe as anything is. A woolt's whole plan is to be somewhere else very suddenly, and it's a better plan than most."
+    },
+    {
+     "text": "Walk up on one and you'll see it work.",
+     "if": {
+      "notFlag": "beacon.lit"
+     }
+    },
+    {
+     "text": "Safer now. Whatever came down off the hill when the light went out has gone back up it. Mostly.",
+     "if": {
+      "flag": "beacon.lit"
+     }
+    }
    ],
    "next": "mara.ask"
   },
   "mara.beacon": {
    "speaker": "mara",
    "lines": [
-    { "text": "Because when it's lit the things on the hill stay on the hill. I don't know why. Neither did my grandfather, and he said he knew everything." },
-    { "text": "When it's out they come down through the long grass and the flock knows before I do. Three nights they've known." }
+    {
+     "text": "Because when it's lit the things on the hill stay on the hill. I don't know why. Neither did my grandfather, and he said he knew everything."
+    },
+    {
+     "text": "When it's out they come down through the long grass and the flock knows before I do. Three nights they've known."
+    }
    ],
-   "effects": { "setFlags": { "quest.beacon": true } },
+   "effects": {
+    "setFlags": {
+     "quest.beacon": true
+    }
+   },
    "next": "mara.ask"
   },
-
   "pip.hail": {
-   "if": { "notFlag": "npc.met.pip" }, "else": "pip.again",
+   "if": {
+    "notFlag": "npc.met.pip"
+   },
+   "else": "pip.again",
    "speaker": "pip",
    "lines": [
-    { "text": "It's fine. It's fine. It only does that on the left.", "expr": "happy" },
-    { "text": "Pip. Carter, when the cart agrees." }
+    {
+     "text": "It's fine. It's fine. It only does that on the left.",
+     "expr": "happy"
+    },
+    {
+     "text": "Pip. Carter, when the cart agrees."
+    }
    ],
-   "effects": { "setFlags": { "npc.met.pip": true } },
+   "effects": {
+    "setFlags": {
+     "npc.met.pip": true
+    }
+   },
    "next": "pip.ask"
   },
   "pip.again": {
-   "if": { "flag": "beacon.lit", "notFlag": "said.pip.lit" }, "else": "pip.again2",
+   "if": {
+    "flag": "beacon.lit",
+    "notFlag": "said.pip.lit"
+   },
+   "else": "pip.again2",
    "speaker": "pip",
    "lines": [
-    { "text": "I SAW it. From the ford, I was at the ford, and it went up like — like a — Hobb said it was the sun. It was not the sun.", "expr": "happy" },
-    { "text": "I'll take the cart up that road again now. Once. Maybe once." }
+    {
+     "text": "I SAW it. From the ford, I was at the ford, and it went up like — like a — Hobb said it was the sun. It was not the sun.",
+     "expr": "happy"
+    },
+    {
+     "text": "I'll take the cart up that road again now. Once. Maybe once."
+    }
    ],
-   "effects": { "setFlags": { "said.pip.lit": true } },
+   "effects": {
+    "setFlags": {
+     "said.pip.lit": true
+    }
+   },
    "next": "pip.ask"
   },
   "pip.again2": {
-   "if": { "flag": "seen.pass", "notFlag": "said.pip.pass" }, "else": "pip.again3",
+   "if": {
+    "flag": "seen.pass",
+    "notFlag": "said.pip.pass"
+   },
+   "else": "pip.again3",
    "speaker": "pip",
    "lines": [
-    { "text": "You've been to the cutting. On foot. Sensible. It's the only way I'd go now — the cart's had opinions about that road since the axle." }
+    {
+     "text": "You've been to the cutting. On foot. Sensible. It's the only way I'd go now — the cart's had opinions about that road since the axle."
+    }
    ],
-   "effects": { "setFlags": { "said.pip.pass": true } },
+   "effects": {
+    "setFlags": {
+     "said.pip.pass": true
+    }
+   },
    "next": "pip.ask"
   },
   "pip.again3": {
-   "if": { "flag": "seen.ravine", "notFlag": "said.pip.ravine" }, "else": "pip.plain",
+   "if": {
+    "flag": "seen.ravine",
+    "notFlag": "said.pip.ravine"
+   },
+   "else": "pip.plain",
    "speaker": "pip",
    "lines": [
-    { "text": "You went down into the gorge. Told you it was cool down there. Told you the walk out was worse.", "expr": "happy" }
+    {
+     "text": "You went down into the gorge. Told you it was cool down there. Told you the walk out was worse.",
+     "expr": "happy"
+    }
    ],
-   "effects": { "setFlags": { "said.pip.ravine": true } },
+   "effects": {
+    "setFlags": {
+     "said.pip.ravine": true
+    }
+   },
    "next": "pip.ask"
   },
   "pip.plain": {
    "speaker": "pip",
-   "lines": [ { "text": "Still only on the left.", "expr": "happy" } ],
+   "lines": [
+    {
+     "text": "Still only on the left.",
+     "expr": "happy"
+    }
+   ],
    "next": "pip.ask"
   },
   "pip.ask": {
-   "speaker": "pip", "lines": [], "chooserExpr": "happy",
+   "speaker": "pip",
+   "lines": [],
+   "chooserExpr": "happy",
    "choices": [
-    { "text": "Where does the road go?", "to": "pip.road" },
-    { "text": "What's that gorge off the road?", "to": "pip.ravine" },
-    { "text": "What happened to the axle?", "to": "pip.axle" },
-    { "text": "Take care of the cart.", "to": null }
+    {
+     "text": "Where does the road go?",
+     "to": "pip.road"
+    },
+    {
+     "text": "What's that gorge off the road?",
+     "to": "pip.ravine"
+    },
+    {
+     "text": "What happened to the axle?",
+     "to": "pip.axle"
+    },
+    {
+     "text": "Take care of the cart.",
+     "to": null
+    }
    ]
   },
   "pip.road": {
    "speaker": "pip",
    "lines": [
-    { "text": "Out the gate, down through the fields, over the ford, and up. Keeps going up until it stops being worth it." },
-    { "text": "There's a cutting at the top with a beacon in it. I've had the cart that far exactly once and I'd not do it twice.", "if": { "notFlag": "beacon.lit" } },
-    { "text": "There's a cutting at the top with a beacon in it, and it's lit, and I'm told that's your doing.", "if": { "flag": "beacon.lit" } }
+    {
+     "text": "Out the gate, down through the fields, over the ford, and up. Keeps going up until it stops being worth it."
+    },
+    {
+     "text": "There's a cutting at the top with a beacon in it. I've had the cart that far exactly once and I'd not do it twice.",
+     "if": {
+      "notFlag": "beacon.lit"
+     }
+    },
+    {
+     "text": "There's a cutting at the top with a beacon in it, and it's lit, and I'm told that's your doing.",
+     "if": {
+      "flag": "beacon.lit"
+     }
+    }
    ],
-   "effects": { "setFlags": { "knows.pass": true } },
+   "effects": {
+    "setFlags": {
+     "knows.pass": true
+    }
+   },
    "next": "pip.ask"
   },
   "pip.ravine": {
    "speaker": "pip",
    "lines": [
-    { "text": "The gorge west of the road? Water cut it. You can get down into the bed if you pick your spot, and it's cool down there on a day like this." },
-    { "text": "Caps grow along the bottom. Mind the walk out — it's steeper than the walk in, which is always the way." }
+    {
+     "text": "The gorge west of the road? Water cut it. You can get down into the bed if you pick your spot, and it's cool down there on a day like this."
+    },
+    {
+     "text": "Caps grow along the bottom. Mind the walk out — it's steeper than the walk in, which is always the way."
+    }
    ],
-   "effects": { "setFlags": { "knows.ravine": true } },
+   "effects": {
+    "setFlags": {
+     "knows.ravine": true
+    }
+   },
    "next": "pip.ask"
   },
   "pip.axle": {
    "speaker": "pip",
    "lines": [
-    { "text": "The ford. The ford happened to it. I hit the stone everyone hits and it went with a noise like Hobb's opinion of me.", "expr": "happy" },
-    { "text": "He's making the bands. He's been making the bands. I think he likes having something to be slow about." }
+    {
+     "text": "The ford. The ford happened to it. I hit the stone everyone hits and it went with a noise like Hobb's opinion of me.",
+     "expr": "happy"
+    },
+    {
+     "text": "He's making the bands. He's been making the bands. I think he likes having something to be slow about."
+    }
    ],
    "next": "pip.ask"
   },
-
   "lake.hail": {
-   "if": { "notFlag": "npc.met.lake" }, "else": "lake.again",
+   "if": {
+    "notFlag": "npc.met.lake"
+   },
+   "else": "lake.again",
    "speaker": "lake",
    "lines": [
-    { "text": "You made it, then." },
-    { "text": "I've been sat on this step since the bell. It's a good step. You can see everyone arrive and nobody sees you.", "expr": "wry" }
+    {
+     "text": "You made it, then."
+    },
+    {
+     "text": "I've been sat on this step since the bell. It's a good step. You can see everyone arrive and nobody sees you.",
+     "expr": "wry"
+    }
    ],
-   "effects": { "setFlags": { "npc.met.lake": true } },
+   "effects": {
+    "setFlags": {
+     "npc.met.lake": true
+    }
+   },
    "next": "lake.ask"
   },
   "lake.again": {
-   "if": { "flag": "npc.met.maren", "notFlag": "said.lake.maren" }, "else": "lake.again2",
+   "if": {
+    "flag": "npc.met.maren",
+    "notFlag": "said.lake.maren"
+   },
+   "else": "lake.again2",
    "speaker": "lake",
    "lines": [
-    { "text": "So you found her. At the ruin, I'd guess, looking at a rock like it owed her an explanation.", "expr": "wry" },
-    { "text": "Good. I wasn't going to go. I'd have gone tomorrow." }
+    {
+     "text": "So you found her. At the ruin, I'd guess, looking at a rock like it owed her an explanation.",
+     "expr": "wry"
+    },
+    {
+     "text": "Good. I wasn't going to go. I'd have gone tomorrow."
+    }
    ],
-   "effects": { "setFlags": { "said.lake.maren": true } },
+   "effects": {
+    "setFlags": {
+     "said.lake.maren": true
+    }
+   },
    "next": "lake.ask"
   },
   "lake.again2": {
-   "if": { "flag": "beacon.lit", "notFlag": "said.lake.lit" }, "else": "lake.again3",
+   "if": {
+    "flag": "beacon.lit",
+    "notFlag": "said.lake.lit"
+   },
+   "else": "lake.again3",
    "speaker": "lake",
    "lines": [
-    { "text": "Saw the flock go up off the belfry all at once, about an hour before dark. Then the square got loud." },
-    { "text": "That was you. Course it was.", "expr": "wry" }
+    {
+     "text": "Saw the flock go up off the belfry all at once, about an hour before dark. Then the square got loud."
+    },
+    {
+     "text": "That was you. Course it was.",
+     "expr": "wry"
+    }
    ],
-   "effects": { "setFlags": { "said.lake.lit": true } },
+   "effects": {
+    "setFlags": {
+     "said.lake.lit": true
+    }
+   },
    "next": "lake.ask"
   },
   "lake.again3": {
-   "if": { "flag": "sheathed", "notFlag": "said.lake.sheath" }, "else": "lake.again4",
+   "if": {
+    "flag": "sheathed",
+    "notFlag": "said.lake.sheath"
+   },
+   "else": "lake.again4",
    "speaker": "lake",
    "lines": [
-    { "text": "Put it away, have you. Good. You look about half as much like trouble, which is still plenty.", "expr": "wry" }
+    {
+     "text": "Put it away, have you. Good. You look about half as much like trouble, which is still plenty.",
+     "expr": "wry"
+    }
    ],
-   "effects": { "setFlags": { "said.lake.sheath": true } },
+   "effects": {
+    "setFlags": {
+     "said.lake.sheath": true
+    }
+   },
    "next": "lake.ask"
   },
   "lake.again4": {
-   "if": { "flag": "kill.first", "notFlag": "said.lake.kill" }, "else": "lake.plain",
+   "if": {
+    "flag": "kill.first",
+    "notFlag": "said.lake.kill"
+   },
+   "else": "lake.plain",
    "speaker": "lake",
    "lines": [
-    { "text": "You've had a fight. It's in the shoulders. Sit down a minute before you talk to anyone who'll fuss.", "expr": "wry" }
+    {
+     "text": "You've had a fight. It's in the shoulders. Sit down a minute before you talk to anyone who'll fuss.",
+     "expr": "wry"
+    }
    ],
-   "effects": { "setFlags": { "said.lake.kill": true } },
+   "effects": {
+    "setFlags": {
+     "said.lake.kill": true
+    }
+   },
    "next": "lake.ask"
   },
   "lake.plain": {
    "speaker": "lake",
-   "lines": [ { "text": "Still here. Still a good step.", "expr": "wry" } ],
+   "lines": [
+    {
+     "text": "Still here. Still a good step.",
+     "expr": "wry"
+    }
+   ],
    "next": "lake.ask"
   },
   "lake.ask": {
-   "speaker": "lake", "lines": [],
+   "speaker": "lake",
+   "lines": [],
    "choices": [
-    { "text": "Seen Maren?", "to": "lake.maren", "if": { "notFlag": "npc.met.maren" } },
-    { "text": "What have you learned sitting there?", "to": "lake.watch" },
-    { "text": "You could help, you know.", "to": "lake.help", "if": { "flag": "quest.beacon", "notFlag": "beacon.lit" } },
-    { "text": "Enjoy the step.", "to": null }
+    {
+     "text": "Seen Maren?",
+     "to": "lake.maren",
+     "if": {
+      "notFlag": "npc.met.maren"
+     }
+    },
+    {
+     "text": "What have you learned sitting there?",
+     "to": "lake.watch"
+    },
+    {
+     "text": "You could help, you know.",
+     "to": "lake.help",
+     "if": {
+      "flag": "quest.beacon",
+      "notFlag": "beacon.lit"
+     }
+    },
+    {
+     "text": "Enjoy the step.",
+     "to": null
+    }
    ]
   },
   "lake.maren": {
    "speaker": "lake",
    "lines": [
-    { "text": "Out past the ford somewhere. Gone to look at the old ruin, and nobody has ever once come straight back from looking at that." },
-    { "text": "Try the meadow. Try up on the hill with the stones, if the walk went that far." }
+    {
+     "text": "Out past the ford somewhere. Gone to look at the old ruin, and nobody has ever once come straight back from looking at that."
+    },
+    {
+     "text": "Try the meadow. Try up on the hill with the stones, if the walk went that far."
+    }
    ],
-   "effects": { "setFlags": { "knows.maren": true } },
+   "effects": {
+    "setFlags": {
+     "knows.maren": true
+    }
+   },
    "next": "lake.ask"
   },
   "lake.watch": {
    "speaker": "lake",
    "lines": [
-    { "text": "That the birds go up before anything happens, and come down after. If a square full of them empties, look where they were.", "expr": "wry" },
-    { "text": "And that Tally has been to the gate four times today to look up the road and pretend she wasn't." }
+    {
+     "text": "That the birds go up before anything happens, and come down after. If a square full of them empties, look where they were.",
+     "expr": "wry"
+    },
+    {
+     "text": "And that Tally has been to the gate four times today to look up the road and pretend she wasn't."
+    }
    ],
-   "effects": { "setFlags": { "knows.flock": true } },
+   "effects": {
+    "setFlags": {
+     "knows.flock": true
+    }
+   },
    "next": "lake.ask"
   },
   "lake.help": {
    "speaker": "lake",
    "lines": [
-    { "text": "I am helping. I'm the one who'll notice when you don't come back.", "expr": "wry" },
-    { "text": "Five caps. Top of the road. Don't fight anything you can walk round. That's all the help there is." }
+    {
+     "text": "I am helping. I'm the one who'll notice when you don't come back.",
+     "expr": "wry"
+    },
+    {
+     "text": "Five caps. Top of the road. Don't fight anything you can walk round. That's all the help there is."
+    }
    ],
    "next": "lake.ask"
   },
-
   "maren.hail": {
-   "if": { "notFlag": "npc.met.maren" }, "else": "maren.again",
+   "if": {
+    "notFlag": "npc.met.maren"
+   },
+   "else": "maren.again",
    "speaker": "maren",
    "lines": [
-    { "text": "There you are. Look at this.", "expr": "happy" },
-    { "text": "The lintel's still up. Two uprights and a stone across them, and nobody's touched it in — I don't know. Longer than the town." },
-    { "text": "Lake sent you. Of course Lake sent you; Lake sends people. Well, I'm found. Sit down, you've walked." }
+    {
+     "text": "There you are. Look at this.",
+     "expr": "happy"
+    },
+    {
+     "text": "The lintel's still up. Two uprights and a stone across them, and nobody's touched it in — I don't know. Longer than the town."
+    },
+    {
+     "text": "Lake sent you. Of course Lake sent you; Lake sends people. Well, I'm found. Sit down, you've walked."
+    }
    ],
-   "effects": { "setFlags": { "npc.met.maren": true } },
+   "effects": {
+    "setFlags": {
+     "npc.met.maren": true
+    }
+   },
    "next": "maren.ask"
   },
   "maren.again": {
-   "if": { "flag": "beacon.lit", "notFlag": "said.maren.lit" }, "else": "maren.again2",
+   "if": {
+    "flag": "beacon.lit",
+    "notFlag": "said.maren.lit"
+   },
+   "else": "maren.again2",
    "speaker": "maren",
    "lines": [
-    { "text": "I was up on the shelf when it took. The whole valley went orange for a breath and then settled to a point, right at the top of the world.", "expr": "happy" },
-    { "text": "Whoever set these stones would have seen exactly that. I think that's why they're here. I think that's what they're for." }
+    {
+     "text": "I was up on the shelf when it took. The whole valley went orange for a breath and then settled to a point, right at the top of the world.",
+     "expr": "happy"
+    },
+    {
+     "text": "Whoever set these stones would have seen exactly that. I think that's why they're here. I think that's what they're for."
+    }
    ],
-   "effects": { "setFlags": { "said.maren.lit": true } },
+   "effects": {
+    "setFlags": {
+     "said.maren.lit": true
+    }
+   },
    "next": "maren.ask"
   },
   "maren.again2": {
-   "if": { "flag": "seen.stones", "notFlag": "said.maren.stones" }, "else": "maren.again3",
+   "if": {
+    "flag": "seen.stones",
+    "notFlag": "said.maren.stones"
+   },
+   "else": "maren.again3",
    "speaker": "maren",
    "lines": [
-    { "text": "You've been up to the ring. I can tell — you've got the look. Everyone comes down from there quieter.", "expr": "happy" }
+    {
+     "text": "You've been up to the ring. I can tell — you've got the look. Everyone comes down from there quieter.",
+     "expr": "happy"
+    }
    ],
-   "effects": { "setFlags": { "said.maren.stones": true } },
+   "effects": {
+    "setFlags": {
+     "said.maren.stones": true
+    }
+   },
    "next": "maren.ask"
   },
   "maren.again3": {
-   "if": { "flag": "caps.5", "notFlag": "said.maren.caps5" }, "else": "maren.plain",
+   "if": {
+    "flag": "caps.5",
+    "notFlag": "said.maren.caps5"
+   },
+   "else": "maren.plain",
    "speaker": "maren",
    "lines": [
-    { "text": "Those are the beacon's, aren't they. Five. Tally's been telling everyone it's five for a week.", "expr": "happy" },
-    { "text": "Go on, then. It's north of here — back to the road and up. I'll watch from the shelf." }
+    {
+     "text": "Those are the beacon's, aren't they. Five. Tally's been telling everyone it's five for a week.",
+     "expr": "happy"
+    },
+    {
+     "text": "Go on, then. It's north of here — back to the road and up. I'll watch from the shelf."
+    }
    ],
-   "effects": { "setFlags": { "said.maren.caps5": true } },
+   "effects": {
+    "setFlags": {
+     "said.maren.caps5": true
+    }
+   },
    "next": "maren.ask"
   },
   "maren.plain": {
    "speaker": "maren",
-   "lines": [ { "text": "Still looking. Don't rush me.", "expr": "happy" } ],
+   "lines": [
+    {
+     "text": "Still looking. Don't rush me.",
+     "expr": "happy"
+    }
+   ],
    "next": "maren.ask"
   },
   "maren.ask": {
-   "speaker": "maren", "lines": [], "chooserExpr": "happy",
+   "speaker": "maren",
+   "lines": [],
+   "chooserExpr": "happy",
    "choices": [
-    { "text": "What's up on the hill?", "to": "maren.stones" },
-    { "text": "Found anything?", "to": "maren.finds" },
-    { "text": "Who built this?", "to": "maren.who" },
-    { "text": "Come back to town.", "to": "maren.back" },
-    { "text": "I'll leave you to it.", "to": null }
+    {
+     "text": "What's up on the hill?",
+     "to": "maren.stones"
+    },
+    {
+     "text": "Found anything?",
+     "to": "maren.finds"
+    },
+    {
+     "text": "Who built this?",
+     "to": "maren.who"
+    },
+    {
+     "text": "Come back to town.",
+     "to": "maren.back"
+    },
+    {
+     "text": "I'll leave you to it.",
+     "to": null
+    }
    ]
   },
   "maren.stones": {
    "speaker": "maren",
    "lines": [
-    { "text": "A ring of them, and a rock shelf beside it you can climb. Go up the shelves — they're steps if you take them at the right corner." },
-    { "text": "From the top you get the town, the road and the far hills in one look. I sat up there an hour." }
+    {
+     "text": "A ring of them, and a rock shelf beside it you can climb. Go up the shelves — they're steps if you take them at the right corner."
+    },
+    {
+     "text": "From the top you get the town, the road and the far hills in one look. I sat up there an hour."
+    }
    ],
-   "effects": { "setFlags": { "knows.outcrop": true } },
+   "effects": {
+    "setFlags": {
+     "knows.outcrop": true
+    }
+   },
    "next": "maren.ask"
   },
   "maren.finds": {
    "speaker": "maren",
    "lines": [
-    { "text": "Caps, if you can be bothered to knock them. There's a hollow in the wood south of here that's full of them and very hard to leave.", "expr": "happy" },
-    { "text": "And whatever's at the end of the roof lead back in town, which I am too tall and too sensible for." }
+    {
+     "text": "Caps, if you can be bothered to knock them. There's a hollow in the wood south of here that's full of them and very hard to leave.",
+     "expr": "happy"
+    },
+    {
+     "text": "And whatever's at the end of the roof lead back in town, which I am too tall and too sensible for."
+    }
    ],
-   "effects": { "setFlags": { "knows.dell": true } },
+   "effects": {
+    "setFlags": {
+     "knows.dell": true
+    }
+   },
    "next": "maren.ask"
   },
   "maren.who": {
    "speaker": "maren",
    "lines": [
-    { "text": "Nobody knows. That's not me being coy — nobody knows. The town's records start with the tower, and the tower's the youngest thing for a mile." },
-    { "text": "But the lintel faces the cutting. Exactly. I put a straw on it and sighted along. Whoever they were, they wanted to see the beacon from here." }
+    {
+     "text": "Nobody knows. That's not me being coy — nobody knows. The town's records start with the tower, and the tower's the youngest thing for a mile."
+    },
+    {
+     "text": "But the lintel faces the cutting. Exactly. I put a straw on it and sighted along. Whoever they were, they wanted to see the beacon from here."
+    }
    ],
    "next": "maren.ask"
   },
   "maren.back": {
    "speaker": "maren",
    "lines": [
-    { "text": "I will. When I've finished looking.", "expr": "happy", "if": { "notFlag": "beacon.lit" } },
-    { "text": "Tonight. I've seen what I came to see — it turns out it was you, lighting that, and I didn't know until it happened.", "expr": "happy", "if": { "flag": "beacon.lit" } }
+    {
+     "text": "I will. When I've finished looking.",
+     "expr": "happy",
+     "if": {
+      "notFlag": "beacon.lit"
+     }
+    },
+    {
+     "text": "Tonight. I've seen what I came to see — it turns out it was you, lighting that, and I didn't know until it happened.",
+     "expr": "happy",
+     "if": {
+      "flag": "beacon.lit"
+     }
+    }
    ],
    "next": "maren.ask"
   }
