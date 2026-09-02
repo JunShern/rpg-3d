@@ -226,10 +226,10 @@ def rock_strata(res=RES, seed=173):
     wander = (w - w.mean()) * 0.09
     band = ((yy + wander) * 9.0) % 1.0
     idx = np.floor((yy + wander) * 9.0).astype(int) % 9
-    tones = 0.92 + 0.13 * rng.random(9).astype(np.float32)
+    tones = 0.88 + 0.17 * rng.random(9).astype(np.float32)
     v = v * tones[idx]
     # a dark line at the bottom of each band: the joint between beds
-    v = v * np.where(band < 0.04, 0.80, 1.0)
+    v = v * np.where(band < 0.04, 0.74, 1.0)
     # cross joints: a handful of near-vertical dark cracks, each a short run
     for _ in range(14):
         x0 = rng.random(); y0 = rng.random(); h = 0.10 + rng.random() * 0.22

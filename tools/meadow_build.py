@@ -1471,7 +1471,12 @@ def spine(M, t):
 # collapses to charcoal. In `10-town-from-meadow` the rockwork by the gate sits
 # next to `stone` bollards and reads as a different, blacker material -- and it
 # has done since long before the walls were fixed.
-ROCK_COL = (0.62, 0.60, 0.57)
+# 0.52, NOT 0.62. At 0.62 the pass walls -- the biggest rock surfaces in the
+# game, a third of the frame at the top of the north road -- sat in the toon
+# ramp's lit band as one blown-out pale mass and the bedding drawn into the
+# texture had nothing left to be drawn on. Rock reads as rock when it is a
+# shade darker than the road it stands over.
+ROCK_COL = (0.52, 0.49, 0.46)
 
 ORCHARD = (19.0, 30.5, 4.2, 5)      # cx, cy, spacing, rows/cols
 ORCHARD_YAW = math.radians(9.0)     # off-axis, because nothing else here is
