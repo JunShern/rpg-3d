@@ -91,28 +91,16 @@ const GradeShader = {
 // renders the same frame through the same passes with every effect at zero,
 // so a comparison isolates the grade from the pass structure itself.
 export const POST = {
-  painted2: {
-    ao: true, aoIntensity: 0.5,
-    bloom: 0.20, bloomRadius: 0.55, bloomThreshold: 0.84,
-    lift: [0.008, 0.012, 0.030], gain: [1.030, 1.008, 0.972],
-    sat: 1.08, contrast: 1.05, vignette: 0.26, grain: 0.022,
-  },
-  painted3: {
-    ao: true, aoIntensity: 0.5,
-    bloom: 0.20, bloomRadius: 0.55, bloomThreshold: 0.84,
-    lift: [0.006, 0.010, 0.036], gain: [1.020, 1.010, 0.980],
-    sat: 1.18, contrast: 1.06, vignette: 0.26, grain: 0.022,
-  },
   painted: {
     ao: true,
-    aoIntensity: 0.55,
-    bloom: 0.22, bloomRadius: 0.55, bloomThreshold: 0.82,
-    lift: [0.010, 0.016, 0.040],       // shadows drift blue-violet
-    gain: [1.045, 1.010, 0.955],       // highlights warm
-    sat: 1.12,
-    contrast: 1.06,
-    vignette: 0.30,
-    grain: 0.028,
+    aoIntensity: 0.5,
+    bloom: 0.20, bloomRadius: 0.55, bloomThreshold: 0.84,
+    lift: [0.008, 0.012, 0.030],       // shadows drift blue-violet
+    gain: [1.030, 1.008, 0.972],       // highlights warm, gently
+    sat: 1.08,
+    contrast: 1.05,
+    vignette: 0.26,
+    grain: 0.022,
   },
   flat: {
     ao: false, aoIntensity: 0,

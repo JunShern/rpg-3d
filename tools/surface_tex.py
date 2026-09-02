@@ -242,6 +242,62 @@ def ground_detail(res=RES, seed=91):
     return np.clip(np.repeat(v[..., None], 3, axis=2), 0, 1)
 
 
+def grass_strokes(res=RES, seed=97):
+    """The meadow floor's detail map, DRAWN: blade strokes over the mottle.
+
+    `ground_detail` is mottle, and mottle at five metres is a flat fill with
+    a faint stain on it. What a painted grass texture has that noise does not
+    is DIRECTION -- thousands of short strokes, all roughly upright, a shade
+    lighter than the ground at their tip and a shade darker at their foot --
+    plus a scatter of tiny bright dots that read as clover from any distance.
+    Still centred on 1.0, so it modulates the vertex colour like the mottle
+    did and the same image works under green, tan and the band between.
+    """
+    rng = _rng(seed)
+    base = ground_detail(res, seed)[..., 0]
+    v = base.copy()
+    yy, xx = np.mgrid[0:res, 0:res].astype(np.float32)
+    # STROKES: a few thousand short tapered lines, near-vertical, drawn as a
+    # distance field per stroke on a coarse tile then stamped. Wrapping
+    # coordinates so the tile seams do not show.
+    n = int(res * res / 55)
+    px = rng.random(n) * res
+    py = rng.random(n) * res
+    length = res * (0.012 + rng.random(n) * 0.020)
+    tilt = (rng.random(n) - 0.5) * 0.9
+    tone = np.where(rng.random(n) < 0.45, 1.0, -1.0) * (0.04 + rng.random(n) * 0.05)
+    # rasterise: for each stroke, a small window
+    for i in range(n):
+        L = length[i]
+        r = int(L) + 2
+        x0, y0 = int(px[i]), int(py[i])
+        xs = (np.arange(x0 - r, x0 + r + 1)) % res
+        ys = (np.arange(y0 - r, y0 + r + 1)) % res
+        gx = xs[None, :].astype(np.float32) - px[i]
+        gy = ys[:, None].astype(np.float32) - py[i]
+        # unwrap the window relative to the centre
+        gx = (gx + res / 2) % res - res / 2
+        gy = (gy + res / 2) % res - res / 2
+        # coordinate along the stroke (up = -y) and across
+        along = -gy * math.cos(tilt[i]) + gx * math.sin(tilt[i])
+        across = gx * math.cos(tilt[i]) + gy * math.sin(tilt[i])
+        u = along / L
+        w = 1.1 * (1.0 - np.clip(u, 0, 1)) + 0.4        # tapers to the tip
+        mask = (u > 0) & (u < 1) & (np.abs(across) < w)
+        sub = v[np.ix_(ys, xs)]
+        sub[mask] += tone[i] * (0.5 + 0.5 * np.clip(u, 0, 1)[mask])
+        v[np.ix_(ys, xs)] = sub
+    # CLOVER: sparse bright dots, two pixels across
+    m = int(res * res / 2600)
+    cx = (rng.random(m) * res).astype(int)
+    cy = (rng.random(m) * res).astype(int)
+    for dx in (0, 1):
+        for dy in (0, 1):
+            v[(cy + dy) % res, (cx + dx) % res] += 0.10
+    v = np.clip(v, 0.80, 1.12)
+    return np.clip(np.repeat(v[..., None], 3, axis=2), 0, 1)
+
+
 def plaster(res=RES, seed=23, tone=(1.0, 1.0, 1.0), strength=0.05):
     """Rendered wall.
 

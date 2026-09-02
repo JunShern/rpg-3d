@@ -32,12 +32,13 @@ export function gradientMap(steps, smooth = false) {
 
 // The painted ramp: a deep shadow band that holds, a soft roll into a broad
 // midtone, and a short bright lip at the top so the key still reads as a key.
+// THE SHADOW BAND IS 66, NOT 54. Three candidates were captured side by side
+// on the plaza and the hill: at 54 the shaded half of the square went navy
+// and the grass under a warm key drifted to mustard. 66 keeps the shadows
+// blue and leaves the local colour readable inside them.
 export const RAMP_PAINTED = gradientMap(
-  [54, 54, 60, 92, 148, 164, 168, 170, 196, 248], true);
-// candidates under review -- collapsed into RAMP_PAINTED once one is chosen
-export const RAMP_PAINTED2 = gradientMap(
   [66, 66, 72, 100, 150, 164, 168, 170, 196, 248], true);
-export const RAMPS = { cel: null, painted: RAMP_PAINTED, painted2: RAMP_PAINTED2 };
+export const RAMPS = { cel: null, painted: RAMP_PAINTED };
 
 // Three bands: deep shadow, a wide midtone that carries the local colour, and a
 // narrow lit band.  Four+ bands start looking like ordinary smooth shading.
@@ -123,32 +124,15 @@ export const LOOKS = {
     lit: false,
     outlines: true,
     rim: 1.0,
-    key: { color: 0xffd8a4, intensity: 2.9, position: [11, 17, 8] },
-    hemi: { sky: 0xb4c8f0, ground: 0xa27f5e, intensity: 1.0 },
-    ambient: { color: 0x7d88b2, intensity: 0.16 },
-    exposure: 1.0,
-    albedo: 1,
-    ramp: 'painted',
-    sky: { top: 0x3b76c9, mid: 0x9cc3e8, horizon: 0xeddfcc, sun: 0xffe3ba },
-    fog: { color: 0xe4dac8, near: 34, far: 150 },
-  },
-  painted2: {
-    label: 'painted2',
-    lit: false, outlines: true, rim: 1.0,
+    // A warm key, but not an orange one -- 0xffd8a4 turned every green to
+    // olive. The bounce from the ground is warm too, the sky fill is blue,
+    // and a little cool ambient keeps the shadow side from going dead.
     key: { color: 0xffe2bc, intensity: 2.8, position: [11, 17, 8] },
     hemi: { sky: 0xbdd0ee, ground: 0x9c8668, intensity: 1.0 },
     ambient: { color: 0x8a8ea8, intensity: 0.22 },
-    exposure: 1.0, albedo: 1, ramp: 'painted2',
-    sky: { top: 0x3b76c9, mid: 0x9cc3e8, horizon: 0xeddfcc, sun: 0xffe3ba },
-    fog: { color: 0xe0dcd0, near: 38, far: 160 },
-  },
-  painted3: {
-    label: 'painted3',
-    lit: false, outlines: true, rim: 1.0,
-    key: { color: 0xfff0dc, intensity: 2.8, position: [11, 17, 8] },
-    hemi: { sky: 0xb4c8f0, ground: 0x968a66, intensity: 1.0 },
-    ambient: { color: 0x8a8ea8, intensity: 0.20 },
-    exposure: 1.0, albedo: 1, ramp: 'painted2',
+    exposure: 1.0,
+    albedo: 1,
+    ramp: 'painted',
     sky: { top: 0x3b76c9, mid: 0x9cc3e8, horizon: 0xeddfcc, sun: 0xffe3ba },
     fog: { color: 0xe0dcd0, near: 38, far: 160 },
   },

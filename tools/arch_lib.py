@@ -83,6 +83,11 @@ def palette():
         # darkest.
         "foam":      (0.86, 0.94, 0.96),
         "cloth":     (0.90, 0.88, 0.80),
+        # BUNTING: two flag colours that are nowhere else in the square, so a
+        # line of them reads as an occasion and not as more awning
+        "flag_a":    (0.88, 0.34, 0.30),
+        "flag_b":    (0.96, 0.90, 0.66),
+        "flag_c":    (0.30, 0.56, 0.62),
         # EMBERCAP: the thing worth going to look at. Warm gold so it reads
         # against both the grey plaza and the green meadow -- the two grounds
         # it has to be spotted on -- and emissive so it carries at the range you
@@ -1055,6 +1060,48 @@ def awning(t, x, y0, z, w=1.5, drop=0.55, reach=0.85):
     return t.add(*out) and out
 
 
+def bunting(t, a, b, sag=0.85, pitch=0.42, seed=0):
+    """A line of flags between two points, hung on a sagging rope.
+
+    The square had a fountain, stalls and nine facades and still read as a
+    model of a town rather than a town on a day. Bunting is the cheapest
+    thing that says people live here and something is happening: one rope on
+    a catenary, thirty small triangular pennants in three colours, a few
+    hundred triangles. The rope is a tube; each flag is a thin bevelled box so
+    it has two faces under a single-sided material.
+    """
+    M, out = t.M, []
+    ax, ay, az = a
+    bx, by, bz = b
+    L = math.hypot(bx - ax, by - ay)
+    n = max(4, int(L / pitch))
+    # the rope: sampled along the parabola the flags hang from
+    pts = []
+    for i in range(0, n + 1):
+        u = i / n
+        pts.append(Vector((ax + (bx - ax) * u, ay + (by - ay) * u,
+                           az + (bz - az) * u - sag * 4 * u * (1 - u))))
+    out.append(K.tube("bunting_rope", [{"p": p, "r": (0.012, 0.012), "n": 2.0}
+                                        for p in pts],
+                      seg=4, mat=M["timber"], squircle=2.0))
+    ux, uy = (bx - ax) / L, (by - ay) / L         # along the line
+    mats = (M["flag_a"], M["flag_b"], M["flag_c"])
+    for i in range(1, n):
+        u = (i - 0.5) / n
+        px = ax + (bx - ax) * u
+        py = ay + (by - ay) * u
+        pz = az + (bz - az) * u - sag * 4 * u * (1 - u)
+        # a pennant: wide at the rope, pointed below, hung across the line
+        fw, fh = 0.15, 0.24
+        verts = [Vector((px - ux * fw, py - uy * fw, pz)),
+                 Vector((px + ux * fw, py + uy * fw, pz)),
+                 Vector((px, py, pz - fh))]
+        flag = K._new_obj(f"bunting_flag{i}", verts, [(0, 1, 2), (2, 1, 0)],
+                          mat=mats[(i + seed) % 3], smooth=False, recalc=False)
+        out.append(flag)
+    return t.add(*out) and out
+
+
 def lantern(t, x, y, z0=0.0, h=3.1, wall=False, kind='accent'):
     """A post lantern, or a bracket lamp when `wall` is set.  Emissive material;
     the runtime turns each of these into an actual point light.
@@ -1575,6 +1622,8 @@ def building(t, cx, cy, w, d, storeys=2, yaw=0.0, plaster="plaster_a",
         out += banner(t, w * 0.30, y0, 0.16 + GROUND_H + 0.55,
                       mat="awning" if seed % 2 else "roof_b")
 
+    out += facade_detail(t, w, d, h, storeys, roof_h, seed, gable_front, plaster)
+
     for o in out:
         if yaw:
             K.transform(o, rotate=(0, 0, yaw), around=(0, 0, 0))
@@ -1635,6 +1684,91 @@ def building(t, cx, cy, w, d, storeys=2, yaw=0.0, plaster="plaster_a",
 
 
 # ------------------------------------------------------------------ output
+
+def facade_detail(t, w, d, h, storeys, roof_h, seed, gable_front, plaster):
+    """What makes a wall a BUILT wall: the joinery at its edges.
+
+    A plaster box with windows in it is a diagram of a house. The things that
+    turn it into one somebody put up are all at the edges, where one material
+    meets another -- stone quoins up the corners, rafter ends showing under
+    the eaves, timber framing braced across the upper storeys, a dormer
+    breaking the roof -- and every one of them is a few bevelled boxes. They
+    are keyed off the seed so nine buildings get nine different mixes, and off
+    the plaster so the half-timbering lands on the warm walls it belongs on.
+    All in the building's local frame, front facing -Y, before the yaw.
+    """
+    M, out = t.M, []
+    hw, hd = w / 2, d / 2
+    # QUOINS: alternating long and short stone blocks up every corner. The
+    # single strongest "hand-built" cue there is, and the one thing that
+    # separates a plaster box from a rendered building at any distance.
+    if seed % 3 != 1:
+        zq = 0.32
+        k = 0
+        while zq < h - 0.20:
+            long = 0.34 if k % 2 else 0.22
+            for sx in (-1, 1):
+                for sy in (-1, 1):
+                    out.append(box("bld_quoin",
+                                   (sx * (hw + 0.035), sy * (hd + 0.035), zq + 0.19),
+                                   (long if k % 2 else 0.22, 0.22 if k % 2 else long, 0.19),
+                                   M["stone"], bevel=0.03, seg=1))
+            zq += 0.40
+            k += 1
+    # RAFTER ENDS under the eaves. The roof already overhangs; this is what
+    # holds it up, and a row of them is the one horizontal rhythm a facade
+    # gets that is not a window.
+    if not gable_front:
+        n = max(3, int(w / 0.62))
+        for i in range(n):
+            rx = -hw + 0.20 + (w - 0.40) * i / max(1, n - 1)
+            for sy in (-1, 1):
+                out.append(box("bld_rafter", (rx, sy * (hd + 0.14), h + 0.20),
+                               (0.06, 0.20, 0.07), M["timber"], bevel=0.015, seg=1))
+    # HALF-TIMBERING on the warm plasters: posts between the bays and one
+    # diagonal brace per storey per side, proud of the wall. Braces are what
+    # makes a frame read as a frame -- verticals alone are drainpipes.
+    if plaster in ("plaster_b", "plaster_d") and storeys >= 2:
+        for f in range(1, storeys):
+            z0 = 0.16 + GROUND_H + FLOOR_H * (f - 1) + 0.09
+            z1 = z0 + FLOOR_H - 0.18
+            zm = (z0 + z1) / 2
+            bays = max(1, int(w / 2.1))
+            for b in range(1, bays):
+                px = -hw + w * b / bays
+                for sy in (-1, 1):
+                    out.append(box("bld_post", (px, sy * (hd + 0.05), zm),
+                                   (0.07, 0.05, (z1 - z0) / 2), M["timber"],
+                                   bevel=0.015, seg=1))
+            # braces at the two ends, leaning inward: the classic corner brace
+            for sx in (-1, 1):
+                for sy in (-1, 1):
+                    bl = min(1.1, w * 0.22)
+                    br = box("bld_brace", (0, 0, 0), (0.06, 0.045, bl / 2 * 1.20),
+                             M["timber"], bevel=0.012, seg=1)
+                    K.transform(br, rotate=(0, sx * 38, 0), around=(0, 0, 0),
+                                translate=(sx * (hw - 0.30 - bl * 0.30), sy * (hd + 0.05),
+                                           z0 + bl * 0.55))
+                    out.append(br)
+    # A DORMER on the front slope of some of the long roofs. The roofline is
+    # where a town's silhouette lives, and a run of identical prisms is a
+    # sawtooth -- one small gable breaking a slope is a roof someone lives
+    # under.
+    if not gable_front and storeys >= 2 and seed % 2 == 0 and w >= 6.0:
+        dx = (0.18 if seed % 4 else -0.22) * w
+        dw, dd, dh = 0.62, 0.80, 0.78
+        base = h + 0.27 + roof_h * 0.30
+        # the slope at the dormer's front: z on the prism = roof_h*(1-|y|/hd)
+        yfront = -(hd + 0.30) * (1 - 0.30) + 0.05
+        out.append(box("bld_dormer", (dx, yfront + dd / 2, base + dh / 2),
+                       (dw, dd / 2, dh / 2), M[plaster], bevel=0.03, seg=1))
+        out.append(prism("bld_dormer_roof", (dx, yfront + dd / 2, base + dh),
+                         dw * 2, dd, 0.55, M["roof_b" if seed % 4 else "roof_c"],
+                         over_y=0.12, over_x=0.10))
+        out += window(t, dx, yfront - 0.02, base + dh * 0.52, w=0.5, h=0.5,
+                      shutters=False, sill=False)
+    return out
+
 
 def finish(t, name_town="TOWN", name_floor="FLOOR"):
     """Join into two objects: everything, and the walkable subset.

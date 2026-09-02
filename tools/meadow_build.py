@@ -422,7 +422,9 @@ def build_terrain(M, step=TERRAIN_STEP):
     # straight down costs nothing visible, and the detail map is neutral mottle
     # rather than colour, so one continuous UV set over the whole floor is all
     # it needs.
-    tile = 5.0
+    # 3.5 m, not 5: the strokes in `grass_strokes` are 6-16 px on a 512 tile,
+    # and at 5 m a blade would be 15 cm wide. At 3.5 it is a blade.
+    tile = 3.5
     K.set_uvs(obj, [(v.co.x / tile, v.co.y / tile) for v in obj.data.vertices])
     return obj
 
@@ -658,22 +660,107 @@ def _lcg(seed):
 
 
 def _tree_broadleaf(M, t, x, y, scale, rnd):
-    """The round one: four overlapping canopy blobs on a tapering trunk."""
+    """The round one -- and now a TREE rather than a cloud on a stick.
+
+    The first recipe was four overlapping spheres on a tapering tube, and at
+    the five metres the camera sits from anything it read as exactly that.
+    What a broadleaf tree has that a sphere does not: a trunk that flares into
+    roots and leans a little, three or four BRANCHES you can see leave the
+    trunk and vanish into the leaves, a canopy made of a dozen lobes at two
+    tones so it has an underside and a lit crown rather than one gradient, and
+    a ragged edge -- a few small clumps hanging below the canopy line so the
+    silhouette is not a circle. About twice the triangles of the old one, on
+    the object that is in every outdoor frame.
+    """
     z = height(x, y)
-    h = 2.6 * scale
+    h = 2.8 * scale
+    lean_a = rnd() * math.tau
+    lean = 0.10 * scale * (0.4 + rnd())
+    lx, ly = math.cos(lean_a) * lean, math.sin(lean_a) * lean
+    # the trunk: flared foot, slight S, thinning to a tip that ends INSIDE the
+    # canopy rather than at its centre, so the lobes have something to sit on
     t.add(K.tube(f"trunk{len(t.parts)}", K.dome([
-        {"p": Vector((x, y, z - 0.15)), "r": (0.26 * scale, 0.26 * scale), "n": 2.6},
-        {"p": Vector((x, y, z + h * 0.42)), "r": (0.17 * scale, 0.17 * scale), "n": 2.6},
-        {"p": Vector((x, y, z + h * 0.78)), "r": (0.12 * scale, 0.12 * scale), "n": 2.6},
-    ], at="end", steps=2, height=0.1), seg=8, mat=M["bark"], squircle=2.6))
-    for dx, dy, dz, r in ((0, 0, 1.00, 1.45), (0.52, 0.20, 1.32, 1.02),
-                          (-0.46, -0.26, 1.26, 0.94), (0.10, -0.50, 1.44, 0.80)):
-        cx, cy, cz = x + dx * scale, y + dy * scale, z + h * dz
-        t.add(K.blob(f"canopy{len(t.parts)}", (cx, cy, cz),
-                     (r * scale, r * scale, r * scale * 0.82), None,
-                     M["leaf"] if (len(t.parts) % 3) else M["leaf_lo"],
-                     seg=11, rings=7, squircle=2.2))
-        t.camblock(cx, cy, cz, r * scale * 1.05)
+        {"p": Vector((x, y, z - 0.20)), "r": (0.34 * scale, 0.34 * scale), "n": 2.6},
+        {"p": Vector((x, y, z + 0.18 * scale)), "r": (0.24 * scale, 0.24 * scale), "n": 2.6},
+        {"p": Vector((x + lx * 0.5, y + ly * 0.5, z + h * 0.40)),
+         "r": (0.17 * scale, 0.17 * scale), "n": 2.6},
+        {"p": Vector((x + lx, y + ly, z + h * 0.72)),
+         "r": (0.12 * scale, 0.12 * scale), "n": 2.6},
+        {"p": Vector((x + lx * 1.3, y + ly * 1.3, z + h * 1.02)),
+         "r": (0.07 * scale, 0.07 * scale), "n": 2.6},
+    ], at="end", steps=2, height=0.08), seg=8, mat=M["bark"], squircle=2.6))
+    # ROOTS: three short buttresses. The place a trunk meets the ground is the
+    # one joint on a tree the player is at eye level with, and a cylinder
+    # entering a lawn is the thing that says "model".
+    for k in range(3):
+        a = lean_a + 1.1 + k * 2.05 + (rnd() - 0.5) * 0.6
+        reach = (0.42 + rnd() * 0.2) * scale
+        t.add(K.tube(f"root{len(t.parts)}", K.dome([
+            {"p": Vector((x, y, z + 0.16 * scale)), "r": (0.13 * scale, 0.10 * scale), "n": 2.4},
+            {"p": Vector((x + math.cos(a) * reach * 0.6, y + math.sin(a) * reach * 0.6,
+                          z - 0.02)), "r": (0.09 * scale, 0.07 * scale), "n": 2.4},
+            {"p": Vector((x + math.cos(a) * reach, y + math.sin(a) * reach, z - 0.16)),
+             "r": (0.05 * scale, 0.04 * scale), "n": 2.4},
+        ], at="end", steps=1, height=0.03), seg=6, mat=M["bark"], squircle=2.4))
+    # BRANCHES, and the lobes hang off their ends. Four of them, leaving the
+    # trunk between 55% and 80% of its height, each reaching out and up to
+    # where a satellite lobe will sit -- so every outer lobe is visibly held
+    # up by something.
+    lobes = []
+    nb = 4
+    a0 = rnd() * math.tau
+    for k in range(nb):
+        a = a0 + k * (math.tau / nb) + (rnd() - 0.5) * 0.7
+        u = 0.50 + 0.22 * (k / max(1, nb - 1))
+        bz = z + h * u
+        # LONG AND HIGH. The first pass ended each branch at the centre of the
+        # lobe it carried, which hid the branch completely -- the tree read as
+        # the old cloud again. The lobe now sits a third of a metre BEYOND the
+        # tip, so the lower half of every branch is in open air.
+        reach = (1.10 + rnd() * 0.40) * scale
+        rise = (0.95 + rnd() * 0.30) * scale
+        tip = (x + lx * u * 1.2 + math.cos(a) * reach,
+               y + ly * u * 1.2 + math.sin(a) * reach, bz + rise)
+        t.add(K.tube(f"branch{len(t.parts)}", K.dome([
+            {"p": Vector((x + lx * u * 1.2, y + ly * u * 1.2, bz)),
+             "r": (0.085 * scale, 0.085 * scale), "n": 2.5},
+            {"p": Vector((x + lx * u * 1.2 + math.cos(a) * reach * 0.55,
+                          y + ly * u * 1.2 + math.sin(a) * reach * 0.55,
+                          bz + rise * 0.45)), "r": (0.055 * scale, 0.055 * scale), "n": 2.5},
+            {"p": Vector(tip), "r": (0.03 * scale, 0.03 * scale), "n": 2.5},
+        ], at="end", steps=1, height=0.03), seg=6, mat=M["bark"], squircle=2.5))
+        lobes.append((tip[0] + math.cos(a) * 0.30 * scale, tip[1] + math.sin(a) * 0.30 * scale,
+                      tip[2] + 0.30 * scale, (0.70 + rnd() * 0.20) * scale))
+    # THE CROWN: one big lobe over the trunk's tip and two shoulders, so the
+    # top of the tree is a mass and not a ring of balls round a hole.
+    cx, cy = x + lx * 1.3, y + ly * 1.3
+    lobes.append((cx, cy, z + h * 1.14, 1.25 * scale))
+    lobes.append((cx + 0.35 * scale, cy - 0.30 * scale, z + h * 1.34, 0.78 * scale))
+    lobes.append((cx - 0.40 * scale, cy + 0.25 * scale, z + h * 1.30, 0.72 * scale))
+    # and an UNDERSIDE: two lower, darker lobes between the branches, which is
+    # where a real canopy is densest and least lit
+    for k in range(2):
+        a = a0 + (k + 0.5) * math.pi + (rnd() - 0.5) * 0.5
+        lobes.append((cx + math.cos(a) * 0.60 * scale, cy + math.sin(a) * 0.60 * scale,
+                      z + h * 0.96, 0.70 * scale))
+    for i, (px, py, pz, r) in enumerate(lobes):
+        under = pz < z + h * 1.05
+        mat = M["leaf_lo"] if (under or i % 3 == 1) else M["leaf"]
+        t.add(K.blob(f"canopy{len(t.parts)}", (px, py, pz),
+                     (r, r * (0.92 + rnd() * 0.16), r * 0.78), None, mat,
+                     seg=10, rings=6, squircle=2.3))
+        t.camblock(px, py, pz, r * 1.02)
+    # THE RAGGED EDGE: small clumps hanging below the canopy line. Nothing
+    # about a tree is a clean curve, and four 30 cm balls are what stops the
+    # silhouette being one.
+    for k in range(4):
+        a = a0 + k * 1.6 + rnd()
+        rr = (1.35 + rnd() * 0.45) * scale
+        t.add(K.blob(f"clump{len(t.parts)}",
+                     (cx + math.cos(a) * rr, cy + math.sin(a) * rr,
+                      z + h * (0.80 + rnd() * 0.14)),
+                     (0.30 * scale, 0.30 * scale, 0.24 * scale), None,
+                     M["leaf_lo"] if k % 2 else M["leaf"], seg=7, rings=5, squircle=2.3))
     t.solid(x, y, 0.42 * scale, 0.42 * scale, top=z + h)
 
 
@@ -692,18 +779,29 @@ def _tree_conifer(M, t, x, y, scale, rnd):
         {"p": Vector((x, y, z - 0.15)), "r": (0.20 * scale, 0.20 * scale), "n": 2.6},
         {"p": Vector((x, y, z + h * 0.92)), "r": (0.07 * scale, 0.07 * scale), "n": 2.6},
     ], at="end", steps=2, height=0.08), seg=8, mat=M["bark"], squircle=2.6))
-    tiers = 4
+    # FIVE TIERS, EACH A LITTLE OFF-AXIS, and a spike of bare trunk above the
+    # last one. Four concentric skirts on one axis is a lathe-turned object; a
+    # few centimetres of wander per tier and a leader poking out of the top
+    # is the difference between a bollard and a spruce.
+    tiers = 5
     for i in range(tiers):
         u = i / tiers
-        cz = z + h * (0.24 + 0.66 * u)
-        r = (1.32 - 0.86 * u) * scale
+        cz = z + h * (0.22 + 0.66 * u)
+        r = (1.32 - 0.90 * u) * scale
+        ox = (rnd() - 0.5) * 0.16 * scale
+        oy = (rnd() - 0.5) * 0.16 * scale
         t.add(K.tube(f"needle{len(t.parts)}", [
-            {"p": Vector((x, y, cz)), "r": (r, r), "n": 2.4},
-            {"p": Vector((x, y, cz + h * 0.055)), "r": (r * 0.90, r * 0.90), "n": 2.4},
-            {"p": Vector((x, y, cz + h * 0.235)), "r": (r * 0.18, r * 0.18), "n": 2.4},
+            {"p": Vector((x + ox, y + oy, cz)), "r": (r, r), "n": 2.4},
+            {"p": Vector((x + ox * 0.6, y + oy * 0.6, cz + h * 0.05)),
+             "r": (r * 0.90, r * 0.90), "n": 2.4},
+            {"p": Vector((x, y, cz + h * 0.215)), "r": (r * 0.16, r * 0.16), "n": 2.4},
         ], seg=10, mat=M["leaf_lo"] if i % 2 else M["conifer"],
             squircle=2.4, up=(0, 0, 1)))
         t.camblock(x, y, cz + h * 0.10, r * 1.05)
+    t.add(K.tube(f"leader{len(t.parts)}", K.dome([
+        {"p": Vector((x, y, z + h * 0.96)), "r": (0.05 * scale, 0.05 * scale), "n": 2.4},
+        {"p": Vector((x, y, z + h * 1.08)), "r": (0.02 * scale, 0.02 * scale), "n": 2.4},
+    ], at="end", steps=1, height=0.02), seg=6, mat=M["bark"], squircle=2.4))
     t.solid(x, y, 0.34 * scale, 0.34 * scale, top=z + h)
 
 
@@ -1515,6 +1613,36 @@ def backdrop(M, t):
     t.add(*out)
 
 
+def clouds(M, t):
+    """PAINTED CLOUDS, on the same terms as the painted ridges.
+
+    The sky dome is a gradient, and a gradient is a studio backdrop. Nine
+    clusters of flattened blobs sit above the far ring, unlit and out of the
+    fog like the ridges, so from anywhere with a view -- the outcrop, the
+    roofs, the top of the north road -- the horizon has weather in it. Low,
+    because the camera the player is given looks up only 6 degrees: a cloud at
+    the zenith is a cloud nobody sees.
+    """
+    rnd = _lcg(4471)
+    cx, cy = 0.0, 65.0
+    for i in range(9):
+        a = 2 * math.pi * i / 9 + rnd() * 0.5
+        rad = 215.0 + rnd() * 30.0
+        base = 62.0 + rnd() * 22.0
+        px, py = cx + rad * math.cos(a), cy + rad * math.sin(a)
+        span = 14.0 + rnd() * 16.0
+        n = 3 + int(rnd() * 3)
+        # a flat base line and a lumpy top: the cumulus silhouette
+        for k in range(n):
+            u = (k + 0.5) / n
+            dx = (u - 0.5) * span
+            r = span * (0.16 + 0.10 * math.sin(u * math.pi)) * (0.85 + rnd() * 0.3)
+            t.add(K.blob(f"cloud{len(t.parts)}",
+                         (px - math.sin(a) * dx, py + math.cos(a) * dx, base + r * 0.55),
+                         (r, r * 0.8, r * 0.62), None, M["cloud"],
+                         seg=8, rings=5, squircle=2.2))
+
+
 def fold(M, t):
     """A hillside sheepfold and a cairn above it, on the western rise.
 
@@ -2001,20 +2129,13 @@ def waymarks(M, t):
         y += 9.5
 
 
-def main():
-    argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
-
-    def opt(f, d=None):
-        return argv[argv.index(f) + 1] if f in argv else d
-
-    out = opt("--out", "public/assets/meadow.glb")
-    render_dir = opt("--render")
-
-    K.clear_scene()
-    M = A.palette()
-    # generated ground, written next to the assets and packed into the GLB
+def materials(M):
+    """The meadow's palette on top of the town's: flat colours for foliage,
+    tinted greyscale textures for stone and bark, the vertex-coloured ground.
+    A function rather than the top of `main()` so `tree_rack.py` can build a
+    tree with the materials it will actually wear."""
     os.makedirs("public/assets/tex", exist_ok=True)
-    for nm, fn in (("ground", surface_tex.ground_detail),):
+    for nm, fn in (("ground", surface_tex.grass_strokes),):
         path = os.path.abspath(f"public/assets/tex/{nm}.png")
         surface_tex.write_png(path, fn())
         M[f"{nm}_tex"] = K.image_material(
@@ -2052,6 +2173,9 @@ def main():
         # the amount another sixty metres of air is worth.
         "ridge_a":  K.material("ridge_a", (0.40, 0.53, 0.52), roughness=1.0),
         "ridge_b":  K.material("ridge_b", (0.60, 0.71, 0.79), roughness=1.0),
+        # clouds: warm white, a shade under the sky's horizon so they sit IN
+        # the haze rather than cut out of it
+        "cloud":    K.material("cloud", (0.93, 0.92, 0.90), roughness=1.0),
     })
 
     # TEXTURE THE STONE AND THE BARK. The town runs a texture pass and the
@@ -2075,6 +2199,21 @@ def main():
             f"m_{key}_tex", bpy.data.images.load(path, check_existing=True),
             roughness=0.95, preview=tint)
 
+    return M
+
+
+def main():
+    argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
+
+    def opt(f, d=None):
+        return argv[argv.index(f) + 1] if f in argv else d
+
+    out = opt("--out", "public/assets/meadow.glb")
+    render_dir = opt("--render")
+
+    K.clear_scene()
+    M = A.palette()
+    materials(M)
     t = A.Town(M)
     t.walk(build_terrain(M))
     landmark(M, t)
@@ -2118,6 +2257,7 @@ def main():
     approach(M, t)
     waymarks(M, t)
     backdrop(M, t)
+    clouds(M, t)
     scatter(M, t)
 
     town, floor = A.finish(t, name_town="MEADOW", name_floor="FLOOR_MEADOW")

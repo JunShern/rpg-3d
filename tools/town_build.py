@@ -265,6 +265,12 @@ def build_props(t):
     for x, y in ((-8.5, -6.0), (8.5, -6.0), (-8.5, 7.5), (5.0, 9.0),
                  (-4.6, -8.6), (12.0, 0.2)):
         A.lantern(t, x, y, h=3.2)
+    # BUNTING between the lamps, across the two long sides of the square. The
+    # rope hangs from just under each lantern's head, so the posts already
+    # there are what holds it up.
+    A.bunting(t, (-8.5, -6.0, 3.05), (8.5, -6.0, 3.05), sag=0.9, seed=0)
+    A.bunting(t, (-8.5, 7.5, 3.05), (5.0, 9.0, 3.05), sag=0.8, seed=1)
+    A.bunting(t, (8.5, -6.0, 3.05), (12.0, 0.2, 3.05), sag=0.5, seed=2)
 
     # THE YARD, east of the square, behind the east range.
     #
