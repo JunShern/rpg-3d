@@ -136,6 +136,27 @@ export const LOOKS = {
     sky: { top: 0x3b76c9, mid: 0x9cc3e8, horizon: 0xeddfcc, sun: 0xffe3ba },
     fog: { color: 0xe0dcd0, near: 38, far: 160 },
   },
+  // exposure candidates under review -- the key at 2.8 clips anything over
+  // 0.36 albedo into the lit band's ceiling, which is why sunlit earth came
+  // out cream. Collapsed into `painted` once one is chosen.
+  p2: {
+    label: 'p2', lit: false, outlines: true, rim: 1.0,
+    key: { color: 0xffe2bc, intensity: 1.7, position: [11, 17, 8] },
+    hemi: { sky: 0xbdd0ee, ground: 0x9c8668, intensity: 1.0 },
+    ambient: { color: 0x8a8ea8, intensity: 0.22 },
+    exposure: 1.15, albedo: 1, ramp: 'painted',
+    sky: { top: 0x3b76c9, mid: 0x9cc3e8, horizon: 0xeddfcc, sun: 0xffe3ba },
+    fog: { color: 0xe0dcd0, near: 38, far: 160 },
+  },
+  p3: {
+    label: 'p3', lit: false, outlines: true, rim: 1.0,
+    key: { color: 0xffe2bc, intensity: 2.2, position: [11, 17, 8] },
+    hemi: { sky: 0xbdd0ee, ground: 0x9c8668, intensity: 0.9 },
+    ambient: { color: 0x8a8ea8, intensity: 0.22 },
+    exposure: 1.05, albedo: 1, ramp: 'painted',
+    sky: { top: 0x3b76c9, mid: 0x9cc3e8, horizon: 0xeddfcc, sun: 0xffe3ba },
+    fog: { color: 0xe0dcd0, near: 38, far: 160 },
+  },
   // THE HOUR AFTER THE BEACON. Not a look you choose: the world slides into
   // it over a few seconds when the coals take, because a beacon lit at noon
   // is a campfire and a beacon lit against a darkening sky is a beacon.
