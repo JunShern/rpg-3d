@@ -113,6 +113,8 @@ export function makeNpcs({ scene, chars, groundAt, hud }) {
     for (let i = 0; i < def.id.length; i++) h = (h * 31 + def.id.charCodeAt(i)) | 0;
     const gesture = def.gesture ||
       ((h & 3) === 0 ? 'talk_emphatic' : 'talk');
+    // the walk is the run clip at half speed; nobody in this square is in a hurry
+    if (clips.run) clips.run.timeScale = 0.55;
     return { group, mixer, clips, current: idle || null, gesture };
   }
 
@@ -142,6 +144,9 @@ export function makeNpcs({ scene, chars, groundAt, hud }) {
         id: def.id, name: def.name, node: def.dialogue,
         x: def.x, z: def.z, y: def.y,
         facing: (def.facing || 0) * Math.PI / 180,
+        restFacing: (def.facing || 0) * Math.PI / 180,
+        path: def.path || null, leg: 0, wait: 1.0 + Math.random() * 3.0,
+        speed: def.speed || 1.1,
         reach: def.reach || REACH,
         b, yaw: (def.facing || 0) * Math.PI / 180,
       };
@@ -160,17 +165,47 @@ export function makeNpcs({ scene, chars, groundAt, hud }) {
     // window is open -- the player can still be nudged around by knockback or
     // by the camera settling -- so reading it here would hand the gesture to
     // whoever drifted closest mid-sentence.
-    const speaking = talking() ? speaker : null;
+    const talk0 = talking();
+    const speaking = talk0 ? speaker : null;
     for (const n of npcs) {
       n.b.mixer.update(dt);
-      setClip(n.b, n === speaking ? n.b.gesture : 'idle');
       const dx = n.x - pos.x, dz = n.z - pos.z;
       const d = Math.hypot(dx, dz);
+      const close = d < n.reach + 1.6 && Math.abs(n.gy - pos.y) < V_TOL;
+      // ERRANDS. A person with a `path` walks it -- waypoint to waypoint, a
+      // pause at each -- and stops for you the moment you are in reach, which
+      // is the whole difference between a square with people in it and a
+      // square with statues. The speaking person never walks off mid-line.
+      let walking = false;
+      if (n.path && !close && n !== speaking && !talk0) {
+        if (n.wait > 0) {
+          n.wait -= dt;
+        } else {
+          const [tx, tz] = n.path[n.leg];
+          const ex = tx - n.x, ez = tz - n.z;
+          const dist = Math.hypot(ex, ez);
+          if (dist < 0.15) {
+            n.leg = (n.leg + 1) % n.path.length;
+            n.wait = 2.5 + Math.random() * 4.0;
+            n.facing = n.restFacing;
+          } else {
+            const step = Math.min(dist, n.speed * dt);
+            n.x += ex / dist * step;
+            n.z += ez / dist * step;
+            n.facing = Math.atan2(ex, ez);
+            walking = true;
+            const g = groundAt(n.x, n.z, n.gy + 2);
+            if (g !== null) n.gy = g;
+            n.b.group.position.set(n.x, n.gy, n.z);
+          }
+        }
+      }
+      setClip(n.b, n === speaking ? n.b.gesture : (walking ? 'run' : 'idle'));
       // TURN TO FACE YOU. It is the whole of the body language budget and it
       // is what makes a standing figure read as a person rather than a statue
       // -- and it has to happen BEFORE you press anything, or the first frame
       // of every conversation is somebody's back.
-      const want = (d < n.reach + 1.6 && Math.abs(n.gy - pos.y) < V_TOL)
+      const want = close
         ? Math.atan2(pos.x - n.x, pos.z - n.z)
         : n.facing;
       const turn = ((want - n.yaw + Math.PI * 3) % (Math.PI * 2)) - Math.PI;

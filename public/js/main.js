@@ -709,14 +709,20 @@ const NPC_ROSTER = [
     x: 15.6, z: -1.4,  facing: 210, dialogue: 'hobb.hail' },
   { id: 'sexton', name: 'The Sexton', rig: 'finn.npc',  tint: '#a9a4b4', scale: 0.97,
     x: -2.6, z: 11.2,  facing: 200, dialogue: 'sexton.hail' },
+  // ERRANDS: three of them walk. Waypoints are on open paving, checked
+  // against the town's solids by `__npcPaths()`; the loop returns to the
+  // spot the dialogue was written for.
   { id: 'nell',   name: 'Nell',       rig: 'pip.npc',   tint: '#f0d79a', scale: 0.74,
-    x: 3.4,  z: 1.2,   facing: 40,  dialogue: 'nell.hail' },
+    x: 3.4,  z: 1.2,   facing: 40,  dialogue: 'nell.hail', speed: 1.35,
+    path: [[7.6, -3.2], [6.0, -7.6], [3.4, 1.2]] },
   { id: 'finn',   name: 'Finn',       rig: 'finn.npc',
-    x: 6.4,  z: 16.6,  facing: 180, dialogue: 'finn.hail' },
+    x: 6.4,  z: 16.6,  facing: 180, dialogue: 'finn.hail', speed: 1.0,
+    path: [[2.0, 14.6], [-3.5, 15.0], [6.4, 16.6]] },
   { id: 'mara',   name: 'Mara',       rig: 'mara.npc',
     x: 25.0, z: -4.6,  facing: 300, dialogue: 'mara.hail', y: 1.2 },
   { id: 'pip',    name: 'Pip',        rig: 'pip.npc',
-    x: 1.6,  z: -9.4,  facing: 20,  dialogue: 'pip.hail' },
+    x: 1.6,  z: -9.4,  facing: 20,  dialogue: 'pip.hail', speed: 1.25,
+    path: [[-4.5, -5.0], [-7.0, 1.0], [1.6, -9.4]] },
   // THE TWO TRAVELLERS ARE OUT IN IT. Lake never leaves the step he found;
   // Maren is at the ruin, thirty metres off the road, which is the point of
   // the ruin. Finding somebody you know out in the meadow is worth more than
@@ -2467,6 +2473,9 @@ const LOCK_POLAR = 1.06;
 
   // camera
   cam.autoDelay = Math.max(0, cam.autoDelay - dt);
+  // the title card turns slowly round the hero: a demo that opens on a
+  // static frame opens on a screenshot
+  if (document.body.classList.contains('title')) cam.az += dt * 0.09;
   const lock = combat && combat.lockTarget;
   if (lock && !lock.dead) {
     // BEHIND, BUT OFF THE LINE.
@@ -3352,6 +3361,24 @@ globalThis.__flags = () => (window.GS && GS.state ? { ...GS.state.flags } : null
 Object.defineProperty(globalThis, '__interact', { get: () => interact, configurable: true });
 Object.defineProperty(globalThis, '__air', { get: () => air, configurable: true });
 Object.defineProperty(globalThis, '__grass', { get: () => grass, configurable: true });
+// every errand, sampled every half metre against the town's collision boxes
+globalThis.__npcPaths = () => NPC_ROSTER.filter((d) => d.path).map((d) => {
+  const pts = [[d.x, d.z], ...d.path];
+  const hits = [];
+  for (let i = 0; i + 1 < pts.length; i++) {
+    const [ax, az] = pts[i], [bx, bz] = pts[i + 1];
+    const L = Math.hypot(bx - ax, bz - az);
+    for (let u = 0; u <= L; u += 0.5) {
+      const x = ax + (bx - ax) * u / L, z = az + (bz - az) * u / L;
+      for (const s of SOLIDS) {
+        const lx = (x - s.x) * s.c + (z - s.z) * s.s, lz = -(x - s.x) * s.s + (z - s.z) * s.c;
+        if (Math.abs(lx) < s.hx + 0.3 && Math.abs(lz) < s.hz + 0.3 && s.top > 0.4 && s.base < 1.0)
+          { hits.push(`${d.id} leg${i} @${x.toFixed(1)},${z.toFixed(1)} top${s.top.toFixed(1)}`); break; }
+      }
+    }
+  }
+  return `${d.id}: ${hits.length ? hits.slice(0, 4).join(' | ') : 'clear'}`;
+});
 globalThis.__movers = () => MOVERS.map((m) => `${m.name}${m.obj ? '' : '(unresolved)'} t=${m.t}`);
 globalThis.__wind = WIND;  // set .value directly to A/B the sway
 Object.defineProperty(globalThis, '__breakables', { get: () => breakables, configurable: true });
