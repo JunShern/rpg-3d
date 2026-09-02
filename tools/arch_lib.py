@@ -1699,22 +1699,25 @@ def facade_detail(t, w, d, h, storeys, roof_h, seed, gable_front, plaster):
     """
     M, out = t.M, []
     hw, hd = w / 2, d / 2
-    # QUOINS: alternating long and short stone blocks up every corner. The
-    # single strongest "hand-built" cue there is, and the one thing that
-    # separates a plaster box from a rendered building at any distance.
+    # QUOINS: a dressed-stone strip up every corner, with the joints cut in.
+    # The first pass stacked alternating blocks, and under an inverted-hull
+    # outline every block got its own ring -- the corners read as ladders of
+    # bricks. One strip per corner, barely proud of the wall, with a shallow
+    # dark joint every course: the outline draws the strip, not the courses.
     if seed % 3 != 1:
-        zq = 0.32
-        k = 0
-        while zq < h - 0.20:
-            long = 0.34 if k % 2 else 0.22
-            for sx in (-1, 1):
-                for sy in (-1, 1):
-                    out.append(box("bld_quoin",
-                                   (sx * (hw + 0.035), sy * (hd + 0.035), zq + 0.19),
-                                   (long if k % 2 else 0.22, 0.22 if k % 2 else long, 0.19),
-                                   M["stone"], bevel=0.03, seg=1))
-            zq += 0.40
-            k += 1
+        zt = h - 0.10
+        for sx in (-1, 1):
+            for sy in (-1, 1):
+                out.append(box("bld_quoin", (sx * (hw + 0.012), sy * (hd + 0.012), (0.32 + zt) / 2),
+                               (0.20, 0.20, (zt - 0.32) / 2), M["stone"], bevel=0.02, seg=1))
+                zq = 0.32 + 0.44
+                while zq < zt - 0.2:
+                    # the joint: a thin box just outside the strip's face, in
+                    # timber colour, which is the darkest matte in the palette
+                    out.append(box("bld_quoin_joint",
+                                   (sx * (hw + 0.012), sy * (hd + 0.012), zq),
+                                   (0.205, 0.205, 0.012), M["timber"], bevel=0.004, seg=1))
+                    zq += 0.44
     # RAFTER ENDS under the eaves. The roof already overhangs; this is what
     # holds it up, and a row of them is the one horizontal rhythm a facade
     # gets that is not a window.

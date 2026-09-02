@@ -16,6 +16,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { makePost } from './post.js';
 import { makeFlags } from './flags.js';
 import { makeInteract } from './interact.js';
+import { makeAmbient } from './ambient.js';
 import {
   toonMaterial, flatMaterial, outlineMaterial, outlineGeometry, skyDome,
   RAMP_3, RAMP_SOFT, setRimScale, WIND, LOOKS, surfaceMaterial,
@@ -41,6 +42,7 @@ let post = null;
 // cast are in, since both refer to things by name.
 let flags = null;
 let interact = null;
+let air = null;   // dust and petals in the air round the player
 const EMBERS = [];
 
 const scene = new THREE.Scene();
@@ -797,6 +799,7 @@ Promise.all(ROSTER.concat(NPC_RIGS).map((def) =>
   npcs = makeNpcs({ scene, chars, groundAt, hud });
   const n = npcs.load(NPC_ROSTER);
   setupWorld();
+  air = makeAmbient({ scene, groundAt });
   console.log('[npc]', n + ' placed:', npcs.debug());
   if (window.EBUI) window.EBUI.assetBase = '/assets/';
   if (window.Dialogue) window.Dialogue.load().catch((e) => console.warn('[dlg]', e));
@@ -3075,6 +3078,7 @@ function frame(dt) {
   updateCombat(dt, dt);
   if (cur) { cur.mixer.update(sdt); stepCarry(); applyFootIK(cur, sdt); }
   stepWorld(sdt);
+  if (air) air.update(sdt, pos);
   updateTrail(sdt);
   updateThreatLines(sdt);
   updateSmash(sdt);
@@ -3306,6 +3310,7 @@ globalThis.__rim = setRimScale; // __rim(0) renders the frame with no rim light
 // The world's memory and its second verb, for probes.
 globalThis.__flags = () => (window.GS && GS.state ? { ...GS.state.flags } : null);
 Object.defineProperty(globalThis, '__interact', { get: () => interact, configurable: true });
+Object.defineProperty(globalThis, '__air', { get: () => air, configurable: true });
 globalThis.__movers = () => MOVERS.map((m) => `${m.name}${m.obj ? '' : '(unresolved)'} t=${m.t}`);
 globalThis.__wind = WIND;  // set .value directly to A/B the sway
 Object.defineProperty(globalThis, '__breakables', { get: () => breakables, configurable: true });
