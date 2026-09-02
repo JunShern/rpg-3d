@@ -347,7 +347,11 @@ def build_props(t):
     A.rooftop(t, -9.0, 15.0, 8.4, 2.4, ROOF_Z, name="roof_sw")
     # what the climb is FOR: the only place you can look down into the square,
     # and a find that is not visible from the ground at all
-    A.embercap(t, -11.4, 15.0, z=ROOF_Z + 0.06)
+    # THE CHEST AT THE END OF THE LEAD -- the "something good" Nell talks
+    # about, which until now was an embercap like any other. The cap moves a
+    # metre along so the count stays what the HUD says it is.
+    A.chest(t, -11.4, 15.0, z0=ROOF_Z, yaw=90.0)
+    A.embercap(t, -10.2, 15.9, z=ROOF_Z + 0.06)
     A.embercap(t, 17.0, 5.6, z=ROOF_Z + 0.06)
 
     # EMBERCAPS: four in the town, none of them on the walk from the spawn
@@ -474,13 +478,6 @@ def main():
     # lamp being below the paving, which described the cellar and nothing else.
     man["lights"] = [{"x": round(x, 3), "y": round(z, 3), "z": round(-y, 3), "k": k}
                      for x, y, z, k in t.lights]
-    # things the runtime animates: where they turn, and where you have to swing
-    # to set them going -- which for a bell is at the bottom of a 20 m rope
-    man["movers"] = [{"name": nm,
-                      "x": round(px, 3), "y": round(pz, 3), "z": round(-py, 3),
-                      "hx": round(hx, 3), "hy": round(hz, 3), "hz": round(-hy, 3),
-                      "r": round(hr, 3)}
-                     for nm, _g, (px, py, pz), (hx, hy, hz), hr in t.movers]
     man["shafts"] = [{"x": round(x, 3), "z": round(-y, 3),
                       "hx": round(hx, 3), "hz": round(hy, 3),
                       "y0": round(z0, 3), "y1": round(z1, 3),

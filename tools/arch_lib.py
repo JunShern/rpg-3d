@@ -260,6 +260,17 @@ class Town:
                 {"x": round(cx, 3), "y": round(cz, 3), "z": round(-cy, 3),
                  "r": round(r, 3)}
                 for cx, cy, cz, r in self.camblocks],
+            # things the runtime animates: where they turn, and where you have
+            # to stand to set them going. Serialised HERE, once, because the
+            # first region to gain a mover after the town exported the node and
+            # a manifest with no entry for it -- the runtime found MOVE_beacon
+            # in the glb and nothing that told it where the player had to be.
+            "movers": [
+                {"name": nm,
+                 "x": round(px, 3), "y": round(pz, 3), "z": round(-py, 3),
+                 "hx": round(hx, 3), "hy": round(hz, 3), "hz": round(-hy, 3),
+                 "r": round(hr, 3)}
+                for nm, _g, (px, py, pz), (hx, hy, hz), hr in self.movers],
         }
 
 
@@ -1188,6 +1199,45 @@ def barrel(t, x, y, r=0.34, h=0.82, z0=0.0):
     t.breakable(o, band)
     t.solid(x, y, r, r, top=z0 + h)
     return [o, band]
+
+
+def chest(t, x, y, z0=0.0, yaw=0.0, name="chest", w=0.46, d=0.30, h=0.30):
+    """A chest you OPEN rather than smash.
+
+    The body is joined into the town like any prop; the LID is a mover, so the
+    runtime can swing it up on its hinge and leave it there. That is the whole
+    difference between a chest and a crate: a crate answers the sword, a chest
+    answers the `open` clip, and until this existed that clip had nothing in
+    the world to act on.
+
+    Hinge is the back top edge (+y before yaw). `hit` is the chest's own
+    footprint, because unlike the bell you use this from where it stands.
+    """
+    M = t.M
+    iron = M["iron"] if "iron" in M else M["brass"]
+    lid_h = 0.10
+    body = box(f"{name}_body", (x, y, z0 + h * 0.5), (w, d, h * 0.5), M["timber"],
+               bevel=0.03)
+    bands = [box(f"{name}_band{i}", (x + sx * w * 0.58, y, z0 + h * 0.5),
+                 (0.028, d * 1.03, h * 0.52), iron, bevel=0.01)
+             for i, sx in enumerate((-1.0, 1.0))]
+    clasp = box(f"{name}_clasp", (x, y - d * 1.02, z0 + h - 0.03),
+                (0.04, 0.02, 0.055), M["brass"], bevel=0.008)
+    lid = box(f"{name}_lid", (x, y, z0 + h + lid_h * 0.5),
+              (w * 1.03, d * 1.03, lid_h * 0.5), M["timber"], bevel=0.03)
+    lid_bands = [box(f"{name}_lidband{i}", (x + sx * w * 0.58, y, z0 + h + lid_h * 0.5),
+                     (0.028, d * 1.06, lid_h * 0.56), iron, bevel=0.01)
+                 for i, sx in enumerate((-1.0, 1.0))]
+    parts = [body, *bands, clasp, lid, *lid_bands]
+    if yaw:
+        for o in parts:
+            K.transform(o, rotate=(0.0, 0.0, yaw), around=(x, y, 0.0))
+    t.add(body, *bands, clasp)
+    a = math.radians(yaw)
+    hinge = (x - math.sin(a) * d, y + math.cos(a) * d, z0 + h)
+    t.moving(name, [lid, *lid_bands], pivot=hinge, hit=(x, y, z0), hit_r=1.2)
+    t.solid(x, y, w, d, yaw=a, top=z0 + h + lid_h)
+    return parts
 
 
 def crate(t, x, y, s=0.42, yaw=0.0, z0=0.0):

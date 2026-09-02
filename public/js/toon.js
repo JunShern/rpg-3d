@@ -15,15 +15,29 @@
 import * as THREE from 'three';
 
 /** A 1-D nearest-filtered ramp.  `steps` are 0..255 luminance stops. */
-export function gradientMap(steps) {
+export function gradientMap(steps, smooth = false) {
   const tex = new THREE.DataTexture(
     new Uint8Array(steps), steps.length, 1, THREE.RedFormat);
-  tex.minFilter = THREE.NearestFilter;
-  tex.magFilter = THREE.NearestFilter;
+  // NEAREST gives the hard cel step; LINEAR turns the same table into a ramp
+  // with soft terminators -- still banded, but the band edges become short
+  // gradients instead of a razor line. Painted-toon (Ni no Kuni, BotW) is the
+  // second one: you can see where the light stops without a saw-tooth edge
+  // crawling across every curved surface as the character turns.
+  tex.minFilter = smooth ? THREE.LinearFilter : THREE.NearestFilter;
+  tex.magFilter = smooth ? THREE.LinearFilter : THREE.NearestFilter;
   tex.generateMipmaps = false;
   tex.needsUpdate = true;
   return tex;
 }
+
+// The painted ramp: a deep shadow band that holds, a soft roll into a broad
+// midtone, and a short bright lip at the top so the key still reads as a key.
+export const RAMP_PAINTED = gradientMap(
+  [54, 54, 60, 92, 148, 164, 168, 170, 196, 248], true);
+// candidates under review -- collapsed into RAMP_PAINTED once one is chosen
+export const RAMP_PAINTED2 = gradientMap(
+  [66, 66, 72, 100, 150, 164, 168, 170, 196, 248], true);
+export const RAMPS = { cel: null, painted: RAMP_PAINTED, painted2: RAMP_PAINTED2 };
 
 // Three bands: deep shadow, a wide midtone that carries the local colour, and a
 // narrow lit band.  Four+ bands start looking like ordinary smooth shading.
@@ -100,16 +114,57 @@ export function setRimScale(k) {
  * roughly the inverse of what the ramp was doing.
  */
 export const LOOKS = {
+  // THE LOOK. Warm key, cool sky fill, a soft-terminator ramp, a real horizon
+  // and a sun in the dome. Shade is cool by HUE, not just darker: that is what
+  // separates a painted afternoon from a lit model. The `toon` look below is
+  // kept as it was, as the A/B control.
+  painted: {
+    label: 'painted',
+    lit: false,
+    outlines: true,
+    rim: 1.0,
+    key: { color: 0xffd8a4, intensity: 2.9, position: [11, 17, 8] },
+    hemi: { sky: 0xb4c8f0, ground: 0xa27f5e, intensity: 1.0 },
+    ambient: { color: 0x7d88b2, intensity: 0.16 },
+    exposure: 1.0,
+    albedo: 1,
+    ramp: 'painted',
+    sky: { top: 0x3b76c9, mid: 0x9cc3e8, horizon: 0xeddfcc, sun: 0xffe3ba },
+    fog: { color: 0xe4dac8, near: 34, far: 150 },
+  },
+  painted2: {
+    label: 'painted2',
+    lit: false, outlines: true, rim: 1.0,
+    key: { color: 0xffe2bc, intensity: 2.8, position: [11, 17, 8] },
+    hemi: { sky: 0xbdd0ee, ground: 0x9c8668, intensity: 1.0 },
+    ambient: { color: 0x8a8ea8, intensity: 0.22 },
+    exposure: 1.0, albedo: 1, ramp: 'painted2',
+    sky: { top: 0x3b76c9, mid: 0x9cc3e8, horizon: 0xeddfcc, sun: 0xffe3ba },
+    fog: { color: 0xe0dcd0, near: 38, far: 160 },
+  },
+  painted3: {
+    label: 'painted3',
+    lit: false, outlines: true, rim: 1.0,
+    key: { color: 0xfff0dc, intensity: 2.8, position: [11, 17, 8] },
+    hemi: { sky: 0xb4c8f0, ground: 0x968a66, intensity: 1.0 },
+    ambient: { color: 0x8a8ea8, intensity: 0.20 },
+    exposure: 1.0, albedo: 1, ramp: 'painted2',
+    sky: { top: 0x3b76c9, mid: 0x9cc3e8, horizon: 0xeddfcc, sun: 0xffe3ba },
+    fog: { color: 0xe0dcd0, near: 38, far: 160 },
+  },
   toon: {
     label: 'toon',
     lit: false,
     outlines: true,
     rim: 1,
-    key: { color: 0xfff2d8, intensity: 2.5 },
+    key: { color: 0xfff2d8, intensity: 2.5, position: [7, 24, 9] },
     hemi: { sky: 0xd2e2ee, ground: 0x8f7f6a, intensity: 0.88 },
     ambient: { color: 0x9d9aa4, intensity: 0.26 },
     exposure: 1.02,
     albedo: 1,
+    ramp: 'cel',
+    sky: { top: 0x5fa8e8, mid: null, horizon: 0xd6ebf7, sun: 0x000000 },
+    fog: { color: 0xd2e6f3, near: 42, far: 130 },
   },
   lit: {
     label: 'lit',
@@ -150,7 +205,12 @@ function toAlbedo(c, k) {
  * One recipe, either shading model. `look` is a member of LOOKS.
  */
 export function surfaceMaterial(look, color, opts = {}) {
-  if (!look.lit) return toonMaterial(color, opts);
+  if (!look.lit) {
+    const gradient = RAMPS[look.ramp] || RAMP_3;
+    // the ramp is part of the program, so it has to be part of the cache key
+    return toonMaterial(color, { gradient, ...opts,
+                                 key: `${opts.key || 'default'}:${look.ramp || 'cel'}` });
+  }
   const { map = null, vertexColors = false, opacity = 1, roughness = 0.92 } = opts;
   return new THREE.MeshStandardMaterial({
     color: toAlbedo(color instanceof THREE.Color ? color : new THREE.Color(color),
@@ -320,11 +380,21 @@ export function outlineGeometry(geo) {
 }
 
 /** A vertical sky gradient on an inward-facing sphere. */
-export function skyDome(top, horizon, radius = 220) {
+export function skyDome(top, horizon, radius = 220, mid = null, sun = 0x000000) {
+  // Three stops rather than two, and a sun. A two-colour gradient is the
+  // single most recognisable "default engine" tell there is; the thing that
+  // makes a painted sky is the HORIZON BAND -- a pale, slightly warm strip
+  // that the zenith blue falls into -- and a direction the light is actually
+  // coming from. The sun is two lobes: a tight disc and a wide, faint halo.
+  const midColor = mid !== null ? new THREE.Color(mid)
+    : new THREE.Color(top).lerp(new THREE.Color(horizon), 0.55);
   const mat = new THREE.ShaderMaterial({
     uniforms: {
       uTop: { value: new THREE.Color(top) },
+      uMid: { value: midColor },
       uHorizon: { value: new THREE.Color(horizon) },
+      uSun: { value: new THREE.Vector3(0.3, 0.8, 0.5).normalize() },
+      uSunColor: { value: new THREE.Color(sun) },
     },
     vertexShader: /* glsl */`
       varying vec3 vWorld;
@@ -336,11 +406,20 @@ export function skyDome(top, horizon, radius = 220) {
     fragmentShader: /* glsl */`
       #include <common>
       uniform vec3 uTop;
+      uniform vec3 uMid;
       uniform vec3 uHorizon;
+      uniform vec3 uSun;
+      uniform vec3 uSunColor;
       varying vec3 vWorld;
       void main() {
-        float h = clamp(normalize(vWorld).y * 1.35 + 0.18, 0.0, 1.0);
-        gl_FragColor = vec4(mix(uHorizon, uTop, pow(h, 0.75)), 1.0);
+        vec3 dir = normalize(vWorld);
+        float h = clamp(dir.y * 1.35 + 0.18, 0.0, 1.0);
+        vec3 col = mix(uHorizon, uMid, smoothstep(0.0, 0.42, h));
+        col = mix(col, uTop, smoothstep(0.30, 1.0, h));
+        float s = max(dot(dir, uSun), 0.0);
+        col += uSunColor * (pow(s, 260.0) * 1.4 + pow(s, 10.0) * 0.16
+                            + pow(s, 3.0) * 0.05);
+        gl_FragColor = vec4(col, 1.0);
         #include <colorspace_fragment>
       }
     `,

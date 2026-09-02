@@ -22,7 +22,10 @@
     pointer-events: none;
     letter-spacing: 0.01em;
   }
-  #hud { top: 12px; left: 12px; }
+  /* THE DEBUG READOUT IS OFF BY DEFAULT. fps, draws and tris are for whoever is
+     tuning the game, not whoever is playing it; ` (backquote) brings it up. */
+  #hud { top: 12px; left: 12px; display: none; }
+  body.debug #hud { display: block; }
 
   /* ---- what you just got ---------------------------------------------
      A short stack of lines above the vitality bar. It exists because the
@@ -52,12 +55,24 @@
   /* ABOVE the vitality bar, not below it: at bottom:36 this sat underneath
      the help bar and was invisible in every capture. */
   #purse {
-    position: fixed; left: 24px; bottom: 98px; pointer-events: none;
-    font: 600 12px/1 ui-monospace, Menlo, monospace; letter-spacing: .12em;
+    position: fixed; left: 24px; bottom: 30px; pointer-events: none;
+    font: 600 12px/1 system-ui, sans-serif; letter-spacing: .10em;
     color: #ffe9a8; text-shadow: 0 1px 4px #000b;
   }
   #purse b { font-size: 15px; }
-  #purse .lv { color: #cfe0f2; margin-left: 14px; }
+  #purse::before { content: '◈ '; color: #ffd27a; }
+  /* THE ONE LINE THAT SAYS WHAT YOU ARE DOING. Top right, under the purse,
+     quiet: an objective is a reminder, not an instruction. */
+  #task {
+    position: absolute; right: 16px; top: 52px; max-width: 34ch;
+    font: 13px/1.35 system-ui, sans-serif; color: #f3ead8; text-align: right;
+    letter-spacing: .02em; text-shadow: 0 1px 2px rgba(0,0,0,.55);
+    opacity: .9; transition: opacity 240ms ease;
+  }
+  #task::before { content: '◆ '; color: #ffd27a; }
+  #task:empty { opacity: 0; }
+  body.talking #task { opacity: 0; }
+  #purse .lv { display: none; }
   body.talking #gains, body.talking #purse { opacity: 0; transition: opacity 140ms ease; }
   /* WHILE A CONVERSATION IS UP, THE DEBUG FURNITURE GETS OUT OF THE WAY. The
      dialogue window is bottom-anchored and carries its own "E/Enter continue"
@@ -68,17 +83,50 @@
   body.talking #help, body.talking #hud, body.talking #vitals { opacity: 0;
     transition: opacity 140ms ease; }
   #help, #hud, #vitals { transition: opacity 200ms ease; }
-  #help { bottom: 12px; left: 12px; color: #b6c4d8; }
-  #help b { color: #ffe9a8; font-weight: 600; }
+  /* THE HELP BAR IS FURNITURE, so it sits in the far corner in the quietest
+     type on the screen. Keys are drawn as keycaps: a bold letter in running
+     text is a word, a boxed one is a button. */
+  #help {
+    bottom: 12px; right: 12px; left: auto; color: #aab6c8;
+    background: rgba(14, 18, 27, 0.42); border-color: rgba(190, 214, 245, 0.10);
+    font: 11px/1.7 system-ui, sans-serif; letter-spacing: .02em; padding: 6px 10px;
+  }
+  #help b, #talkprompt b, #useprompt b {
+    display: inline-block; min-width: 1.5em; padding: 0 .35em; margin: 0 .1em;
+    font: 600 10.5px/1.6 ui-monospace, Menlo, monospace; text-align: center;
+    color: #ffe9a8; background: rgba(255, 233, 168, 0.10);
+    border: 1px solid rgba(255, 233, 168, 0.42); border-bottom-width: 2px;
+    border-radius: 4px; vertical-align: 0.05em;
+  }
+  #help i { font-style: normal; opacity: .45; margin: 0 .4em; }
+  /* THE TWO PROMPTS ARE ONE PROMPT. A person and a chest are asked for the
+     same way, and the box should say so. */
+  #talkprompt, #useprompt {
+    font: 500 13px/1.5 system-ui, sans-serif; letter-spacing: .03em !important;
+    color: #f3ead8; padding: 8px 14px; border-radius: 999px;
+    background: rgba(14, 18, 27, 0.72); border-color: rgba(255, 233, 168, 0.22);
+  }
+  #talkprompt b, #useprompt b { font-size: 12px; margin-right: .35em; }
   #loading { top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 13px; padding: 14px 20px; }
 
   /* ---- health -------------------------------------------------------- */
   #vitals {
-    position: fixed; left: 24px; bottom: 52px; width: 268px;
-    pointer-events: none; font: 600 11px/1 ui-monospace, Menlo, monospace;
+    position: fixed; left: 24px; bottom: 56px; width: 268px;
+    pointer-events: none; font: 600 11px/1 system-ui, sans-serif;
     letter-spacing: .14em; color: #cfe0f2; text-shadow: 0 1px 3px #0008;
   }
-  #vitals .lab { margin-bottom: 6px; opacity: .82; }
+  /* WHO, AND HOW FAR ALONG. The name is the one piece of text on the screen
+     set in display weight: it is the player's, and everything else is the
+     game's. */
+  #vitals .lab {
+    margin-bottom: 7px; display: flex; align-items: baseline; gap: 10px;
+    letter-spacing: .04em;
+  }
+  #vitals #vname { font: 700 17px/1 system-ui, sans-serif; color: #fff6e6;
+                   letter-spacing: .02em; }
+  #vitals #vlv { font: 700 10px/1 ui-monospace, Menlo, monospace; color: #0f1218;
+                 background: #ffd27a; border-radius: 3px; padding: 3px 5px 2px;
+                 letter-spacing: .08em; }
   #hpwrap {
     height: 16px; border-radius: 3px; overflow: hidden; position: relative;
     background: rgba(8, 11, 18, .78);
@@ -161,7 +209,7 @@
   </svg></div>
 
   <div id="vitals">
-    <div class="lab">VITALITY</div>
+    <div class="lab"><span id="vname">—</span><span id="vlv">LV 1</span></div>
     <div id="hpwrap"><div id="hplag"></div><div id="hpfill"></div></div>
   </div>
 
@@ -169,13 +217,12 @@
   <div class="panel" id="loading">building the scene…</div>
   <div id="gains"></div>
   <div id="purse"></div>
+  <div id="task"></div>
 
   <div class="panel" id="help">
-    <b>WASD</b> move &nbsp;·&nbsp; <b>drag</b> orbit &nbsp;·&nbsp;
-    <b>J</b>/<b>click</b> attack &nbsp;·&nbsp; <b>Q</b> lock-on &nbsp;·&nbsp;
-    <b>Tab</b> next target &nbsp;·&nbsp; <b>space</b> jump &nbsp;·&nbsp;
-    <b>shift</b> slip &nbsp;·&nbsp; <b>space</b>+<b>J</b> falling cut &nbsp;·&nbsp;
-    <b>R</b> sheathe &nbsp;·&nbsp; <b>C</b> character
+    <b>WASD</b> move<i>·</i><b>J</b> attack<i>·</i><b>E</b> talk / use<i>·</i>
+    <b>Q</b> lock<i>·</i><b>Tab</b> target<i>·</i><b>Space</b> jump<i>·</i>
+    <b>Shift</b> slip<i>·</i><b>R</b> sheathe<i>·</i><b>C</b> swap<i>·</i><b>Esc</b> menu
   </div>
 
   <!-- THE DIALOGUE WINDOW, vendored from the Emberbrook project unmodified.

@@ -209,6 +209,9 @@ export function makeBreakables(scene, solids) {
 
   return { collect, hit, update, get count() { return props.length; },
            get found() { return found; },
+           // a probe can stand at the beacon with five caps without walking
+           // the meadow for them -- the walk is tested by the caps check
+           set found(n) { found = n; },
            get pods() { return props.filter((p) => p.pod).length; },
            /** For probes: where each prop thinks it is. */
            debug: () => props.map((p) => `${p.mesh.name}(${p.x.toFixed(1)},${p.z.toFixed(1)} r${p.r.toFixed(1)})`).join(' '),

@@ -13,6 +13,9 @@ import * as THREE from 'three';
 import { makeNpcs } from './npc.js';
 import { makeDrops } from './drops.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { makePost } from './post.js';
+import { makeFlags } from './flags.js';
+import { makeInteract } from './interact.js';
 import {
   toonMaterial, flatMaterial, outlineMaterial, outlineGeometry, skyDome,
   RAMP_3, RAMP_SOFT, setRimScale, WIND, LOOKS, surfaceMaterial,
@@ -31,19 +34,32 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.02;
+// The post stack owns the final frame; built on the first resize, because it
+// needs a size and the renderer does not have one until then.
+let post = null;
+// The world's memory and its second verb -- built once the regions and the
+// cast are in, since both refer to things by name.
+let flags = null;
+let interact = null;
+const EMBERS = [];
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(52, 1, 0.1, 400);
 const world = new THREE.Group();
 scene.add(world);
 
-scene.add(skyDome(0x5fa8e8, 0xd6ebf7));
+const sky = skyDome(0x5fa8e8, 0xd6ebf7);
+scene.add(sky);
 scene.fog = new THREE.Fog(0xd2e6f3, 42, 130);
 
 // ------------------------------------------------------------------- lights
 
 const key = new THREE.DirectionalLight(0xfff2d8, 2.5);
-key.position.set(7, 24, 9);
+// WHERE THE SUN IS, as an offset from the player: the shadow frustum follows
+// them every frame (see `step`), so this is the one vector that decides the
+// light direction and it has to be the look's, not a literal in the loop.
+const KEY_OFFSET = new THREE.Vector3(7, 24, 9);
+key.position.copy(KEY_OFFSET);
 key.castShadow = true;
 key.shadow.mapSize.set(2048, 2048);
 key.shadow.camera.near = 1;
@@ -265,7 +281,7 @@ const TOWN_LOOK = {
 // load is what makes the switch possible at all -- by the time the material
 // exists the GLB's own colour and map have been thrown away.
 const SURFACES = [];       // { mesh, kind, name, color, map, vcol, opts }
-let LOOK = LOOKS.toon;
+let LOOK = LOOKS.painted;
 let breakables = null;     // the props that come apart -- see breakables.js
 const SOLIDS = [];         // oriented boxes, from every region's manifest
 const PLATFORMS = [];      // flat tops ABOVE the analytic ground
@@ -591,7 +607,8 @@ function buildCharacter(def, gltf) {
     const a = mixer.clipAction(clip);
     clips[clip.name] = a;
     if (clip.name === 'attack' || clip.name === 'jump' || clip.name === 'land'
-        || clip.name === 'sheathe' || clip.name === 'draw') {
+        || clip.name === 'sheathe' || clip.name === 'draw'
+        || clip.name === 'open' || clip.name === 'cast_fire') {
       a.setLoop(THREE.LoopOnce, 1);
       a.clampWhenFinished = true;        // `jump` HOLDS its airborne pose
     }
@@ -635,6 +652,8 @@ function selectCharacter(name) {
   // they may never have been synced -- GS's `change` only fires on a change.
   syncWeapon();
   hud.dataset.who = name;
+  const vname = document.getElementById('vname');
+  if (vname) vname.textContent = name;
 }
 
 // ------------------------------------------------------------------ people
@@ -720,8 +739,9 @@ function gain(text, kind) {
 function purse() {
   if (!purseEl || !window.GS || !GS.ok) return;
   const me = GS.state.party.find((m) => m.active) || GS.state.party[0];
-  purseEl.innerHTML = `<b>${GS.state.gold}</b> g`
-    + (me ? `<span class="lv">LV ${me.level}</span>` : '');
+  purseEl.innerHTML = `<b>${GS.state.gold}</b> g`;
+  const vlv = document.getElementById('vlv');
+  if (vlv && me) vlv.textContent = `LV ${me.level}`;
 }
 
 Promise.all(ROSTER.concat(NPC_RIGS).map((def) =>
@@ -772,6 +792,7 @@ Promise.all(ROSTER.concat(NPC_RIGS).map((def) =>
 
   npcs = makeNpcs({ scene, chars, groundAt, hud });
   const n = npcs.load(NPC_ROSTER);
+  setupWorld();
   console.log('[npc]', n + ' placed:', npcs.debug());
   if (window.EBUI) window.EBUI.assetBase = '/assets/';
   if (window.Dialogue) window.Dialogue.load().catch((e) => console.warn('[dlg]', e));
@@ -839,9 +860,12 @@ addEventListener('keydown', (e) => {
   // is in reach, E talks; otherwise E is still a swing. J is always a swing,
   // which means there is never a moment where you cannot attack.
   if (e.code === 'KeyE' && npcs && npcs.tryTalk()) { e.preventDefault(); return; }
+  // ...then a THING in reach -- a chest, the beacon -- and only then a swing
+  if (e.code === 'KeyE' && interact && interact.tryUse()) { e.preventDefault(); return; }
   if (e.code === 'KeyJ' || e.code === 'KeyE') { e.preventDefault(); attack(); }
   if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') { e.preventDefault(); dodge(); }
   if (e.code === 'KeyC') { e.preventDefault(); cycleCharacter(); }
+  if (e.code === 'Backquote') { e.preventDefault(); document.body.classList.toggle('debug'); }
   if (e.code === 'KeyR') { e.preventDefault(); toggleCarry(); }
   if (e.code === 'KeyQ') { e.preventDefault(); if (combat) combat.toggleLock(); }
   if (e.code === 'Tab') { e.preventDefault(); if (combat) combat.cycleLock(); }
@@ -1724,6 +1748,8 @@ function startCombat() {
       // XP IS IMMEDIATE, because it is not a thing -- it is the fight itself
       // paying out, and it belongs on the same frame as the kill.
       if (m.xp) { G.grantXp(m.xp); gain(`+${m.xp} XP`, 'xp'); }
+      // the town hears about it: "you're the one who killed a bellow"
+      if (flags) { flags.once('kill.first'); flags.once('kill.' + species); }
       // GOLD AND ITEMS ARE OBJECTS, and they come out of the body. The whole
       // point is that something visibly LEAVES the creature: the numbers used
       // to move silently inside the save and the player reported, correctly,
@@ -2413,7 +2439,7 @@ const LOCK_POLAR = 1.06;
   // stayed in her hand. Nothing errored: the state machine sat there holding a
   // clip that was no longer running.
   if (cur && !attacking && !carry && grounded && !landing && slip.t <= 0
-      && !staggered) {
+      && !staggered && !(interact && interact.busy)) {
     play(isMoving ? 'run' : 'idle');
   }
 
@@ -2648,7 +2674,7 @@ const LOCK_POLAR = 1.06;
   const sx = Math.round(pos.x / texel) * texel;
   const sz = Math.round(pos.z / texel) * texel;
   const sy = Math.round(pos.y / texel) * texel;
-  key.position.set(sx + 7, sy + 24, sz + 9);
+  key.position.set(sx + KEY_OFFSET.x, sy + KEY_OFFSET.y, sz + KEY_OFFSET.z);
   key.target.position.set(sx, sy, sz);
   key.target.updateMatrixWorld();
 
@@ -2661,6 +2687,11 @@ function resize() {
   renderer.setSize(innerWidth, innerHeight, false);
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
+  // the composer's targets are sized in device pixels, same as the canvas
+  const pr = renderer.getPixelRatio();
+  const w = Math.round(innerWidth * pr), h = Math.round(innerHeight * pr);
+  if (!post) post = makePost({ renderer, scene, camera, width: w, height: h });
+  else post.resize(w, h);
 }
 addEventListener('resize', resize);
 resize();
@@ -2718,7 +2749,23 @@ function updateMovers(dt) {
   for (const m of MOVERS) {
     if (!m.obj || m.t < 0) continue;
     m.t += dt;
+    if (m.name === 'chest') {
+      // ONE-SHOT, AND IT STAYS. A lid that comes up over half a second and
+      // then snaps shut on the ring timer would be a bell, not a chest. It
+      // eases out hard and parks at the top, and `hold` keeps the reset below
+      // from ever putting it back.
+      const a = Math.min(1, m.t / 0.55);
+      const ang = -(1 - Math.pow(1 - a, 3)) * 1.85;
+      _mm.makeTranslation(m.x, m.y, m.z)
+         .multiply(_mr.makeRotationX(ang))
+         .multiply(new THREE.Matrix4().makeTranslation(-m.x, -m.y, -m.z));
+      m.obj.matrix.copy(_mm);
+      m.obj.matrixWorldNeedsUpdate = true;
+      if (a >= 1) m.hold = true;
+      continue;
+    }
     if (m.t >= RING_T) {
+      if (m.hold) continue;
       m.t = -1;
       m.obj.matrix.identity();
       m.obj.matrixWorldNeedsUpdate = true;
@@ -2758,11 +2805,191 @@ function updateMovers(dt) {
   }
 }
 
+// ------------------------------------------------------------- the world
+//
+// PLACES WORTH HAVING BEEN. Standing in one sets `seen.<id>` for good, and
+// that is what lets a townsperson say "you've been up the tower, then" --
+// which is the whole difference between people and signposts. Radii are
+// generous: this is "you were there", not a hit-box.
+const ZONES = [
+  { id: 'belfry',  x: -1.0, z: 16.6,  r: 3.5, y0: 17 },
+  { id: 'cellar',  x: -8.7, z: -4.6,  r: 4.0, y1: -0.5 },
+  { id: 'roofs',   x: -11.4, z: -15.0, r: 5.0, y0: 7 },
+  { id: 'gate',    x: -1.0, z: -19.5, r: 4.0 },
+  { id: 'ford',    x: -1.0, z: -47.0, r: 6.0 },
+  { id: 'ravine',  x: -14.0, z: -38.6, r: 6.0, y1: 4.5 },
+  { id: 'orchard', x: 19.0, z: -37.0, r: 9.0 },
+  { id: 'dell',    x: -9.5, z: -31.0, r: 7.0 },
+  { id: 'ruin',    x: -14.0, z: -50.0, r: 8.0 },
+  { id: 'stones',  x: 27.0, z: -82.0, r: 8.0 },
+  { id: 'outcrop', x: 29.9, z: -85.1, r: 5.0, y0: 12 },
+  { id: 'fold',    x: -20.0, z: -76.0, r: 12.0 },
+];
+
+function setupWorld() {
+  flags = makeFlags({ toast: gain });
+  interact = makeInteract({
+    playClip: (name) => {
+      if (!cur || !cur.clips[name]) return null;
+      playOnce(name, 0.08);
+      return cur.clips[name].getClip().duration;
+    },
+    clipTime: (name) => (cur && cur.clips[name] ? cur.clips[name].time : null),
+    toast: gain,
+  });
+
+  // THE BEACON STARTS COLD. Every line about it says it has gone out; the
+  // builder now keeps its coals as a mover so this can be true. The lit
+  // material is kept on the mesh for the moment it is needed.
+  const beacon = MOVERS.find((m) => m.name === 'beacon');
+  if (beacon && beacon.obj) {
+    beacon.lit = false;
+    beacon.obj.traverse((o) => {
+      if (!o.isMesh || o.userData.isOutline) return;
+      o.userData.litMat = o.material;
+      o.material = surfaceMaterial(LOOK, new THREE.Color(0x2a2320),
+                                   { key: 'beacon:cold', rimStrength: 0.15 });
+    });
+    ZONES.push({ id: 'pass', x: beacon.hx, z: beacon.hz, r: 7.0 });
+    interact.add({
+      id: 'beacon', x: beacon.hx, y: beacon.hy, z: beacon.hz, r: 2.4,
+      clip: 'cast_fire', at: 9,
+      label: 'light the beacon',
+      refuse: 'the beacon wants embercaps — five of them',
+      can: () => !!(breakables && breakables.found >= 5),
+      use: () => lightBeacon(beacon),
+    });
+  }
+
+  const chest = MOVERS.find((m) => m.name === 'chest');
+  if (chest && chest.obj) {
+    interact.add({
+      id: 'chest', x: chest.hx, y: chest.hy, z: chest.hz, r: 1.7,
+      clip: 'open', at: 30,                      // the lift
+      label: 'open the chest',
+      use: () => {
+        chest.t = 0;
+        const G = window.GS;
+        if (G && G.ok) { G.addItem('river-steel', 1); G.addGold(120); }
+        gain('River Steel', 'item');
+        gain('+120 g');
+        flags.once('chest.opened');
+        interact.at('chest').done = true;
+      },
+    });
+  }
+}
+
+function lightBeacon(m) {
+  if (m.lit) return;
+  m.lit = true;
+  m.obj.traverse((o) => {
+    if (!o.isMesh || !o.userData.litMat) return;
+    // UNLIT ON PURPOSE. A toon material would put a shadow band on the coals;
+    // a fire has no dark side. Basic material, over-bright, so bloom takes it.
+    o.material = new THREE.MeshBasicMaterial({ color: 0xffb35a });
+    o.material.color.multiplyScalar(1.6);
+  });
+  const light = new THREE.PointLight(0xff9a3a, 14, 18, 1.7);
+  light.position.set(m.x, m.y + 0.35, m.z);
+  scene.add(light);
+  EMBERS.push(makeEmbers(m.x, m.y + 0.15, m.z, light));
+  flags.once('beacon.lit', 'The beacon is lit');
+}
+
+// Sparks off a fire: a handful of points that rise, drift, gutter and respawn.
+// CPU-driven and tiny, because eighty sprites is plenty for a basket of coals
+// and a particle system is not a thing this demo needs to own.
+function makeEmbers(x, y, z, light) {
+  const N = 80;
+  const pos = new Float32Array(N * 3);
+  const life = new Float32Array(N);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const mat = new THREE.PointsMaterial({
+    color: 0xffb86a, size: 0.11, transparent: true, opacity: 0.95,
+    blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true,
+  });
+  const pts = new THREE.Points(geo, mat);
+  pts.frustumCulled = false;
+  scene.add(pts);
+  const reset = (i) => {
+    const a = Math.random() * 6.283, r = Math.random() * 0.22;
+    pos[i * 3] = x + Math.cos(a) * r;
+    pos[i * 3 + 1] = y + Math.random() * 0.1;
+    pos[i * 3 + 2] = z + Math.sin(a) * r;
+    life[i] = 0.6 + Math.random() * 1.6;
+  };
+  for (let i = 0; i < N; i++) { reset(i); life[i] *= Math.random(); }
+  let t = 0;
+  return {
+    update(dt) {
+      t += dt;
+      for (let i = 0; i < N; i++) {
+        life[i] -= dt;
+        if (life[i] <= 0) { reset(i); continue; }
+        pos[i * 3] += Math.sin(t * 3.1 + i) * 0.35 * dt;
+        pos[i * 3 + 1] += (0.9 + (i % 5) * 0.12) * dt;
+        pos[i * 3 + 2] += Math.cos(t * 2.7 + i * 1.3) * 0.35 * dt;
+      }
+      geo.attributes.position.needsUpdate = true;
+      if (light) light.intensity = 13 + Math.sin(t * 9.0) * 1.2 + Math.sin(t * 23.0) * 0.6;
+    },
+  };
+}
+
+// WHAT YOU ARE DOING, in one line. The first row whose `when` is met and
+// whose `done` is not. Written as flags rather than as a quest object, so the
+// world -- not a script -- decides when you have moved on.
+const TASKS = [
+  { done: 'quest.beacon',  text: 'Something has the square on edge. Ask around.' },
+  { when: 'quest.beacon', done: 'caps.5',
+    // the count is live: a task you can watch move is one you keep doing
+    text: () => `Gather embercaps — ${breakables ? breakables.found : 0} of 5. `
+      + 'Along the walls, down the ravine, up on the roofs.' },
+  { when: 'caps.5', done: 'beacon.lit',
+    text: 'Light the beacon at the top of the north road.' },
+  { when: 'beacon.lit', done: 'bell.rung',
+    text: 'Ring the bell. The rope hangs in the tower\'s ground room.' },
+  { when: 'bell.rung', done: 'chest.opened',
+    text: 'Nell says the east lead ends in something worth having.' },
+  { when: 'chest.opened', done: 'done.epilogue',
+    text: 'The valley knows. See who noticed.' },
+];
+let taskEl = null, taskText = '';
+function updateTask() {
+  if (!taskEl) taskEl = document.getElementById('task');
+  if (!taskEl || !flags) return;
+  let text = '';
+  for (const t of TASKS) {
+    if (t.when && !flags.get(t.when)) continue;
+    if (flags.get(t.done)) continue;
+    text = typeof t.text === 'function' ? t.text() : t.text;
+    break;
+  }
+  if (text !== taskText) { taskText = text; taskEl.textContent = text; }
+}
+
+function stepWorld(dt) {
+  if (!flags || !interact) return;
+  updateTask();
+  flags.zones(pos, ZONES);
+  if (breakables) flags.caps(breakables.found);
+  if (cur && cur.weaponId) flags.set('weapon.' + cur.weaponId);
+  flags.set('sheathed', sheathed);
+  interact.update(pos, dt, {
+    suppress: !!(npcs && (npcs.near || npcs.talking())) || attacking || !!carry,
+  });
+  for (const e of EMBERS) e.update(dt);
+}
+
 /** Anything the swing can set going that is not a breakable. */
 function hitMovers(spec) {
   let rang = false;
   for (const m of MOVERS) {
     if (!m.obj || m.t >= 0) continue;
+    // things you USE are not things you hit -- see interact.js
+    if (m.name === 'beacon' || m.name === 'chest') continue;
     const dx = m.hx - pos.x, dz = m.hz - pos.z;
     const d = Math.hypot(dx, dz);
     if (d > m.r + (spec.reach ?? 1.6) * 0.7) continue;
@@ -2777,6 +3004,8 @@ function hitMovers(spec) {
     }
     m.t = 0;
     rang = true;
+    // the first thing the world ever told the character sheet about itself
+    if (flags) flags.once('bell.rung', 'The bell carries down the valley');
     // NO FLOCK SCATTER, and this is a decision I measured my way out of.
     //
     // The obvious flourish is to send the belfry's roosting flock up when the
@@ -2841,6 +3070,7 @@ function frame(dt) {
   const isMoving = step(sdt);
   updateCombat(dt, dt);
   if (cur) { cur.mixer.update(sdt); stepCarry(); applyFootIK(cur, sdt); }
+  stepWorld(sdt);
   updateTrail(sdt);
   updateThreatLines(sdt);
   updateSmash(sdt);
@@ -2854,7 +3084,7 @@ function frame(dt) {
   // through hit-stop with everything else, and it must not be collectable
   // while a conversation is frozen over the top of it.
   if (drops) drops.update(sdt);
-  renderer.render(scene, camera);
+  if (post) post.render(dt); else renderer.render(scene, camera);
   hud.textContent =
     `${fps} fps  ·  ${cur ? cur.name : '—'}  ·  ${combat && combat.isStaggered() ? 'hurt' : slip.t > 0 ? 'slip' : attacking ? 'attack' : !grounded ? 'air'
         : landing ? 'land' : isMoving ? 'run' : 'idle'}`
@@ -3031,6 +3261,28 @@ globalThis.__look = (name) => {
   ambient.color.set(LOOK.ambient.color);
   ambient.intensity = LOOK.ambient.intensity;
   renderer.toneMappingExposure = LOOK.exposure;
+  // THE SKY, THE FOG AND THE SUN'S POSITION ARE PART OF THE LOOK. They were
+  // set once at load and never touched by a look switch, so an A/B between
+  // looks was comparing two light rigs under one sky -- which is the sky's
+  // fault being blamed on the ramp, every time.
+  if (LOOK.key.position) {
+    KEY_OFFSET.fromArray(LOOK.key.position);
+    sky.material.uniforms.uSun.value.copy(KEY_OFFSET).normalize();
+  }
+  if (LOOK.sky) {
+    const s = sky.material.uniforms;
+    s.uTop.value.set(LOOK.sky.top);
+    s.uHorizon.value.set(LOOK.sky.horizon);
+    s.uMid.value.copy(LOOK.sky.mid !== null && LOOK.sky.mid !== undefined
+      ? new THREE.Color(LOOK.sky.mid)
+      : new THREE.Color(LOOK.sky.top).lerp(new THREE.Color(LOOK.sky.horizon), 0.55));
+    s.uSunColor.value.set(LOOK.sky.sun || 0x000000);
+  }
+  if (LOOK.fog) {
+    scene.fog.color.set(LOOK.fog.color);
+    scene.fog.near = LOOK.fog.near;
+    scene.fog.far = LOOK.fog.far;
+  }
   // characters keep their own material list for the close-camera fade
   for (const c of Object.values(chars)) {
     if (!c) continue;
@@ -3039,7 +3291,18 @@ globalThis.__look = (name) => {
   }
   return `look: ${LOOK.label}`;
 };
+// Apply the default look ONCE, here, so the sky, fog and sun position come from
+// the same table as the lights -- the literals above are the toon look's and
+// only exist so the scene has something before this line runs.
+globalThis.__look(LOOK.label);
+// The frame after the frame: `__post('flat')` is the same passes with every
+// knob at zero, so an A/B isolates the grade from the pass structure itself.
+globalThis.__post = (c) => (post ? post.set(c) : 'post not built yet');
 globalThis.__rim = setRimScale; // __rim(0) renders the frame with no rim light
+// The world's memory and its second verb, for probes.
+globalThis.__flags = () => (window.GS && GS.state ? { ...GS.state.flags } : null);
+Object.defineProperty(globalThis, '__interact', { get: () => interact, configurable: true });
+globalThis.__movers = () => MOVERS.map((m) => `${m.name}${m.obj ? '' : '(unresolved)'} t=${m.t}`);
 globalThis.__wind = WIND;  // set .value directly to A/B the sway
 Object.defineProperty(globalThis, '__breakables', { get: () => breakables, configurable: true });
 // The ground tells, so a test can ask which way they point. Both of them

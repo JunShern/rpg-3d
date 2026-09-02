@@ -1932,8 +1932,17 @@ def pass_top(M, t):
     # which is the only reason a fire reads as a fire here. No new material, no
     # new mesh in any budget, and rule (j) is sidestepped rather than fought:
     # a point light would do nothing at all until it crossed the ramp threshold.
-    t.add(K.blob("beacon_coals", (bx, by, bz + 2.86), (0.30, 0.30, 0.16),
-                 None, M["forge"], seg=9, rings=6, squircle=2.4))
+    # A MOVER, NOT A JOIN. Every line of dialogue about this beacon says it has
+    # gone out, and the coals were rendered lit and welded into the meadow mesh
+    # where nothing could ever touch them. As a mover they are their own node
+    # the runtime can find by name: it starts them cold, and the player lights
+    # them -- which is the one thing the whole walk up here was missing.
+    # `hit` is the plinth, because you light it from the road, not from the
+    # basket three metres up.
+    coals = K.blob("beacon_coals", (bx, by, bz + 2.86), (0.30, 0.30, 0.16),
+                   None, M["forge"], seg=9, rings=6, squircle=2.4)
+    t.moving("beacon", [coals], pivot=(bx, by, bz + 2.86), hit=(bx, by, bz),
+             hit_r=1.6)
     t.solid(bx, by, 0.90, 0.90, top=bz + 0.34)
 
     # THE ROAD ENDS IN A ROCKFALL, because it has to end in SOMETHING. The
