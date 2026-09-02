@@ -1340,24 +1340,30 @@ async function run() {
     const after = __sim({ steps: 0 }).heroPos;
     const drift = Math.hypot(after[0] - before[0], after[2] - before[2]);
 
-    // type it out and advance to the choice list
-    Dialogue.finishLine(); Dialogue.key('confirm');
-    Dialogue.finishLine(); Dialogue.key('confirm');
-    await wait(60);
-    const d1 = Dialogue.debug();
+    // ADVANCE UNTIL SHE OFFERS A CHOICE, however many lines that takes. The
+    // first version pressed confirm exactly twice, which was the shape of the
+    // greeting the day it was written and nothing else -- the moment Tally got
+    // a third line the check took the first topic, which is her shop, and
+    // reported the counter's lock as a conversation that never let go.
+    let d1 = Dialogue.debug();
+    for (let i = 0; i < 12 && Dialogue.isOpen && d1.mode !== 'choice'; i++) {
+      Dialogue.finishLine(); Dialogue.key('confirm');
+      await wait(60);
+      d1 = Dialogue.debug();
+    }
 
-    // TAKE A BRANCH THAT IS NOT THE SHOP. The first choice on this list is
-    // "What are you selling?", which carries `effects.shop` -- so confirming it
-    // closes the window and opens a counter, which is correct behaviour and
-    // leaves UILOCK held by the shop. The check read that as a lock that was
-    // never released, and because a held lock takes `sdt` to zero, every check
-    // after it measured a frozen world. Step past it.
-    Dialogue.key('down');
-    Dialogue.key('confirm');
-    await wait(60);
-    Dialogue.finishLine(); Dialogue.key('confirm');
-    Dialogue.finishLine(); Dialogue.key('confirm');
-    await wait(60);
+    // TAKE A BRANCH THAT IS NOT THE SHOP: the LAST choice is always the
+    // goodbye, and a topic that opens a counter is correct behaviour that
+    // would leave UILOCK held by the shop rather than by the window.
+    if (d1.mode === 'choice') {
+      for (let k = 0; k < d1.choices.length - 1; k++) Dialogue.key('down');
+      Dialogue.key('confirm');
+      await wait(60);
+    }
+    for (let i = 0; i < 8 && Dialogue.isOpen; i++) {
+      Dialogue.finishLine(); Dialogue.key('confirm');
+      await wait(60);
+    }
     Dialogue.close();
     await wait(160);
     __sim({ steps: 2 });
@@ -2191,7 +2197,9 @@ async function run() {
           return;
         }
         if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
-        const sp = o.geometry.boundingSphere.clone().applyMatrix4(o.matrixWorld);
+        // an instanced mesh bounds its INSTANCES, not its one clump at the origin
+        const sp = (o.isInstancedMesh && o.boundingSphere ? o.boundingSphere : o.geometry.boundingSphere)
+          .clone().applyMatrix4(o.matrixWorld);
         if (!fr.intersectsSphere(sp)) return;
         const n = (o.geometry.index ? o.geometry.index.count
                                     : o.geometry.attributes.position.count) / 3;
