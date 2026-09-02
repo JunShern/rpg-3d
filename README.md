@@ -9,6 +9,7 @@ it, a valley to cross, and one thing to do.**
 | ![title](docs/shots/title.png) | ![valley](docs/shots/valley.png) |
 | ![plaza](docs/shots/plaza-talk.png) | ![meadow](docs/shots/meadow-close.png) |
 | ![roofs](docs/shots/roofs.png) | ![dusk](docs/shots/dusk-valley.png) |
+| ![combat](docs/shots/combat.png) | ![beacon](docs/shots/beacon-lit.png) |
 
 The beacon on the north road has been dark three nights. Ask around the square
 and the town will tell you what it wants: five embercaps, gathered from the
