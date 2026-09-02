@@ -28,3 +28,4 @@ docs/shots/_*
 # python ones do. Named `_*.mjs` and ignored rather than left to dirty the tree
 # on every run.
 /_*.mjs
+.claude/scheduled_tasks.lock
