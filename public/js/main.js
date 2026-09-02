@@ -17,6 +17,7 @@ import { makePost } from './post.js';
 import { makeFlags } from './flags.js';
 import { makeInteract } from './interact.js';
 import { makeAmbient } from './ambient.js';
+import { makeGrass } from './grass.js';
 import {
   toonMaterial, flatMaterial, outlineMaterial, outlineGeometry, skyDome,
   RAMP_3, RAMP_SOFT, setRimScale, WIND, LOOKS, surfaceMaterial,
@@ -43,6 +44,7 @@ let post = null;
 let flags = null;
 let interact = null;
 let air = null;   // dust and petals in the air round the player
+let grass = null;  // the instanced field -- see grass.js
 const EMBERS = [];
 
 const scene = new THREE.Scene();
@@ -430,6 +432,12 @@ Promise.all([
   if (agree.worst > 1e-4) {
     console.error('[terrain] PORT HAS DRIFTED from the builder', agree.at);
   }
+  // THE FIELD. Placed off the same port, so it sits on the ground it agrees with.
+  grass = makeGrass({
+    scene, terrain,
+    material: (opts) => surfaceMaterial(LOOK, new THREE.Color(0x5c8f3c), opts),
+  });
+  console.log(`[grass] ${grass.count} clumps in ${grass.meshes.length} chunks`);
 
   // Lantern lights are a warm ACCENT in daylight, not a second key -- and at
   // intensity 4 over a 7.5 m range they were not even that: they painted a
@@ -3311,6 +3319,7 @@ globalThis.__rim = setRimScale; // __rim(0) renders the frame with no rim light
 globalThis.__flags = () => (window.GS && GS.state ? { ...GS.state.flags } : null);
 Object.defineProperty(globalThis, '__interact', { get: () => interact, configurable: true });
 Object.defineProperty(globalThis, '__air', { get: () => air, configurable: true });
+Object.defineProperty(globalThis, '__grass', { get: () => grass, configurable: true });
 globalThis.__movers = () => MOVERS.map((m) => `${m.name}${m.obj ? '' : '(unresolved)'} t=${m.t}`);
 globalThis.__wind = WIND;  // set .value directly to A/B the sway
 Object.defineProperty(globalThis, '__breakables', { get: () => breakables, configurable: true });

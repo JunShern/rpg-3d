@@ -398,8 +398,11 @@ export function skyDome(top, horizon, radius = 220, mid = null, sun = 0x000000) 
       void main() {
         vec3 dir = normalize(vWorld);
         float h = clamp(dir.y * 1.35 + 0.18, 0.0, 1.0);
-        vec3 col = mix(uHorizon, uMid, smoothstep(0.0, 0.42, h));
-        col = mix(col, uTop, smoothstep(0.30, 1.0, h));
+        // THE BLUE STARTS LOW. The camera the player is given looks up six
+        // degrees, so a gradient that only reaches its mid tone at 25 degrees
+        // gives every frame a cream sky. Mid by ten degrees, top by fifty.
+        vec3 col = mix(uHorizon, uMid, smoothstep(0.0, 0.17, h));
+        col = mix(col, uTop, smoothstep(0.12, 0.78, h));
         float s = max(dot(dir, uSun), 0.0);
         col += uSunColor * (pow(s, 260.0) * 1.4 + pow(s, 10.0) * 0.16
                             + pow(s, 3.0) * 0.05);
