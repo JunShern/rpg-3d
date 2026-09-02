@@ -136,6 +136,22 @@ export const LOOKS = {
     sky: { top: 0x3b76c9, mid: 0x9cc3e8, horizon: 0xeddfcc, sun: 0xffe3ba },
     fog: { color: 0xe0dcd0, near: 38, far: 160 },
   },
+  // THE HOUR AFTER THE BEACON. Not a look you choose: the world slides into
+  // it over a few seconds when the coals take, because a beacon lit at noon
+  // is a campfire and a beacon lit against a darkening sky is a beacon.
+  // Same ramp, same materials -- only the light, the sky and the fog move,
+  // so the blend is a lerp of numbers and never a rebuild.
+  dusk: {
+    label: 'dusk',
+    lit: false, outlines: true, rim: 1.0,
+    key: { color: 0xffa868, intensity: 1.9, position: [14, 7, 6] },
+    hemi: { sky: 0x7d8cc4, ground: 0x6c4e3e, intensity: 0.95 },
+    ambient: { color: 0x5a6494, intensity: 0.34 },
+    exposure: 0.98, albedo: 1, ramp: 'painted',
+    sky: { top: 0x24407a, mid: 0xc9744f, horizon: 0xffc98a, sun: 0xffb070 },
+    fog: { color: 0xd9a488, near: 30, far: 150 },
+    lamps: 2.8,
+  },
   toon: {
     label: 'toon',
     lit: false,

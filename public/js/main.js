@@ -305,6 +305,7 @@ const SHAFTS = [];
 // far: the bell. Kept out of the town's big join, because you cannot rotate one
 // bell inside a mesh that contains the whole town.
 const MOVERS = [];
+const LAMPS = [];               // the plaza's outdoor lanterns, for dusk
 const RING_T = 7.0;             // how long a ring takes to die away
 const _mm = new THREE.Matrix4();
 const _mr = new THREE.Matrix4();
@@ -469,6 +470,7 @@ Promise.all([
                                       inside ? 9.0 : 3.2, 2);
     lamp.position.set(L.x, L.y, L.z);
     world.add(lamp);
+    if (!inside) LAMPS.push(lamp);
   }
 
   townReady = true;
@@ -3012,7 +3014,18 @@ function stepWorld(dt) {
     suppress: !!(npcs && (npcs.near || npcs.talking())) || attacking || !!carry,
   });
   for (const e of EMBERS) e.update(dt);
+  // THE CLIMAX IS A CHANGE OF LIGHT. When the coals take, the world slides
+  // to dusk over six seconds: sun low and orange, sky banded, lanterns up.
+  if (flags.get('beacon.lit') && !dusk && !duskDone) startDusk();
+  if (dusk) {
+    dusk.t = Math.min(1, dusk.t + dt / dusk.dur);
+    const k = dusk.t * dusk.t * (3 - 2 * dusk.t);
+    applyLighting(mixLook(LOOK, LOOKS.dusk, k));
+    if (post) post.set({ bloom: 0.20 + 0.16 * k });
+    if (dusk.t >= 1) { dusk = null; duskDone = true; }
+  }
 }
+let duskDone = false;
 
 /** Anything the swing can set going that is not a breakable. */
 function hitMovers(spec) {
@@ -3291,6 +3304,78 @@ globalThis.__ik = IK_ENABLED;   // __ik.value = false to A/B it
  * the collision, the textures and the ground's vertex colours are identical in
  * both -- which is the point: none of them were ever tied to the look.
  */
+// THE LIGHT RIG, THE SKY AND THE FOG, from a look -- or from a blend of two.
+// THE SKY, THE FOG AND THE SUN'S POSITION ARE PART OF THE LOOK. They were
+// set once at load and never touched by a look switch, so an A/B between
+// looks was comparing two light rigs under one sky -- which is the sky's
+// fault being blamed on the ramp, every time.
+const _lc = [new THREE.Color(), new THREE.Color()];
+function applyLighting(L) {
+  key.color.set(L.key.color);
+  key.intensity = L.key.intensity;
+  hemi.color.set(L.hemi.sky);
+  hemi.groundColor.set(L.hemi.ground);
+  hemi.intensity = L.hemi.intensity;
+  ambient.color.set(L.ambient.color);
+  ambient.intensity = L.ambient.intensity;
+  renderer.toneMappingExposure = L.exposure;
+  if (L.key.position) {
+    KEY_OFFSET.fromArray(L.key.position);
+    sky.material.uniforms.uSun.value.copy(KEY_OFFSET).normalize();
+  }
+  if (L.sky) {
+    const s = sky.material.uniforms;
+    s.uTop.value.set(L.sky.top);
+    s.uHorizon.value.set(L.sky.horizon);
+    s.uMid.value.copy(L.sky.mid !== null && L.sky.mid !== undefined
+      ? _lc[0].set(L.sky.mid)
+      : _lc[0].set(L.sky.top).lerp(_lc[1].set(L.sky.horizon), 0.55));
+    s.uSunColor.value.set(L.sky.sun || 0x000000);
+  }
+  if (L.fog) {
+    scene.fog.color.set(L.fog.color);
+    scene.fog.near = L.fog.near;
+    scene.fog.far = L.fog.far;
+  }
+  const lamps = L.lamps || 0.45;
+  for (const l of LAMPS) { l.intensity = lamps; l.distance = lamps > 1 ? 7.5 : 3.2; }
+}
+
+// Two looks, mixed. Colours lerp as colours, numbers as numbers, the sun's
+// position as a vector -- everything applyLighting reads.
+function mixLook(A, B, t) {
+  const c = (a, b) => _lc[0].set(a).lerp(_lc[1].set(b), t).getHex();
+  const n = (a, b) => a + (b - a) * t;
+  const v = (a, b) => a.map((x, i) => n(x, b[i]));
+  return {
+    key: { color: c(A.key.color, B.key.color), intensity: n(A.key.intensity, B.key.intensity),
+           position: v(A.key.position, B.key.position) },
+    hemi: { sky: c(A.hemi.sky, B.hemi.sky), ground: c(A.hemi.ground, B.hemi.ground),
+            intensity: n(A.hemi.intensity, B.hemi.intensity) },
+    ambient: { color: c(A.ambient.color, B.ambient.color),
+               intensity: n(A.ambient.intensity, B.ambient.intensity) },
+    exposure: n(A.exposure, B.exposure),
+    sky: { top: c(A.sky.top, B.sky.top), mid: c(A.sky.mid, B.sky.mid),
+           horizon: c(A.sky.horizon, B.sky.horizon), sun: c(A.sky.sun, B.sky.sun) },
+    fog: { color: c(A.fog.color, B.fog.color), near: n(A.fog.near, B.fog.near),
+           far: n(A.fog.far, B.fog.far) },
+    lamps: n(A.lamps || 0.45, B.lamps || 0.45),
+  };
+}
+// the dusk in progress: { t, dur } while the world is sliding, null otherwise
+let dusk = null;
+function startDusk(dur = 6.0) {
+  if (dusk || LOOK.label === 'dusk') return;
+  dusk = { t: 0, dur };
+}
+globalThis.__dusk = (t) => {
+  // a probe: jump to any point of the slide, or start it
+  if (t === undefined) { startDusk(); return 'dusk started'; }
+  applyLighting(mixLook(LOOK, LOOKS.dusk, t));
+  if (post) post.set({ bloom: 0.20 + 0.16 * t });
+  return `dusk ${t}`;
+};
+
 globalThis.__look = (name) => {
   const next = LOOKS[name];
   if (!next) return `unknown look: ${Object.keys(LOOKS).join(', ')}`;
@@ -3310,36 +3395,8 @@ globalThis.__look = (name) => {
   // the ink shells are a stylisation, not a lighting term
   for (const o of OUTLINE_MESHES) o.visible = LOOK.outlines;
   setRimScale(LOOK.rim);
-  key.color.set(LOOK.key.color);
-  key.intensity = LOOK.key.intensity;
-  hemi.color.set(LOOK.hemi.sky);
-  hemi.groundColor.set(LOOK.hemi.ground);
-  hemi.intensity = LOOK.hemi.intensity;
-  ambient.color.set(LOOK.ambient.color);
-  ambient.intensity = LOOK.ambient.intensity;
-  renderer.toneMappingExposure = LOOK.exposure;
-  // THE SKY, THE FOG AND THE SUN'S POSITION ARE PART OF THE LOOK. They were
-  // set once at load and never touched by a look switch, so an A/B between
-  // looks was comparing two light rigs under one sky -- which is the sky's
-  // fault being blamed on the ramp, every time.
-  if (LOOK.key.position) {
-    KEY_OFFSET.fromArray(LOOK.key.position);
-    sky.material.uniforms.uSun.value.copy(KEY_OFFSET).normalize();
-  }
-  if (LOOK.sky) {
-    const s = sky.material.uniforms;
-    s.uTop.value.set(LOOK.sky.top);
-    s.uHorizon.value.set(LOOK.sky.horizon);
-    s.uMid.value.copy(LOOK.sky.mid !== null && LOOK.sky.mid !== undefined
-      ? new THREE.Color(LOOK.sky.mid)
-      : new THREE.Color(LOOK.sky.top).lerp(new THREE.Color(LOOK.sky.horizon), 0.55));
-    s.uSunColor.value.set(LOOK.sky.sun || 0x000000);
-  }
-  if (LOOK.fog) {
-    scene.fog.color.set(LOOK.fog.color);
-    scene.fog.near = LOOK.fog.near;
-    scene.fog.far = LOOK.fog.far;
-  }
+  applyLighting(LOOK);
+  dusk = null;
   // characters keep their own material list for the close-camera fade
   for (const c of Object.values(chars)) {
     if (!c) continue;
