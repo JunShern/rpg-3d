@@ -249,7 +249,7 @@ const TOWN_LOOK = {
   // line where the plane meets the ground rather than a hard edge drawn on top
   // of it, and the ford's stepping stones stop looking like they are resting
   // on a lid.
-  water:   { rimStrength: 0.05, rimColor: 0xd8f4ff, opacity: 0.72 },
+  water:   { rimStrength: 0.05, rimColor: 0xd8f4ff, opacity: 0.72, ripple: 1.0 },
   foam:    { rimStrength: 0.35, rimColor: 0xffffff },
   brass:   { rimStrength: 1.00, rimColor: 0xfff0c0 },
   // meadow
@@ -822,7 +822,10 @@ Promise.all(ROSTER.concat(NPC_RIGS).map((def) =>
 });
 
 function done() {
-  if (cur && townReady) document.getElementById('loading').style.display = 'none';
+  if (cur && townReady) {
+    document.getElementById('loading').style.display = 'none';
+    showTitle();
+  }
 }
 
 function play(name, fade = 0.22) {
@@ -3158,6 +3161,7 @@ globalThis.__sim = ({ steps = 60, dt = 1 / 60, held = [], attack: doAttack = fal
                       az = null, polar = null, dist = null, warp = null,
                       jump: doJump = false } = {}) => {
   renderer.setAnimationLoop(null);      // take the loop away from rAF entirely
+  if (globalThis.__dismissTitle) { globalThis.__dismissTitle(); globalThis.__dismissTitle = null; }
   keys.clear();
   for (const k of held) keys.add(k);
   if (warp) {
@@ -3190,6 +3194,30 @@ globalThis.__sim = ({ steps = 60, dt = 1 / 60, held = [], attack: doAttack = fal
     })) : [],
   };
 };
+
+// THE TITLE CARD. Up once the world and a character exist, down on the
+// first key or click -- which still does what it does, so the card never
+// costs the player an input. `__sim` skips it: a capture is not a player.
+let titleShown = false;
+function showTitle() {
+  if (titleShown) return;
+  titleShown = true;
+  const el = document.getElementById('title');
+  if (!el) return;
+  document.body.classList.add('title');
+  requestAnimationFrame(() => el.classList.add('on'));
+  const dismiss = () => {
+    el.classList.remove('on');
+    el.classList.add('off');
+    document.body.classList.remove('title');
+    setTimeout(() => { el.style.display = 'none'; }, 800);
+    window.removeEventListener('keydown', dismiss, true);
+    window.removeEventListener('pointerdown', dismiss, true);
+  };
+  window.addEventListener('keydown', dismiss, true);
+  window.addEventListener('pointerdown', dismiss, true);
+  globalThis.__dismissTitle = dismiss;
+}
 
 function cycleCharacter() {
   const names = ROSTER.map((d) => d.name).filter((n) => chars[n]);

@@ -215,6 +215,7 @@ export function toonMaterial(color, opts = {}) {
     sway = 0,
     vertexColors = false,
     opacity = 1,
+    ripple = 0,
   } = opts;
 
   const mat = new THREE.MeshToonMaterial({ color, gradientMap: gradient, map,
@@ -230,6 +231,35 @@ export function toonMaterial(color, opts = {}) {
       shader.vertexShader = shader.vertexShader
         .replace('#include <common>', '#include <common>\nuniform float uWind;\nuniform float uSway;')
         .replace('#include <begin_vertex>', '#include <begin_vertex>' + SWAY_GLSL);
+    }
+    // WATER MOVES. A flat blue plane is a painted floor however it is lit;
+    // two slow bands of light crossing it, phased off world position and the
+    // wind clock everything else keeps, is what says liquid. Fragment-side,
+    // so the geometry stays the one triangle strip it is.
+    if (ripple > 0) {
+      if (!shader.uniforms.uWind) shader.uniforms.uWind = WIND;
+      shader.uniforms.uRipple = { value: ripple };
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', '#include <common>\nvarying vec2 vRipplePos;')
+        .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\n'
+          + 'vRipplePos = (modelMatrix * vec4(transformed, 1.0)).xz;');
+      shader.fragmentShader = shader.fragmentShader
+        // the vertex and fragment programs declare separately: sway only
+        // put uWind in the vertex one
+        .replace('#include <common>', '#include <common>\nvarying vec2 vRipplePos;'
+          + '\nuniform float uWind;\nuniform float uRipple;')
+        .replace('#include <color_fragment>', /* glsl */`
+          #include <color_fragment>
+          {
+            vec2 q = vRipplePos;
+            float a = sin(q.x * 1.9 + q.y * 0.7 + uWind * 1.6);
+            float b = sin(q.x * 0.6 - q.y * 2.3 - uWind * 1.1 + 1.3);
+            float c = sin((q.x + q.y) * 4.1 + uWind * 2.7);
+            float w = a * b * 0.5 + 0.5;
+            float band = smoothstep(0.70, 0.98, w) * (0.6 + 0.4 * c);
+            diffuseColor.rgb *= 1.0 + uRipple * (0.10 * (a * b) + 0.55 * band);
+          }
+        `);
     }
     shader.uniforms.uRimColor = { value: new THREE.Color(rimColor) };
     shader.uniforms.uRimPower = { value: rimPower };
@@ -260,7 +290,7 @@ export function toonMaterial(color, opts = {}) {
       `);
   };
   // distinct programs per rim config, or three would reuse the first compile
-  mat.customProgramCacheKey = () => 'toonrim:' + key + ':' + sway;
+  mat.customProgramCacheKey = () => 'toonrim:' + key + ':' + sway + ':' + ripple;
   return mat;
 }
 

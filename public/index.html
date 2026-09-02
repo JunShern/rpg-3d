@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Combat demo — vinyl toon</title>
+<title>Beacon Vale</title>
 <style>
   :root { color-scheme: dark; --ink: #dfe7f2; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -108,6 +108,35 @@
   }
   #talkprompt b, #useprompt b { font-size: 12px; margin-right: .35em; }
   #loading { top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 13px; padding: 14px 20px; }
+
+  /* ---- the title card ---------------------------------------------------
+     The world is already there behind it: the card is a dark gradient over
+     the bottom of the frame, a name, and one line. It goes on the first key
+     and the key still counts, so the player is walking before it has faded. */
+  #title {
+    position: fixed; inset: 0; pointer-events: none; z-index: 20;
+    display: flex; flex-direction: column; justify-content: flex-end;
+    padding: 0 0 12vh 8vw; color: #f6efe2;
+    background: linear-gradient(180deg, rgba(8,10,16,.28) 0%, rgba(8,10,16,0) 35%,
+                                rgba(8,10,16,0) 55%, rgba(8,10,16,.78) 100%);
+    opacity: 0; transition: opacity 900ms ease;
+  }
+  #title.on { opacity: 1; }
+  #title.off { opacity: 0; transition: opacity 700ms ease; }
+  #title .kicker { font: 500 12px/1 system-ui, sans-serif; letter-spacing: .42em;
+                   text-transform: uppercase; color: #ffd27a; margin-bottom: 14px; }
+  #title h1 { font: 700 clamp(40px, 7vw, 84px)/1 "Iowan Old Style", "Palatino Linotype",
+              Palatino, Georgia, serif; letter-spacing: .02em; margin: 0 0 10px;
+              text-shadow: 0 2px 0 rgba(0,0,0,.35), 0 12px 40px rgba(0,0,0,.45); }
+  #title h1 em { font-style: normal; color: #ffd27a; }
+  #title .sub { font: 400 15px/1.5 system-ui, sans-serif; color: #d9d2c4; max-width: 46ch;
+                letter-spacing: .02em; }
+  #title .press { margin-top: 30px; font: 600 12px/1 system-ui, sans-serif;
+                  letter-spacing: .34em; text-transform: uppercase; color: #fff6e6;
+                  animation: press 2.2s ease-in-out infinite; }
+  @keyframes press { 50% { opacity: .35; } }
+  body.title #hud, body.title #vitals, body.title #purse, body.title #help,
+  body.title #task, body.title #gains { opacity: 0; }
 
   /* ---- health -------------------------------------------------------- */
   #vitals {
@@ -215,6 +244,12 @@
 
   <div class="panel" id="hud">loading…</div>
   <div class="panel" id="loading">building the scene…</div>
+  <div id="title">
+    <div class="kicker">A demo</div>
+    <h1>Beacon <em>Vale</em></h1>
+    <div class="sub">The beacon on the north road has been dark three nights, and nobody in the square will say so out loud.</div>
+    <div class="press">Press any key</div>
+  </div>
   <div id="gains"></div>
   <div id="purse"></div>
   <div id="task"></div>
