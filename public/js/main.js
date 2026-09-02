@@ -671,7 +671,7 @@ function selectCharacter(name) {
   syncWeapon();
   hud.dataset.who = name;
   const vname = document.getElementById('vname');
-  if (vname) vname.textContent = name;
+  if (vname) vname.textContent = name.charAt(0).toUpperCase() + name.slice(1);
 }
 
 // ------------------------------------------------------------------ people

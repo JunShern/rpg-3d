@@ -1102,6 +1102,28 @@ def bunting(t, a, b, sag=0.85, pitch=0.42, seed=0):
     return t.add(*out) and out
 
 
+def mast(t, x, y, h=5.0, z0=0.0):
+    """A festival mast: a tall timber pole with a pennant at the top. What the
+    bunting hangs from -- the lamp posts are 3.2 m and a rope slung between
+    them sagged to exactly the height of the camera the player is given, so
+    every frame in the square had a line drawn across the character."""
+    M, out = t.M, []
+    out.append(box("mast_base", (x, y, z0 + 0.10), (0.16, 0.16, 0.10), M["stone"],
+                   bevel=0.03, seg=1))
+    out.append(K.tube("mast_pole", K.dome([
+        {"p": Vector((x, y, z0 + 0.15)), "r": (0.055, 0.055), "n": 2.4},
+        {"p": Vector((x, y, z0 + h)), "r": (0.035, 0.035), "n": 2.4},
+    ], at="end", steps=1, height=0.03), seg=8, mat=M["timber"], squircle=2.4))
+    # a pennant: one long triangle off the top, in the flag colour
+    verts = [Vector((x, y, z0 + h - 0.02)), Vector((x, y, z0 + h - 0.30)),
+             Vector((x + 0.62, y + 0.10, z0 + h - 0.12))]
+    out.append(K._new_obj("mast_pennant", verts, [(0, 1, 2), (2, 1, 0)],
+                          mat=M["flag_a"], smooth=False, recalc=False))
+    t.add(*out)
+    t.solid(x, y, 0.18, 0.18, top=z0 + 1.2)
+    return out
+
+
 def lantern(t, x, y, z0=0.0, h=3.1, wall=False, kind='accent'):
     """A post lantern, or a bracket lamp when `wall` is set.  Emissive material;
     the runtime turns each of these into an actual point light.

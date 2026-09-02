@@ -265,12 +265,17 @@ def build_props(t):
     for x, y in ((-8.5, -6.0), (8.5, -6.0), (-8.5, 7.5), (5.0, 9.0),
                  (-4.6, -8.6), (12.0, 0.2)):
         A.lantern(t, x, y, h=3.2)
-    # BUNTING between the lamps, across the two long sides of the square. The
-    # rope hangs from just under each lantern's head, so the posts already
-    # there are what holds it up.
-    A.bunting(t, (-8.5, -6.0, 3.05), (8.5, -6.0, 3.05), sag=0.9, seed=0)
-    A.bunting(t, (-8.5, 7.5, 3.05), (5.0, 9.0, 3.05), sag=0.8, seed=1)
-    A.bunting(t, (8.5, -6.0, 3.05), (12.0, 0.2, 3.05), sag=0.5, seed=2)
+    # BUNTING, from festival masts. It hung from the lamp heads first, at
+    # 3 m, and the camera the player is given sits at 3 m: every frame in the
+    # square had a rope across the character's face. Masts at 5 m beside
+    # the lamps put the lowest point of the sag a metre over the camera.
+    MASTS = ((-9.3, -6.6), (9.3, -6.6), (-9.3, 8.2), (5.8, 9.6))
+    for mx, my in MASTS:
+        A.mast(t, mx, my, h=5.0)
+    A.bunting(t, (-9.3, -6.6, 4.85), (9.3, -6.6, 4.85), sag=0.75, seed=0)
+    A.bunting(t, (-9.3, 8.2, 4.85), (5.8, 9.6, 4.85), sag=0.65, seed=1)
+    A.bunting(t, (9.3, -6.6, 4.85), (5.8, 9.6, 4.85), sag=0.85, seed=2)
+    A.bunting(t, (-9.3, -6.6, 4.85), (-9.3, 8.2, 4.85), sag=0.85, seed=1)
 
     # THE YARD, east of the square, behind the east range.
     #
