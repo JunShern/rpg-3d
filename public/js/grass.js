@@ -113,8 +113,9 @@ export function makeGrass({ scene, terrain, material, spacing = 0.72, chunks = 8
       const gy = (terrain.heightXY(px, py + e) - terrain.heightXY(px, py - e)) / (2 * e);
       if (Math.hypot(gx, gy) > 0.85) continue;
       if (rnd() < 0.12) continue;
-      const ci = Math.min(chunks - 1, Math.floor((px - x0) / cw));
-      const cj = Math.min(chunks - 1, Math.floor((py - yA) / ch));
+      // the jitter can put a clump a hair outside its row's chunk band
+      const ci = Math.max(0, Math.min(chunks - 1, Math.floor((px - x0) / cw)));
+      const cj = Math.max(0, Math.min(chunks - 1, Math.floor((py - yA) / ch)));
       const s = 0.75 + rnd() * 0.6;
       lists[cj * chunks + ci].push([px, h - 0.02, -py, rnd() * Math.PI * 2, s, rnd()]);
       placed++;

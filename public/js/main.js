@@ -387,14 +387,18 @@ function absorbRegion(root, manifest) {
   // never claimed -- it loaded, it was in the scene, and it sat there.
   for (const q of manifest.movers || []) MOVERS.push({ ...q, obj: null, t: -1 });
   root.traverse((o) => {
-    if (!o.isMesh || o.material?.isShaderMaterial) return;
-    if (/FLOOR/i.test(o.name || '')) FLOORS.push(o);
+    // A MOVER MAY BE A GROUP. A node with two materials comes back from the
+    // loader as a Group named MOVE_x with one mesh per material under it, so
+    // an `isMesh` gate here left the chest -- timber lid, iron bands -- in
+    // the scene, unclaimed and unopenable, while the one-material bell worked.
     const mv = /^MOVE_(.+)$/.exec(o.name || '');
     if (mv) {
       const m = MOVERS.find((q) => q.name === mv[1]);
       // the transform is composed by hand every frame -- see `updateMovers`
-      if (m) { m.obj = o; o.matrixAutoUpdate = false; }
+      if (m && !m.obj) { m.obj = o; o.matrixAutoUpdate = false; }
     }
+    if (!o.isMesh || o.material?.isShaderMaterial) return;
+    if (/FLOOR/i.test(o.name || '')) FLOORS.push(o);
   });
   for (const p of manifest.platforms || []) PLATFORMS.push(p);
   for (const q of manifest.shafts || []) SHAFTS.push(q);
