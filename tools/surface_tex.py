@@ -204,6 +204,44 @@ def stone_rough(res=RES, seed=131):
     return np.clip(np.repeat(v[..., None], 3, axis=2), 0, 1)
 
 
+def rock_strata(res=RES, seed=173):
+    """Bedded rock: the mottle of `stone_rough` with the bedding drawn in.
+
+    The pass walls and the ravine are the largest rock surfaces in the game
+    and the biggest thing in the frame at the top of the north road, and at
+    that size a mottle is a flat grey. Rock reads as rock by its BEDDING --
+    near-horizontal bands, each a shade off its neighbour, broken by a few
+    dark joints running across them. Bands wander so the tile does not read
+    as a barcode; still greyscale, still centred near 1.0, so the same tint
+    works on it.
+    """
+    rng = _rng(seed)
+    v = stone_rough(res, seed)[..., 0].copy()
+    yy, xx = np.mgrid[0:res, 0:res].astype(np.float32) / res
+    # bedding: a slowly wandering set of bands, 9 per tile, each with its own
+    # tone step, wrapping at the tile edge
+    # NOISE, NOT SINES. A sine wander made the beds a corrugated sheet; a
+    # bed's wander is irregular, and fbm along the tile gives it that.
+    w = _fbm(res, seed + 3, octaves=3, base=3)
+    wander = (w - w.mean()) * 0.09
+    band = ((yy + wander) * 9.0) % 1.0
+    idx = np.floor((yy + wander) * 9.0).astype(int) % 9
+    tones = 0.92 + 0.13 * rng.random(9).astype(np.float32)
+    v = v * tones[idx]
+    # a dark line at the bottom of each band: the joint between beds
+    v = v * np.where(band < 0.04, 0.80, 1.0)
+    # cross joints: a handful of near-vertical dark cracks, each a short run
+    for _ in range(14):
+        x0 = rng.random(); y0 = rng.random(); h = 0.10 + rng.random() * 0.22
+        tilt = (rng.random() - 0.5) * 0.25
+        for k in range(int(h * res)):
+            y = (int(y0 * res) + k) % res
+            x = (int((x0 + tilt * k / res) * res)) % res
+            v[y, x] *= 0.78
+            v[y, (x + 1) % res] *= 0.88
+    return np.clip(np.repeat(v[..., None], 3, axis=2), 0, 1)
+
+
 def bark_rough(res=RES, seed=149):
     """Bark: coarse vertical-ish fibre with deep splits.
 

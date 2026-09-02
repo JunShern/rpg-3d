@@ -99,6 +99,11 @@
     border-radius: 4px; vertical-align: 0.05em;
   }
   #help i { font-style: normal; opacity: .45; margin: 0 .4em; }
+  #help { white-space: nowrap; }
+  /* a narrow window loses the two keys nobody needs in the first minute
+     rather than wrapping the bar onto a second line */
+  @media (max-width: 1000px) { #help .x { display: none; } }
+  @media (max-width: 760px) { #help { display: none; } }
   /* THE TWO PROMPTS ARE ONE PROMPT. A person and a chest are asked for the
      same way, and the box should say so. */
   #talkprompt, #useprompt {
@@ -256,8 +261,8 @@
 
   <div class="panel" id="help">
     <b>WASD</b> move<i>·</i><b>J</b> attack<i>·</i><b>E</b> talk / use<i>·</i>
-    <b>Q</b> lock<i>·</i><b>Tab</b> target<i>·</i><b>Space</b> jump<i>·</i>
-    <b>Shift</b> slip<i>·</i><b>R</b> sheathe<i>·</i><b>C</b> swap<i>·</i><b>Esc</b> menu
+    <b>Q</b> lock<span class="x"><i>·</i><b>Tab</b> target</span><i>·</i><b>Space</b> jump<i>·</i>
+    <b>Shift</b> slip<i>·</i><b>R</b> sheathe<span class="x"><i>·</i><b>C</b> swap</span><i>·</i><b>Esc</b> menu
   </div>
 
   <!-- THE DIALOGUE WINDOW, vendored from the Emberbrook project unmodified.

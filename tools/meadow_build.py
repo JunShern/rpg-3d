@@ -2189,7 +2189,7 @@ def materials(M):
     # This has to happen BEFORE `A.Town(M)`, or the pieces built during
     # assembly capture the old flat materials -- the same ordering trap the
     # town's ground textures hit.
-    for key, fn, tint in (("rock", surface_tex.stone_rough, ROCK_COL),
+    for key, fn, tint in (("rock", surface_tex.rock_strata, ROCK_COL),
                           ("stone", surface_tex.stone_rough, (0.74, 0.72, 0.68)),
                           ("bark", surface_tex.bark_rough, (0.44, 0.34, 0.25)),
                           ("bark_dead", surface_tex.bark_rough, (0.44, 0.41, 0.36))):
