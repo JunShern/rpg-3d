@@ -273,7 +273,12 @@ const TOWN_LOOK = {
   // A conifer's skirts are stiffer than a broadleaf canopy, so it moves less.
   conifer:  { rimStrength: 0.38, sway: 0.055 },
   bark_dead:{ rimStrength: 0.34 },
-  rock:     { gradient: RAMP_SOFT, rimStrength: 0.30 },
+  // 0.06, NOT 0.30. The pass walls are blobs eight metres across, seen at a
+  // grazing angle from the road: `1 - dot(view, normal)` is high over most
+  // of that face, and 0.30 of a pale blue rim washed the biggest rock in the
+  // game to cream -- through two texture and two tint changes that could not
+  // have shown. The same lesson the ground taught, on a rounder surface.
+  rock:     { gradient: RAMP_SOFT, rimStrength: 0.06 },
   // pennants on a rope: the one thing in the square that should visibly move
   flag_a:   { rimStrength: 0.30, sway: 0.06 },
   flag_b:   { rimStrength: 0.30, sway: 0.06 },
