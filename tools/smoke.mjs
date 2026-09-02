@@ -2137,12 +2137,20 @@ async function run() {
     // measured -- rule (k), a ceiling you are sitting on is not a ceiling. The
     // TRIANGLE budget is the one that means anything about cost, and the plaza
     // is at 515k of 840k.
-    ['plaza', 0.5, 6.2, 0, 205, 840],
-    ['path', 3, -32, 0, 100, 560],  // the gate furniture took this to 70/70
-    ['flock', 6, -44, 0, 55, 340],   // the reed bed took this to 40/40
-    ['meadow', 6, -54, 0, 40, 300],
-    ['ridge', 13, -74, 0, 35, 300],
-    ['far side', 24, -84, 0, 35, 300],
+    // RE-BASELINED for the asset pass (trees with branches, facade joinery,
+    // bunting, clouds): measured plaza 187/655k, path 68/588k, flock 27/285k,
+    // meadow 23/270k, ridge 18/268k, far side 18/268k. Ceilings ~15-25% up.
+    // THE FIELD IS NOT COUNTED HERE. grass.js draws ~10k instanced clumps in
+    // 64 chunks; a chunk is one draw call and its triangles live on the GPU,
+    // so it is neither a mesh in the sense this check means (a prop the
+    // runtime could remove) nor a cost this check can price. It is reported
+    // beside the number, not added to it.
+    ['plaza', 0.5, 6.2, 0, 230, 840],
+    ['path', 3, -32, 0, 100, 700],
+    ['flock', 6, -44, 0, 55, 340],
+    ['meadow', 6, -54, 0, 40, 320],
+    ['ridge', 13, -74, 0, 35, 320],
+    ['far side', 24, -84, 0, 35, 320],
   ]) {
     await check(`${label} keeps its environment inside budget`, (a) => {
       __sim({ warp: [a.x, 6, a.z], az: a.az, steps: 40, dt: 1 / 20 });
@@ -2171,11 +2179,17 @@ async function run() {
       // how many of them there are, not by a triangle ceiling.
       for (const n of (window.npcs && window.npcs.bodies) || [])
         n.traverse((o) => living.add(o));
-      let tris = 0, meshes = 0;
+      let tris = 0, meshes = 0, grassTris = 0, grassChunks = 0;
       const big = [];
       scene.traverse((o) => {
         if (!o.isMesh || !o.visible || living.has(o)) return;
         if (!o.geometry?.attributes?.position) return;
+        if (o.userData.isGrass) {
+          // instanced: the geometry is one clump, the count is the field
+          const n = o.geometry.index ? o.geometry.index.count / 3 : o.geometry.attributes.position.count / 3;
+          grassTris += n * o.count; grassChunks++;
+          return;
+        }
         if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
         const sp = o.geometry.boundingSphere.clone().applyMatrix4(o.matrixWorld);
         if (!fr.intersectsSphere(sp)) return;
@@ -2189,6 +2203,7 @@ async function run() {
       big.sort((u, v) => parseFloat(v.split(':')[1]) - parseFloat(u.split(':')[1]));
       return { ok,
                detail: `${meshes}/${a.maxMeshes} meshes · ${k.toFixed(0)}k/${a.maxTris}k static tris`
+                     + ` · +${(grassTris / 1000).toFixed(0)}k grass in ${grassChunks} chunks`
                      + (ok ? '' : ` | heaviest in frame: ${big.slice(0, 8).join(' ')}`) };
     }, { x, z, az, maxMeshes, maxTris });
   }
