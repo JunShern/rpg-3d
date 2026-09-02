@@ -274,9 +274,13 @@ async function run() {
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text().slice(0, 200)); });
 
   await page.goto(URL, { waitUntil: 'load' });
-  await page.waitForFunction('typeof window.__sim === "function"', null, { timeout: 60000 });
+  // FOUR MINUTES TO BOOT, not one. A cold software-rendered tab compiles
+  // every shader on first use, builds the grass field and loads two regions;
+  // on a fresh box the first frame can land after 60 s and the whole gate
+  // was reporting a timeout before its first check ran.
+  await page.waitForFunction('typeof window.__sim === "function"', null, { timeout: 240000 });
   await page.waitForFunction(
-    'window.combat && combat.enemies.length > 0 && __sim({steps:1}).who', null, { timeout: 60000 });
+    'window.combat && combat.enemies.length > 0 && __sim({steps:1}).who', null, { timeout: 240000 });
   await page.evaluate(installHelpers);
   await page.evaluate(installMarks, [FIGHT, FIGHT_AWAY]);
   // ARM THE ENCOUNTERS. Nothing is armed at load any more -- the town is empty
