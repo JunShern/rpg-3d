@@ -1515,7 +1515,7 @@ def shopsign(t, x, y0, z, kind=0):
 
 def building(t, cx, cy, w, d, storeys=2, yaw=0.0, plaster="plaster_a",
              roof="roof_a", shop=False, bays=None, roof_h=1.5, seed=0,
-             gable_front=False, room=False):
+             gable_front=False, room=False, wing=False):
     """Assemble one building, front facing -Y, then yaw it into place.
 
     Everything is authored in ONE orientation and rotated at the end.  Trying to
@@ -1729,6 +1729,35 @@ def building(t, cx, cy, w, d, storeys=2, yaw=0.0, plaster="plaster_a",
                       mat="awning" if seed % 2 else "roof_b")
 
     out += facade_detail(t, w, d, h, storeys, roof_h, seed, gable_front, plaster)
+    if wing:
+        # A WING: a one-storey extension off one side under its own lean-to
+        # roof, with a window and a door of its own. Nine boxes of the same
+        # proportions read as a set; a box with a smaller box grown on it
+        # reads as a house that has been added to, which is what houses are.
+        side = 1 if seed % 2 else -1
+        ww, wd, wh = 2.6, d * 0.62, GROUND_H * 0.72
+        wx = side * (w / 2 + ww / 2 - 0.02)
+        wy = d * 0.08
+        out.append(box("bld_wing", (wx, wy, 0.16 + wh / 2), (ww / 2, wd / 2, wh / 2),
+                       M[plaster], bevel=0.05, seg=2))
+        out.append(box("bld_wing_dado", (wx, wy, 0.16 + 0.45), (ww / 2 + 0.03, wd / 2 + 0.03, 0.45),
+                       M["stone"], bevel=0.03, seg=1))
+        # the lean-to: a wedge from the wall down to the outer eave
+        zt, zo = 0.16 + wh + 1.15, 0.16 + wh + 0.10
+        xi, xo = side * (w / 2 + 0.05), side * (w / 2 + ww + 0.45)
+        yv0, yv1 = wy - wd / 2 - 0.40, wy + wd / 2 + 0.40
+        rv = [Vector((xi, yv0, zt)), Vector((xi, yv1, zt)), Vector((xo, yv1, zo)), Vector((xo, yv0, zo)),
+              Vector((xi, yv0, zt - 0.14)), Vector((xi, yv1, zt - 0.14)), Vector((xo, yv1, zo - 0.14)), Vector((xo, yv0, zo - 0.14))]
+        rf = [(0, 1, 2, 3), (7, 6, 5, 4), (0, 3, 7, 4), (1, 5, 6, 2), (0, 4, 5, 1), (3, 2, 6, 7)]
+        if side < 0:
+            rf = [tuple(reversed(f)) for f in rf]
+        out.append(K._new_obj("bld_wing_roof", rv, rf, M[roof], smooth=False, recalc=True))
+        # gable ends under the lean-to: plaster triangles closing the roof
+        out += window(t, wx, -(wy - wd / 2) * 0 + (wy - wd / 2), 0.16 + 1.55, w=0.56, h=0.78, shutters=False)
+        out.append(box("bld_wing_door", (side * (w / 2 + ww - 0.02), wy, 0.16 + 1.0),
+                       (0.03, 0.42, 1.0), M["door"], bevel=0.02, seg=1))
+        t_solid_wing = (wx, wy, ww / 2, wd / 2, wh + 0.3)
+        out.append(("__wing_solid", t_solid_wing))
     if shop:
         # A HANGING SIGN: a bracket out from the wall and a board under it,
         # swinging clear of the awning. The one thing a shop has that a house
@@ -1743,12 +1772,21 @@ def building(t, cx, cy, w, d, storeys=2, yaw=0.0, plaster="plaster_a",
         out.append(box("bld_sign_rim", (sx, y0 - 0.66, 0.16 + 2.60), (0.02, 0.33, 0.29),
                        M["timber"], bevel=0.02, seg=1))
 
-    for o in out:
+    wing_solid = None
+    for o in list(out):
+        if isinstance(o, tuple) and o[0] == "__wing_solid":
+            wing_solid = o[1]
+            out.remove(o)
+            continue
         if yaw:
             K.transform(o, rotate=(0, 0, yaw), around=(0, 0, 0))
         K.transform(o, translate=(cx, cy, 0))
 
     t.add(*out)
+    if wing_solid:
+        wx, wy, whx, why, wtop = wing_solid
+        c_, s_ = math.cos(math.radians(yaw)), math.sin(math.radians(yaw))
+        t.solid(cx + wx * c_ - wy * s_, cy + wx * s_ + wy * c_, whx + 0.08, why + 0.08, yaw, top=wtop)
     # THE BOX STOPS AT THE EAVES, NOT AT THE RIDGE.
     #
     # It used to run all the way to `h + 0.27 + roof_h`, which is the top of the

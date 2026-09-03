@@ -189,7 +189,9 @@ def build_buildings(t):
         (  9.0, -14.0, 8.5, 8.0, 3, 180, "plaster_c", "roof_c", True,  2, False),
 
         (-17.0,  -2.0, 9.0, 8.0, 2,  90, "plaster_b", "roof_b", True,  3, True),
-        (-17.0,   8.5, 9.0, 8.0, 3,  90, "plaster_d", "roof_a", False, 4, False),
+        # STONE-FACED: one house in coursed ashlar among the plaster, and the
+        # one the ivy climbs -- a town of one material is a housing estate
+        (-17.0,   8.5, 9.0, 8.0, 3,  90, "stone",     "roof_a", False, 4, False),
 
         ( 17.0,  -2.0, 9.0, 8.0, 3, -90, "plaster_a", "roof_b", False, 5, True),
         ( 17.0,   8.5, 9.0, 8.0, 2, -90, "plaster_c", "roof_c", True,  6, False),
@@ -197,6 +199,9 @@ def build_buildings(t):
         ( -9.0,  15.0, 10.0, 8.0, 2,   0, "plaster_d", "roof_a", False, 7, False),
         (  7.0,  15.0, 10.0, 8.0, 2,   0, "plaster_a", "roof_c", True,  8, True),
     ]
+    # houses that have been added to: a one-storey wing off the side, on the
+    # side away from the neighbour (the seed picks it)
+    WINGS = {(-11.5, -14.0), (17.0, 8.5), (-9.0, 15.0)}
     # THE ONE YOU CAN GO INTO. Its ground storey is hollow -- see `building`'s
     # `room` -- and it is this one because it already has a shopfront, faces the
     # plaza, and stands beside the gate, so the door is on the path everybody
@@ -211,7 +216,7 @@ def build_buildings(t):
     # what made nine buildings read as one building
     for cx, cy, w, d, st, yaw, pl, rf, shop, seed, gf in plan:
         A.building(t, cx, cy, w, d, storeys=st, yaw=yaw, plaster=pl, roof=rf,
-                   shop=shop, seed=seed, gable_front=gf,
+                   shop=shop, seed=seed, gable_front=gf, wing=(cx, cy) in WINGS,
                    roof_h=1.25 + 0.16 * (seed % 4),
                    room=(cx, cy) in (SHOP, SMITHY))
         if (cx, cy) == SHOP:
@@ -273,6 +278,17 @@ def build_props(t):
     # and the north range's east house, both plain plaster from the fountain.
     A.ivy(t, -12.95, 6.2, out_yaw=0, h=5.2, seed=3)
     A.ivy(t, 12.1, -9.95, out_yaw=90, h=4.6, seed=5, spread=0.7)
+    # CLUTTER AT THE FACADE FEET. A square whose only ground-level objects
+    # are its four stalls reads as a car park with a fountain; barrels
+    # against walls, a stack of crates by a door and planters flanking a
+    # step are the difference between a stage set and a street.
+    for bx, by in ((-12.6, -3.6), (-12.6, -4.4), (12.6, 4.2), (12.6, 5.0), (-4.0, -9.7), (11.2, -9.7)):
+        A.barrel(t, bx, by)
+    for bx, by, yw in ((-12.5, 3.0, 12), (-12.5, 3.9, -8), (12.5, -5.6, 20), (4.6, -9.6, 5), (-6.5, 11.4, 30)):
+        A.crate(t, bx, by, s=0.40, yaw=yw)
+    A.crate(t, -12.5, 3.45, s=0.34, yaw=25, z0=0.80)
+    for px, py in ((-12.4, -0.2), (12.4, 0.6), (-2.0, 11.6), (9.6, 11.6)):
+        A.planter(t, px, py, r=0.42, h=0.46)
     MASTS = ((-9.3, -6.6), (9.3, -6.6), (-9.3, 8.2), (5.8, 9.6))
     for mx, my in MASTS:
         A.mast(t, mx, my, h=5.0)

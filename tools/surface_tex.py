@@ -90,7 +90,7 @@ def cobble(res=RES, rows=9, cols=9, seed=7,
     # cool ones lean slate, most sit between.
     hue = rng.normal(0.0, 1.0, len(pts))
     hue = np.concatenate([hue] * 9)
-    warm = np.array([0.030, 0.012, -0.030], np.float32)
+    warm = np.array([0.016, 0.006, -0.016], np.float32)
     base = (np.array(stone, np.float32) + tone[owner][:, None] * np.array([1, 1, 1])
             + hue[owner][:, None] * warm)
     img[:] = base.reshape(res, res, 3)
