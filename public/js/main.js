@@ -187,11 +187,11 @@ const surfaceOf = (matName) => (matName || '')
 // slightly yellow mushroom.
 // `forge` joins them: it is the smithy's fire, and a hearth that takes the
 // shadow band is a hearth made of cold rubble.
-const TOWN_FLAT = new Set(['lamp', 'glass', 'pod', 'forge', 'ridge_a', 'ridge_b', 'cloud']);
+const TOWN_FLAT = new Set(['lamp', 'glass', 'pod', 'forge', 'ridge_a', 'ridge_b', 'ridge_c', 'snow', 'cloud']);
 // ...and out of the fog. The fog reaches 130 m; the rings are at 185 and 245,
 // so leaving them in would fade them to exactly the sky and there would be no
 // backdrop at all.
-const NO_FOG_ENV = new Set(['ridge_a', 'ridge_b', 'cloud']);
+const NO_FOG_ENV = new Set(['ridge_a', 'ridge_b', 'ridge_c', 'snow', 'cloud']);
 // Foliage is NOT outlined. An inverted hull round 500 grass tufts and every
 // flower turns a meadow into a scribble; outlines belong on things whose
 // silhouette carries meaning.
@@ -210,7 +210,7 @@ const NO_OUTLINE_ENV = new Set([
   // across open grass; the invisible one was half the build's triangles being
   // outline.
   'grass', 'dirt', 'verge', 'ground', 'cobble', 'cobble_b', 'flagstone', 'ring',
-  'ridge_a', 'ridge_b', 'cloud', 'flag_a', 'flag_b', 'flag_c',
+  'ridge_a', 'ridge_b', 'ridge_c', 'snow', 'cloud', 'flag_a', 'flag_b', 'flag_c',
 ]);
 // Ground casts nothing useful onto itself; tufts and blooms cast nothing at all.
 //
@@ -223,7 +223,7 @@ const NO_OUTLINE_ENV = new Set([
 // what found it; from inside the frame it looked like a lighting bug.
 const NO_SHADOW_ENV = new Set([
   'grass', 'dirt', 'verge', 'ground', 'cobble', 'cobble_b', 'flagstone', 'ring',
-  'grass_hi', 'bloom_a', 'bloom_b', 'leaf_lo', 'pod', 'ridge_a', 'ridge_b', 'cloud',
+  'grass_hi', 'bloom_a', 'bloom_b', 'leaf_lo', 'pod', 'ridge_a', 'ridge_b', 'ridge_c', 'snow', 'cloud',
 ]);
 const TINY_ENV = new Set(['grass_hi', 'bloom_a', 'bloom_b', 'leaf_lo']);
 const TOWN_LOOK = {

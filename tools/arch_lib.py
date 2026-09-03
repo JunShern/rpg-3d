@@ -316,12 +316,16 @@ def window(t, x, y0, z, w=0.62, h=0.92, shutters=True, sill=True,
     plane, glass set back.  The depth is what sells it -- a window painted flat
     on a wall reads as a sticker under a toon ramp."""
     M, out = t.M, []
-    yg = y0 + 0.13                                  # glass, set back
+    yg = y0 + 0.19                                  # glass, set back -- deep
     yf = y0 + 0.02                                  # frame, on the plane
     out.append(box("win_glass", (x, yg, z), (w / 2, 0.02, h / 2), M[glass],
                    bevel=0.01, seg=1))
-    out.append(box("win_rev", (x, y0 + 0.08, z), (w / 2 + 0.05, 0.08, h / 2 + 0.05),
+    out.append(box("win_rev", (x, y0 + 0.11, z), (w / 2 + 0.05, 0.11, h / 2 + 0.05),
                    M["stone"], bevel=0.02, seg=1))
+    # a stone lintel over the head: the one horizontal a window gets besides
+    # its sill, and what makes the hole read as cut into the wall
+    out.append(box("win_lintel", (x, y0 - 0.02, z + h / 2 + 0.11),
+                   (w / 2 + 0.16, 0.09, 0.07), M["stone"], bevel=0.02, seg=1))
     bar = 0.045
     out.append(box("win_mullion_v", (x, yf, z), (bar, 0.035, h / 2), M[frame],
                    bevel=0.012, seg=1))
@@ -1521,6 +1525,11 @@ def building(t, cx, cy, w, d, storeys=2, yaw=0.0, plaster="plaster_a",
     M, out = t.M, []
     h = GROUND_H + FLOOR_H * (storeys - 1)
     y0 = -d / 2                                  # the facade plane
+    # NINE ROOFS, NOT ONE ROOF NINE TIMES: the pitch varies with the seed, and
+    # a jetty -- the upper storeys stepping out over the street on brackets --
+    # lands on every other house with more than one floor.
+    roof_h = roof_h * (0.95 + 0.45 * ((seed * 7) % 5) / 4)
+    jetty = 0.34 if (storeys >= 2 and seed % 2 == 0 and not room) else 0.0
     bays = bays if bays is not None else max(1, int(w / 2.1))
     # WHERE THE FACADE ALREADY PUTS ITS DOOR. The ground-floor loop below sets
     # this from `bays // 2`, and when the ground storey is hollow the opening
@@ -1532,9 +1541,28 @@ def building(t, cx, cy, w, d, storeys=2, yaw=0.0, plaster="plaster_a",
 
     out.append(box("bld_plinth", (0, 0, 0.16), (w / 2 + 0.10, d / 2 + 0.10, 0.16),
                    M["stone"], bevel=0.05, seg=2))
-    if not room:
+    if not room and not jetty:
         out.append(box("bld_body", (0, 0, h / 2 + 0.16), (w / 2, d / 2, h / 2),
                        M[plaster], bevel=0.06, seg=2))
+    elif not room:
+        # ground storey to the plinth line, upper storeys stepped out over it
+        gz1 = 0.16 + GROUND_H
+        out.append(box("bld_body", (0, 0, (0.16 + gz1) / 2), (w / 2, d / 2, (gz1 - 0.16) / 2),
+                       M[plaster], bevel=0.06, seg=2))
+        out.append(box("bld_body_up", (0, -jetty / 2, (gz1 + h + 0.16) / 2),
+                       (w / 2, d / 2 + jetty / 2, (h + 0.16 - gz1) / 2),
+                       M[plaster], bevel=0.06, seg=2))
+        # the brackets that hold it up: a timber knee every bay
+        nb = max(2, int(w / 1.6))
+        for i in range(nb + 1):
+            bx = -w / 2 + 0.25 + (w - 0.5) * i / nb
+            out.append(box("bld_bracket", (bx, y0 - jetty / 2 + 0.02, gz1 - 0.30),
+                           (0.07, jetty / 2 + 0.04, 0.07), M["timber"], bevel=0.015, seg=1))
+            out.append(box("bld_bracket_v", (bx, y0 + 0.08, gz1 - 0.62),
+                           (0.07, 0.07, 0.36), M["timber"], bevel=0.015, seg=1))
+        # the sill beam the whole jetty rests on
+        out.append(box("bld_jetty_beam", (0, y0 - jetty + 0.06, gz1 - 0.06),
+                       (w / 2 + 0.04, 0.09, 0.09), M["timber"], bevel=0.02, seg=1))
     else:
         # THE GROUND STOREY IS HOLLOW, and only the ground storey. Everything
         # above it stays one solid block, which is most of the mass and all of
@@ -1591,30 +1619,51 @@ def building(t, cx, cy, w, d, storeys=2, yaw=0.0, plaster="plaster_a",
 
     # storey bands: a shadow line every floor keeps a tall facade from reading
     # as one undifferentiated slab under flat toon shading
+    # A DADO: the bottom metre of every wall in stone, proud of the plaster.
+    # Walls are darker at the base in every painted town there is, and it is
+    # weather that does it; here the base course does the same job in one box.
+    out.append(box("bld_dado", (0, 0, 0.16 + 0.52), (w / 2 + 0.035, d / 2 + 0.035, 0.52),
+                   M["ashlar_tex"] if "ashlar_tex" in M else M["stone"], bevel=0.03, seg=1))
     for f in range(1, storeys):
         z = 0.16 + GROUND_H + FLOOR_H * (f - 1)
         out.append(box("bld_band", (0, 0, z), (w / 2 + 0.06, d / 2 + 0.06, 0.075),
                        M["timber"], bevel=0.025, seg=1))
 
     # cornice + roof
-    out.append(box("bld_cornice", (0, 0, h + 0.16), (w / 2 + 0.16, d / 2 + 0.16, 0.11),
+    out.append(box("bld_cornice", (0, -jetty / 2, h + 0.16), (w / 2 + 0.16, d / 2 + jetty / 2 + 0.16, 0.11),
                    M["stone"], bevel=0.04, seg=1))
     # GABLE TO THE STREET on some of them. A reviewer counted one building
     # recipe used nine times, and the roof ridge running the same way every time
     # is most of why: turn the prism a quarter and the same building has a
     # completely different silhouette from the square.
     if gable_front:
-        out.append(prism("bld_roof", (0, 0, h + 0.27), d, w, roof_h * 1.25,
-                         M[roof], over_y=0.26, over_x=0.30))
+        out.append(prism("bld_roof", (0, -jetty / 2, h + 0.27), d + jetty, w, roof_h * 1.25,
+                         M[roof], over_y=0.34, over_x=0.52))
         K.transform(out[-1], rotate=(0, 0, 90), around=(0, 0, 0))
     else:
-        out.append(prism("bld_roof", (0, 0, h + 0.27), w, d, roof_h, M[roof],
-                         over_y=0.30, over_x=0.26))
+        # DEEP EAVES. At 0.30 the roof stopped at the wall and the house was
+        # a box with a lid; at 0.55 there is a band of shadow under every
+        # eave, which is the single strongest cue that a roof is a roof.
+        out.append(prism("bld_roof", (0, -jetty / 2, h + 0.27), w, d + jetty, roof_h, M[roof],
+                         over_y=0.55, over_x=0.45))
+        # fascia boards along both eaves, so the roof edge has a thickness
+        for sy in (-1, 1):
+            yy = -jetty / 2 + sy * ((d + jetty) / 2 + 0.55)
+            out.append(box("bld_fascia", (0, yy, h + 0.24), (w / 2 + 0.45, 0.035, 0.09),
+                           M["timber"], bevel=0.012, seg=1))
 
-    # chimney, offset so the roofline is never symmetrical
+    # A CHIMNEY YOU CAN SEE FROM THE ROAD: taller than the ridge by a metre,
+    # with a cap and a pot, offset so the roofline is never symmetrical.
     chx = (0.22 if seed % 2 else -0.28) * w
-    out.append(box("bld_chimney", (chx, 0.10 * d, h + 0.30 + roof_h * 0.72),
-                   (0.24, 0.24, roof_h * 0.62), M["stone"], bevel=0.04, seg=1))
+    ctop = h + 0.30 + roof_h + 0.9
+    out.append(box("bld_chimney", (chx, 0.10 * d, (h + 0.30 + ctop) / 2),
+                   (0.26, 0.26, (ctop - h - 0.30) / 2), M["stone"], bevel=0.04, seg=1))
+    out.append(box("bld_chimney_cap", (chx, 0.10 * d, ctop + 0.05), (0.34, 0.34, 0.05),
+                   M["stone"], bevel=0.02, seg=1))
+    out.append(K.tube("bld_chimney_pot", K.dome([
+        {"p": Vector((chx, 0.10 * d, ctop + 0.08)), "r": (0.13, 0.13), "n": 2.4},
+        {"p": Vector((chx, 0.10 * d, ctop + 0.42)), "r": (0.11, 0.11), "n": 2.4},
+    ], at="none", steps=1), seg=8, mat=M["roof_c"] if "roof_c" in M else M["stone"], squircle=2.4))
 
     # ground floor: a door, or a shopfront with an awning
     door_bay = bays // 2
@@ -1680,6 +1729,19 @@ def building(t, cx, cy, w, d, storeys=2, yaw=0.0, plaster="plaster_a",
                       mat="awning" if seed % 2 else "roof_b")
 
     out += facade_detail(t, w, d, h, storeys, roof_h, seed, gable_front, plaster)
+    if shop:
+        # A HANGING SIGN: a bracket out from the wall and a board under it,
+        # swinging clear of the awning. The one thing a shop has that a house
+        # does not, and it reads from across the square.
+        sx = door_x + 1.35
+        out.append(box("bld_sign_arm", (sx, y0 - 0.42, 0.16 + 2.95), (0.04, 0.44, 0.04),
+                       M["iron"], bevel=0.01, seg=1))
+        out.append(box("bld_sign_brace", (sx, y0 - 0.22, 0.16 + 2.72), (0.03, 0.26, 0.03),
+                       M["iron"], bevel=0.01, seg=1))
+        out.append(box("bld_sign", (sx, y0 - 0.66, 0.16 + 2.60), (0.03, 0.30, 0.26),
+                       M["door"], bevel=0.02, seg=1))
+        out.append(box("bld_sign_rim", (sx, y0 - 0.66, 0.16 + 2.60), (0.02, 0.33, 0.29),
+                       M["timber"], bevel=0.02, seg=1))
 
     for o in out:
         if yaw:

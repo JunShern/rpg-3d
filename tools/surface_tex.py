@@ -46,7 +46,7 @@ def _cell_centres(rows, cols, jitter, rng):
 
 def cobble(res=RES, rows=9, cols=9, seed=7,
            stone=(0.60, 0.585, 0.60), mortar=(0.40, 0.395, 0.425),
-           spread=0.060):
+           spread=0.095):
     """Irregular paving: a jittered Voronoi, tinted per cell, dark at the seams.
 
     Voronoi rather than a brick grid because a hand-laid square is not on a
@@ -85,7 +85,14 @@ def cobble(res=RES, rows=9, cols=9, seed=7,
 
     seam = (second - best)
     img = np.empty((res, res, 3), np.float32)
-    base = np.array(stone, np.float32) + tone[owner][:, None] * np.array([1, 1, 1])
+    # EACH STONE ITS OWN VALUE AND A HINT OF ITS OWN HUE: a paving that is one
+    # grey with a mortar grid is a diagram of paving. Warm stones lean ochre,
+    # cool ones lean slate, most sit between.
+    hue = rng.normal(0.0, 1.0, len(pts))
+    hue = np.concatenate([hue] * 9)
+    warm = np.array([0.030, 0.012, -0.030], np.float32)
+    base = (np.array(stone, np.float32) + tone[owner][:, None] * np.array([1, 1, 1])
+            + hue[owner][:, None] * warm)
     img[:] = base.reshape(res, res, 3)
 
     # the mortar line: a HARD edge, because a soft one disappears under the ramp
@@ -336,64 +343,92 @@ def grass_strokes(res=RES, seed=97):
     return np.clip(np.repeat(v[..., None], 3, axis=2), 0, 1)
 
 
-def plaster(res=RES, seed=23, tone=(1.0, 1.0, 1.0), strength=0.05):
-    """Rendered wall.
+def plaster(res=RES, seed=23, tone=(1.0, 1.0, 1.0), strength=0.09):
+    """Rendered wall: mottle, a trowel drift, a few damp patches, hairline
+    cracks and rain streaks.
 
-    DELIBERATELY ALMOST NOTHING.  A facade is the backdrop a fight happens in
-    front of, and a wall with as much going on as the ground would compete with
-    every silhouette in the frame.  This is low-contrast mottling plus a faint
-    horizontal trowel drift, multiplied over whatever colour the material
-    already carries -- so one greyscale texture serves all four plaster tints
-    instead of four separate images.
+    It used to be deliberately almost nothing, on the argument that a facade
+    is a backdrop. That was true when the walls were the only thing with a
+    texture on them; now the ground, the roofs and the rock all carry marks
+    and the plaster reads as the one surface nobody painted. Still greyscale
+    and multiplied, so one image serves every tint -- and still nothing here
+    is strong enough to fight a silhouette in front of it.
     """
+    rng = _rng(seed)
     n = _fbm(res, seed, octaves=4, base=4)
     drift = _fbm(res, seed + 9, octaves=2, base=3)
     k = 1.0 + (n - 0.5) * strength + (drift - 0.5) * strength * 0.6
-    # a few sparse darker patches: damp, age, a repair
     patch = _fbm(res, seed + 31, octaves=3, base=6)
-    # sparse and gentle: at full strength these read as camouflage, not as a
-    # wall that has been rained on
-    k *= np.where(patch > 0.90, 0.965, 1.0)
+    k *= np.where(patch > 0.86, 0.94, 1.0)
+    k *= np.where(patch < 0.16, 1.035, 1.0)          # a lighter repair
+    # RAIN STREAKS: faint vertical runs, denser lower down each tile so they
+    # read as weather coming off a sill somewhere above
+    v = (np.arange(res) + 0.5) / res
+    streak = _fbm(res, seed + 47, octaves=3, base=40)          # fine across
+    streak = np.repeat(streak.mean(axis=0, keepdims=True), res, axis=0)  # smear down
+    streak = (streak - streak.mean()) * 1.4
+    fall = np.clip((v[:, None] - 0.35) / 0.65, 0, 1)
+    k *= 1.0 - 0.06 * np.clip(streak, 0, 1) * fall
+    # HAIRLINE CRACKS: a handful of random walks, one pixel wide, slightly dark
+    crack = np.zeros((res, res), np.float32)
+    for _ in range(4):
+        x, y = rng.integers(0, res), rng.integers(0, res)
+        dx, dy = rng.normal(0, 1), rng.normal(0, 1)
+        for _s in range(rng.integers(60, 180)):
+            crack[y % res, x % res] = 1.0
+            dx += rng.normal(0, 0.35); dy += rng.normal(0, 0.35)
+            nrm = max(1e-3, (dx * dx + dy * dy) ** 0.5)
+            x = int(round(x + dx / nrm)); y = int(round(y + dy / nrm))
+    k *= 1.0 - 0.10 * crack
     img = np.repeat(k[..., None], 3, axis=2) * np.array(tone, np.float32)
     return np.clip(img, 0, 1)
 
 
-def rooftile(res=RES, rows=11, seed=29, light=1.14, dark=0.68):
-    """Pantiles: staggered courses of round-ended tiles.
+def rooftile(res=RES, rows=11, seed=29, light=1.14, dark=0.66):
+    """Pantiles: staggered courses of round-barrelled tiles, with lichen.
 
     Drawn, not noised -- a roof is made of a thing you can name, and from the
     ridge at the far end of the meadow the roofs are most of the town's
-    silhouette. Greyscale and multiplied, like the plaster, so the three roof
-    colours stay three colours.
+    silhouette. The first version was a grid of flat rectangles and read as
+    brick from any distance: what makes a pantile a pantile is the S-curve
+    across it, so the barrel is a full cosine, the lap is a soft shadow with
+    a bright lip, and every fourth tile is a shade off the rest. Lichen sits
+    in the laps as a cool tint, so this one is RGB rather than grey.
     """
     cols = rows
     u = (np.arange(res) + 0.5) / res
     uu, vv = np.meshgrid(u, u, indexing='xy')
-
     row = vv * rows
     ri = np.floor(row)
     rf = row - ri
-    # every other course offsets by half a tile
     off = np.where(ri % 2 > 0, 0.5, 0.0)
     col = uu * cols + off
     cf = col - np.floor(col)
-
-    k = np.ones((res, res), np.float32)
-    # the rounded barrel of each tile, brightest along its crown
-    bulge = np.cos((cf - 0.5) * np.pi) ** 0.7
-    k = 1.0 + (light - 1.0) * bulge - (1.0 - dark) * (1.0 - bulge) * 0.55
-    # the shadowed lap where the next course overlaps this one
-    k = np.where(rf < 0.20, dark * (0.92 + 0.30 * rf / 0.20), k)
-    # the vertical joint between tiles: a hard dark line, the thing that makes
-    # a roof read as MANY tiles rather than as a striped surface
-    k = np.where((cf < 0.06) | (cf > 0.94), dark * 0.92, k)
-
+    # the S-curve: a full cosine across the tile, bright crown, dark trough
+    bulge = 0.5 + 0.5 * np.cos((cf - 0.5) * 2 * np.pi)
+    k = dark + (light - dark) * (0.15 + 0.85 * bulge)
+    # the lap: a soft shadow under the course above and a bright lip at its edge
+    lap = np.clip((0.22 - rf) / 0.22, 0, 1)
+    k *= 1.0 - 0.34 * lap ** 1.4
+    k = np.where((rf > 0.22) & (rf < 0.26), k * 1.10, k)
+    # the joint between tiles, softer than a hard line
+    joint = np.clip(1 - np.abs(cf - 0.0) / 0.05, 0, 1) + np.clip(1 - np.abs(cf - 1.0) / 0.05, 0, 1)
+    k *= 1.0 - 0.18 * joint
     rng = _rng(seed)
-    tone = rng.normal(0.0, 0.045, (rows, cols)).astype(np.float32)
+    tone = rng.normal(0.0, 0.07, (rows, cols)).astype(np.float32)
     ci = np.clip(np.floor(col).astype(int) % cols, 0, cols - 1)
-    k = k + tone[np.clip(ri.astype(int) % rows, 0, rows - 1), ci]
-
-    return np.clip(np.repeat(k[..., None], 3, axis=2), 0, 1)
+    rr = np.clip(ri.astype(int) % rows, 0, rows - 1)
+    k = k + tone[rr, ci]
+    # a few replaced tiles, paler
+    swap = (rng.random((rows, cols)) < 0.06).astype(np.float32)
+    k = k + 0.16 * swap[rr, ci]
+    img = np.repeat(k[..., None], 3, axis=2).astype(np.float32)
+    # LICHEN: cool patches that sit in the laps and the troughs
+    moss = _fbm(res, seed + 71, octaves=3, base=5)
+    m = np.clip((moss - 0.62) / 0.25, 0, 1) * (0.4 + 0.6 * (1 - bulge)) * (0.5 + 0.5 * lap)
+    tint = np.array([0.72, 0.92, 0.70], np.float32)
+    img = img * (1 - m[..., None]) + img * tint * m[..., None] * 1.05
+    return np.clip(img, 0, 1)
 
 
 def ashlar(res=RES, rows=6, seed=41, mortar=0.80, spread=0.035):

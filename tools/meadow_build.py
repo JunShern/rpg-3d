@@ -550,6 +550,83 @@ def _clear_of_landmarks(x, y, pad=0.0):
     return True
 
 
+def bushes(M, t, rnd):
+    """Bushes: low clusters of leaf blobs, where the ground cover is otherwise
+    a hard edge between grass and stone. Two greens per bush, or it is a
+    green boulder."""
+    out = []
+    spots = []
+    for _ in range(70):
+        x = MEADOW["x0"] + 4 + rnd() * (MEADOW["x1"] - MEADOW["x0"] - 8)
+        y = GATE_Y + 3 + rnd() * (MEADOW["y1"] - GATE_Y - 8)
+        if on_path(x, y, 3.2) or not _inside(x, y) or not _clear_of_landmarks(x, y, 1.2):
+            continue
+        spots.append((x, y))
+    for i, (x, y) in enumerate(spots[:36]):
+        z = height(x, y)
+        n = 3 + int(rnd() * 3)
+        s = 0.7 + rnd() * 0.6
+        for k in range(n):
+            a = rnd() * math.tau
+            r = 0.30 * s * math.sqrt(rnd())
+            br = (0.30 + rnd() * 0.22) * s
+            out.append(K.blob(f"bush{i}_{k}", (x + math.cos(a) * r, y + math.sin(a) * r, z + br * 0.55),
+                              (br, br, br * 0.75), None,
+                              M["leaf_lo"] if k % 2 else M["leaf"], seg=8, rings=6, squircle=2.3))
+    t.add(*out)
+
+
+def flowers(M, t, rnd):
+    """Flower patches: small heads in three colours, above the grass. A colour
+    the meadow did not have, and the first thing a screenshot's eye lands on."""
+    out = []
+    k = 0
+    for _ in range(40):
+        x = MEADOW["x0"] + 6 + rnd() * (MEADOW["x1"] - MEADOW["x0"] - 12)
+        y = GATE_Y + 4 + rnd() * (MEADOW["y1"] - GATE_Y - 10)
+        if on_path(x, y, 4.0) or not _inside(x, y) or not _clear_of_landmarks(x, y, 1.0):
+            continue
+        if height(x, y) > 5.5:
+            continue
+        mat = (M["flower_a"], M["flower_b"], M["flower_c"])[k % 3]
+        for _h in range(18 + int(rnd() * 10)):
+            a = rnd() * math.tau
+            r = 2.2 * math.sqrt(rnd())
+            px, py = x + math.cos(a) * r, y + math.sin(a) * r
+            if on_path(px, py, 2.6):
+                continue
+            hr = 0.055 + rnd() * 0.035
+            out.append(K.blob(f"flower{k}", (px, py, height(px, py) + 0.22 + rnd() * 0.08),
+                              (hr, hr, hr * 0.6), None, mat, seg=6, rings=4, squircle=2.2))
+        k += 1
+        if k >= 14:
+            break
+    t.add(*out)
+
+
+def logs(M, t):
+    """Fallen logs: three trunks lying where a copse would drop them, and a
+    stump beside each. The one horizontal in a valley of vertical trees."""
+    out = []
+    for i, (x, y, ang, ln) in enumerate(((-22.0, 30.0, 0.5, 3.4), (33.0, 61.0, 2.2, 2.8), (-11.0, 84.0, 1.1, 3.0))):
+        if not _inside(x, y):
+            continue
+        z = height(x, y)
+        dx, dy = math.cos(ang), math.sin(ang)
+        out.append(K.tube(f"log{i}", K.dome([
+            {"p": Vector((x - dx * ln / 2, y - dy * ln / 2, z + 0.22)), "r": (0.26, 0.26), "n": 2.5},
+            {"p": Vector((x, y, z + 0.24)), "r": (0.24, 0.24), "n": 2.5},
+            {"p": Vector((x + dx * ln / 2, y + dy * ln / 2, z + 0.20)), "r": (0.20, 0.20), "n": 2.5},
+        ], at="both", steps=1, height=0.05), seg=9, mat=M["bark"], squircle=2.5))
+        sx, sy = x - dy * 1.6, y + dx * 1.6
+        out.append(K.tube(f"stump{i}", K.dome([
+            {"p": Vector((sx, sy, height(sx, sy) - 0.1)), "r": (0.34, 0.34), "n": 2.6},
+            {"p": Vector((sx, sy, height(sx, sy) + 0.45)), "r": (0.30, 0.30), "n": 2.6},
+        ], at="end", steps=1, height=0.04), seg=9, mat=M["bark"], squircle=2.6))
+        t.solid(sx, sy, 0.34, 0.34, top=height(sx, sy) + 0.5)
+    t.add(*out)
+
+
 def scatter(M, t):
     """Density that VARIES. Trees cluster in copses and thin out between them;
     an even scatter reads as a spreadsheet however good the tree is."""
@@ -1596,26 +1673,26 @@ def backdrop(M, t):
     """
     cx, cy = 0.0, 65.0
     out = []
-    for ring, (rad, base, lo, hi, mat, seed, ph) in enumerate((
-            (175.0, -40.0, 16.0, 52.0, M["ridge_a"], 8821, 0.0),
-            (245.0, -40.0, 34.0, 74.0, M["ridge_b"], 3307, 2.3))):
+    # THREE RINGS, AND SNOW ON THE FAR TWO. Two rings read as depth; the third,
+    # taller and paler, is what turns hills into mountains -- and a mountain
+    # is a mountain because of where the snow stops. The snow is a second
+    # curtain on the same vertices, from the snowline up, so the line follows
+    # every peak. The far ring's top is jaggier: distance flattens everything.
+    for ring, (rad, base, lo, hi, mat, seed, ph, jag, snowline) in enumerate((
+            (175.0, -40.0, 16.0, 52.0, M["ridge_a"], 8821, 0.0, 0.16, None),
+            (245.0, -40.0, 34.0, 80.0, M["ridge_b"], 3307, 2.3, 0.24, 66.0),
+            (330.0, -40.0, 60.0, 128.0, M["ridge_c"], 5171, 4.1, 0.34, 96.0))):
         rnd = _lcg(seed)
         n = 160
         verts, faces, tops = [], [], []
         for i in range(n):
             a = 2 * math.pi * i / n
-            # THREE OCTAVES. The first pass used one slow sine plus a little
-            # noise and then smoothed it, which left a nearly straight line
-            # across the sky -- a wall, not a range. The lowest frequency is
-            # the massif, the middle one the individual hills, the top one the
-            # notches between them.
             k = (0.52 * (0.5 + 0.5 * math.sin(a * 2.0 + ph))
                  + 0.32 * (0.5 + 0.5 * math.sin(a * 5.0 + ph * 1.7 + 0.9))
-                 + 0.16 * (0.5 + 0.5 * math.sin(a * 13.0 + ph * 0.6 + 2.2)))
-            tops.append(lo + (hi - lo) * (0.86 * k + 0.14 * rnd()))
-        # ONE light pass, only to take the per-column jitter off the peaks --
-        # smoothing more than this is what flattened the first attempt
-        tops = [(tops[i - 1] + 4.0 * tops[i] + tops[(i + 1) % n]) / 6.0
+                 + jag * (0.5 + 0.5 * math.sin(a * 13.0 + ph * 0.6 + 2.2))
+                 + jag * 0.5 * (0.5 + 0.5 * math.sin(a * 29.0 + ph * 1.3)))
+            tops.append(lo + (hi - lo) * (0.80 * k + 0.20 * rnd()))
+        tops = [(tops[i - 1] + 2.0 * tops[i] + tops[(i + 1) % n]) / 4.0
                 for i in range(n)]
         for i in range(n):
             a = 2 * math.pi * i / n
@@ -1624,15 +1701,24 @@ def backdrop(M, t):
             verts.append(Vector((px, py, tops[i])))
         for i in range(n):
             j = (i + 1) % n
-            # WOUND INWARD, toward the play space. The obvious order --
-            # base_i, base_j, top_j, top_i -- gives an OUTWARD normal, and
-            # since the backdrop is a single-sided basic material that means a
-            # ring of hills nobody can see from inside it. This order is the
-            # reverse of the intuitive one for exactly that reason.
             faces.append((i * 2, i * 2 + 1, j * 2 + 1, j * 2))
         obj = K._new_obj(f"ridge{ring}", verts, faces, mat,
                          smooth=False, recalc=False)
         out.append(obj)
+        if snowline is not None:
+            sv, sf = [], []
+            for i in range(n):
+                a = 2 * math.pi * i / n
+                px, py = cx + rad * math.cos(a), cy + rad * math.sin(a)
+                # the snowline wanders a little so it is not a ruler
+                sl = snowline + 6.0 * math.sin(a * 7.0 + ph) + 3.0 * math.sin(a * 19.0)
+                lo_z = min(tops[i] - 0.5, sl)
+                sv.append(Vector((px - 0.05 * math.cos(a), py - 0.05 * math.sin(a), lo_z)))
+                sv.append(Vector((px - 0.05 * math.cos(a), py - 0.05 * math.sin(a), tops[i] + 0.3)))
+            for i in range(n):
+                j = (i + 1) % n
+                sf.append((i * 2, i * 2 + 1, j * 2 + 1, j * 2))
+            out.append(K._new_obj(f"snow{ring}", sv, sf, M["snow"], smooth=False, recalc=False))
     t.add(*out)
 
 
@@ -2196,6 +2282,11 @@ def materials(M):
         # the amount another sixty metres of air is worth.
         "ridge_a":  K.material("ridge_a", (0.40, 0.53, 0.52), roughness=1.0),
         "ridge_b":  K.material("ridge_b", (0.60, 0.71, 0.79), roughness=1.0),
+        "ridge_c":  K.material("ridge_c", (0.70, 0.78, 0.86), roughness=1.0),
+        "snow":     K.material("snow", (0.95, 0.96, 0.98), roughness=1.0),
+        "flower_a": K.material("flower_a", (0.95, 0.55, 0.65), roughness=0.8),
+        "flower_b": K.material("flower_b", (0.97, 0.95, 0.85), roughness=0.8),
+        "flower_c": K.material("flower_c", (0.98, 0.80, 0.30), roughness=0.8),
         # clouds: warm white, a shade under the sky's horizon so they sit IN
         # the haze rather than cut out of it
         "cloud":    K.material("cloud", (0.93, 0.92, 0.90), roughness=1.0),
@@ -2282,6 +2373,9 @@ def main():
     backdrop(M, t)
     clouds(M, t)
     scatter(M, t)
+    bushes(M, t, _lcg(70211))
+    flowers(M, t, _lcg(70223))
+    logs(M, t)
 
     town, floor = A.finish(t, name_town="MEADOW", name_floor="FLOOR_MEADOW")
     # Per-face planar projection for everything that is not the ground -- the

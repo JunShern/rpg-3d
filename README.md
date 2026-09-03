@@ -47,6 +47,10 @@ they stand in were built here.
   control.
 - **The air**: dust in the sunlight and petals on the wind, in a box that
   follows you.
+- **Sound, with no sound files**: footsteps by surface, swings, hits, the
+  bell's partials, the beacon catching, a chest's hinge, wind, birds, water
+  and fire by distance, and a quiet pad that warms at dusk -- all synthesised
+  in WebAudio the moment they are needed.
 
 ## Run it
 
@@ -62,7 +66,7 @@ installed — the short version is everything except geometry and characters.
 Open **http://localhost:3100**. `WASD`/arrows move (camera-relative), drag to
 orbit, wheel to zoom, `space` to jump, `J` to swing, `E` to talk to a person or
 use a thing, `shift` to slip, `Q` to lock on, `Tab` to change target, `R` to
-sheathe or draw, `C` to swap character, `Esc` for the menu. Swing in the air
+sheathe or draw, `C` to swap character, `M` to mute, `Esc` for the menu. Swing in the air
 for the falling cut; land it and you bounce back up. Backquote shows the debug
 readout.
 
