@@ -76,7 +76,7 @@ export function makeGroundFog({ scene, heightAt = null, x0 = -50, x1 = 50, z0 = 
     mesh,
     update(camPos, { dusk = 0, color = null } = {}) {
       mat.uniforms.uCam.value.copy(camPos);
-      mat.uniforms.uAlpha.value = 0.45 + 0.35 * dusk;
+      mat.uniforms.uAlpha.value = 0.34 + 0.42 * dusk;
       if (color) mat.uniforms.uColor.value.copy(color);
     },
     set enabled(v) { mesh.visible = v; },
