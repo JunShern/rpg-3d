@@ -140,25 +140,6 @@ export const LOOKS = {
     sky: { top: 0x3b76c9, mid: 0x9cc3e8, horizon: 0xeddfcc, sun: 0xffe3ba },
     fog: { color: 0xe0dcd0, near: 38, far: 160 },
   },
-  // candidates under review: deeper shadows
-  p2: {
-    label: 'p2', lit: false, outlines: true, rim: 1.0,
-    key: { color: 0xffe2bc, intensity: 2.8, position: [11, 17, 8] },
-    hemi: { sky: 0xbdd0ee, ground: 0x9c8668, intensity: 0.55 },
-    ambient: { color: 0x8a8ea8, intensity: 0.14 },
-    exposure: 1.06, albedo: 1, ramp: 'painted',
-    sky: { top: 0x3b76c9, mid: 0x9cc3e8, horizon: 0xeddfcc, sun: 0xffe3ba },
-    fog: { color: 0xe0dcd0, near: 38, far: 160 },
-  },
-  p3: {
-    label: 'p3', lit: false, outlines: true, rim: 1.0,
-    key: { color: 0xffe2bc, intensity: 2.8, position: [11, 17, 8] },
-    hemi: { sky: 0xbdd0ee, ground: 0x9c8668, intensity: 0.68 },
-    ambient: { color: 0x8a8ea8, intensity: 0.18 },
-    exposure: 1.03, albedo: 1, ramp: 'painted',
-    sky: { top: 0x3b76c9, mid: 0x9cc3e8, horizon: 0xeddfcc, sun: 0xffe3ba },
-    fog: { color: 0xe0dcd0, near: 38, far: 160 },
-  },
   // THE HOUR AFTER THE BEACON. Not a look you choose: the world slides into
   // it over a few seconds when the coals take, because a beacon lit at noon
   // is a campfire and a beacon lit against a darkening sky is a beacon.
