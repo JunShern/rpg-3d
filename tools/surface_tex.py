@@ -431,6 +431,25 @@ def rooftile(res=RES, rows=11, seed=29, light=1.14, dark=0.66):
     return np.clip(img, 0, 1)
 
 
+def stripes(res=RES, n=7, seed=83, a=(1.0, 1.0, 1.0), b=(0.90, 0.42, 0.40)):
+    """Awning canvas: vertical stripes with a little weave. Multiplied over a
+    cream base, so `a` is the cream and `b` is the colour of the stripe. A
+    plain pink slab over every stall and shopfront was the loudest flat
+    surface in the square."""
+    u = (np.arange(res) + 0.5) / res
+    uu, vv = np.meshgrid(u, u, indexing='xy')
+    k = np.floor(uu * n) % 2
+    # soften the stripe edge by a pixel or two and add the weave
+    edge = np.abs(((uu * n) % 1.0) - 0.5) * 2.0
+    k = k * np.clip(edge * 14.0, 0, 1) + (1 - k) * (1 - np.clip(edge * 14.0, 0, 1)) * 0.0 + k * 0.0 + np.where(k > 0.5, 1.0, 0.0) * 0.0
+    stripe = np.where(np.floor(uu * n) % 2 > 0, 1.0, 0.0)
+    weave = _fbm(res, seed, octaves=3, base=48)
+    img = (np.array(a, np.float32)[None, None] * (1 - stripe[..., None])
+           + np.array(b, np.float32)[None, None] * stripe[..., None])
+    img = img * (0.96 + 0.08 * weave[..., None])
+    return np.clip(img, 0, 1).astype(np.float32)
+
+
 def ashlar(res=RES, rows=6, seed=41, mortar=0.80, spread=0.035):
     """Cut stone: regular courses with a broken vertical joint.
 

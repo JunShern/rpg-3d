@@ -91,10 +91,12 @@ def texture_walls(M):
             # stone is the one thing in a town that is genuinely laid out on a
             # grid -- and the contrast between the two is what separates "built"
             # from "surfaced".
-            + [("stone", surface_tex.ashlar), ("timber", surface_tex.timber)])
+            + [("stone", surface_tex.ashlar), ("timber", surface_tex.timber),
+               ("awning", surface_tex.stripes)])
     for key, fn in plan:
         tint = M[key].diffuse_color[:3]
         img = (fn(res=256, tone=tint) if fn is surface_tex.plaster
+               else fn(res=256) if fn is surface_tex.stripes     # carries its own colours
                else fn(res=256) * np.array(tint, np.float32))
         path = os.path.abspath(os.path.join(TEX_DIR, f"{key}.png"))
         surface_tex.write_png(path, np.clip(img, 0, 1))

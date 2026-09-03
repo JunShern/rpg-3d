@@ -64,7 +64,8 @@ def palette():
         "glass":     (0.52, 0.74, 0.86),
         "lamp":      (1.00, 0.86, 0.52),
         "brass":     (0.86, 0.68, 0.30),
-        "awning":    (0.84, 0.30, 0.28),
+        "awning":    (0.96, 0.92, 0.82),   # cream: the stripes are in the texture
+        "fruit":     (0.86, 0.32, 0.30),
         "leaf":      (0.42, 0.64, 0.34),
         "ivy":       (0.30, 0.50, 0.28),
         # DARKER THAN THE GROUND IT SITS IN. At 0.38/0.72/0.84 the toon ramp
@@ -851,7 +852,7 @@ def stall(t, cx, cy, yaw=0.0, kind=0, w=2.4, d=1.5):
     # sells has to be readable as shape and colour from across the square.
     goods = [
         # (material, radius, rows) -- fruit, bread, cloth bolts, pots
-        ("awning", 0.115, 3), ("timber", 0.135, 2),
+        ("fruit", 0.115, 3), ("timber", 0.135, 2),
         ("door", 0.125, 2), ("stone", 0.130, 3),
     ][kind % 4]
     mat, rr, rows = goods
