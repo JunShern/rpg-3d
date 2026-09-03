@@ -1601,7 +1601,7 @@ async function run() {
   await check('the north road climbs to a pass worth reaching', () => {
     const WAY = [];
     for (let by = 92; by <= 108; by += 4) WAY.push([by, terrain.pathAt(by), -by]);
-    __sim({ warp: [terrain.pathAt(88), 12, -88.0], az: 0, polar: 1.22, dist: 5.4,
+    __sim({ warp: [terrain.pathAt(88), 12, -88.0], az: 0, polar: 1.32, dist: 5.4,
             steps: 30 });
     let reached = 0, stalled = null;
     for (const [by, tx, tz] of WAY) {
@@ -1637,7 +1637,7 @@ async function run() {
     // still out. A boom that has collapsed into a rock passes any test that
     // only asks "is the town in the frustum" of a camera sitting inside a wall.
     __sim({ warp: [terrain.pathAt(104), 18, -104.0], az: Math.PI,
-            polar: 1.22, dist: 5.4, steps: 40, dt: 1 / 20 });
+            polar: 1.32, dist: 5.4, steps: 40, dt: 1 / 20 });
     camera.updateMatrixWorld();
     const fr = new THREE.Frustum().setFromProjectionMatrix(
       new THREE.Matrix4().multiplyMatrices(
@@ -1693,7 +1693,7 @@ async function run() {
     // that shares one page shares all of its state, and any check that does
     // not pin what it depends on is measuring the check before it.
     __sim({ warp: [cx, 12, cz], az: Math.atan2(cx + 26.5, cz + 75.0),
-            polar: 1.22, dist: 5.4, steps: 40, dt: 1 / 20 });
+            polar: 1.32, dist: 5.4, steps: 40, dt: 1 / 20 });
     camera.updateMatrixWorld();
     const fr = new THREE.Frustum().setFromProjectionMatrix(
       new THREE.Matrix4().multiplyMatrices(

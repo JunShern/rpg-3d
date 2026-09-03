@@ -1671,7 +1671,11 @@ function tryMove(dx, dz) {
 
 // ------------------------------------------------------------------ camera
 
-const cam = { az: Math.PI, polar: 1.22, dist: 5.4, autoDelay: 0 };
+// POLAR 1.32, NOT 1.22. At 1.22 the camera looked 20 degrees down and half
+// of every frame was paving; at 1.32 it is 14, a third more of the frame is
+// facade and sky, the hills come into view on the road, and the ground still
+// reads for a fight. Chosen from a three-way capture at four vantages.
+const cam = { az: Math.PI, polar: 1.32, dist: 5.4, autoDelay: 0 };
 // THE BOOM'S ACTUAL LENGTH, smoothed. See the note where it is applied.
 let camBoom = 5.4;
 // last frame's camera position, for the indoor ease. See where it is used.
