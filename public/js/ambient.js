@@ -88,6 +88,28 @@ export function makeAmbient({ scene, groundAt = null }) {
   petals.instanceColor = new THREE.InstancedBufferAttribute(pcol, 3);
   scene.add(petals);
 
+  // ---- butterflies ---------------------------------------------------
+  // A dozen, in the meadow only: two-tone quads that flap by scaling across
+  // their fold, and wander in loose loops a metre off the grass. They are
+  // what says a field is alive at the distance a petal is invisible.
+  const N_BF = 12;
+  const bgeo = new THREE.PlaneGeometry(0.11, 0.08);
+  const bmat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, vertexColors: true, fog: true });
+  const butterflies = new THREE.InstancedMesh(bgeo, bmat, N_BF);
+  butterflies.frustumCulled = false;
+  const bcol = new Float32Array(N_BF * 3);
+  const bpal = [0xfff1a8, 0xbfe0ff, 0xffd3e0, 0xfff1a8];
+  const B = [];
+  for (let i = 0; i < N_BF; i++) {
+    c.set(bpal[i % bpal.length]);
+    bcol[i * 3] = c.r; bcol[i * 3 + 1] = c.g; bcol[i * 3 + 2] = c.b;
+    B.push({ x: rnd(-10, 10), z: rnd(-10, 10), y: rnd(0.6, 1.6), a: rnd(0, 6.28), turn: rnd(-1, 1),
+             ph: rnd(0, 6.28), sp: rnd(0.5, 1.1), flap: rnd(9, 14), home: null });
+  }
+  butterflies.instanceColor = new THREE.InstancedBufferAttribute(bcol, 3);
+  butterflies.visible = false;
+  scene.add(butterflies);
+
   const M = new THREE.Matrix4();
   const E = new THREE.Euler();
   const Q = new THREE.Quaternion();
@@ -146,12 +168,39 @@ export function makeAmbient({ scene, groundAt = null }) {
       petals.setMatrixAt(i, M);
     }
     petals.instanceMatrix.needsUpdate = true;
+    // butterflies: only out in the valley, wandering in loops near the ground
+    const inMeadow = centre.z < -12;
+    butterflies.visible = inMeadow;
+    if (inMeadow) {
+      for (let i = 0; i < N_BF; i++) {
+        const b = B[i];
+        b.turn += (Math.random() - 0.5) * 0.6 * dt * 10;
+        b.turn = Math.max(-1.6, Math.min(1.6, b.turn));
+        b.a += b.turn * dt;
+        b.x += Math.sin(b.a) * b.sp * dt;
+        b.z += Math.cos(b.a) * b.sp * dt;
+        b.y += Math.sin(t * 2.3 + b.ph) * 0.35 * dt;
+        b.x = wrap(b.x, centre.x - 12, centre.x + 12);
+        b.z = wrap(b.z, centre.z - 12, centre.z + 12);
+        const g = groundAt ? groundAt(b.x, b.z, centre.y + 3) : null;
+        const floor = g === null ? centre.y : g;
+        b.y = Math.max(floor + 0.4, Math.min(floor + 1.8, b.y));
+        const flap = 0.25 + 0.75 * Math.abs(Math.sin(t * b.flap + b.ph));
+        E.set(-0.4, b.a, 0);
+        Q.setFromEuler(E);
+        S.set(flap, 1, 1);
+        V.set(b.x, b.y, b.z);
+        M.compose(V, Q, S);
+        butterflies.setMatrixAt(i, M);
+      }
+      butterflies.instanceMatrix.needsUpdate = true;
+    }
   }
 
   return {
     update,
     set enabled(v) { enabled = v; motes.visible = v; petals.visible = v; },
     get enabled() { return enabled; },
-    get counts() { return { motes: N_MOTES, petals: N_PET }; },
+    get counts() { return { motes: N_MOTES, petals: N_PET, butterflies: N_BF }; },
   };
 }
