@@ -18,6 +18,7 @@ import { makeFlags } from './flags.js';
 import { makeInteract } from './interact.js';
 import { makeAmbient } from './ambient.js';
 import { makeAudio } from './audio.js';
+import { makeGroundFog } from './groundfog.js';
 import { makeGrass } from './grass.js';
 import {
   toonMaterial, flatMaterial, outlineMaterial, outlineGeometry, skyDome,
@@ -48,6 +49,7 @@ let air = null;   // dust and petals in the air round the player
 // EVERY SOUND, synthesised. Built at load, unlocked by the first key or
 // click because no browser will start audio on its own.
 const sfx = makeAudio();
+let gfog = null;      // the mist on the meadow
 let duskLevel = 0;   // 0 day .. 1 dusk, for the pad and the wind
 let grass = null;  // the instanced field -- see grass.js
 const EMBERS = [];
@@ -2924,6 +2926,10 @@ function setupWorld() {
     });
   }
 
+  if (terrain) {
+    gfog = makeGroundFog({ scene, heightAt: (x, z) => terrain.heightAt(x, z), y: 0.8 });
+  }
+
   const chest = MOVERS.find((m) => m.name === 'chest');
   if (chest && chest.obj) {
     interact.add({
@@ -3175,6 +3181,7 @@ function frame(dt) {
     if (sfx.footfall(ph)) sfx.step(surfaceAt(pos), true);
   }
   sfx.update(dt, ambienceAt(pos));
+  if (gfog) gfog.update(camera.position, { dusk: duskLevel, color: scene.fog.color });
   updateCombat(dt, dt);
   if (cur) { cur.mixer.update(sdt); stepCarry(); applyFootIK(cur, sdt); }
   stepWorld(sdt);
@@ -3502,6 +3509,7 @@ globalThis.__npcPaths = () => NPC_ROSTER.filter((d) => d.path).map((d) => {
   return `${d.id}: ${hits.length ? hits.slice(0, 4).join(' | ') : 'clear'}`;
 });
 globalThis.__sfx = sfx;
+Object.defineProperty(globalThis, '__gfog', { get: () => gfog, configurable: true });
 globalThis.__movers = () => MOVERS.map((m) => `${m.name}${m.obj ? '' : '(unresolved)'} t=${m.t}`);
 globalThis.__wind = WIND;  // set .value directly to A/B the sway
 Object.defineProperty(globalThis, '__breakables', { get: () => breakables, configurable: true });
