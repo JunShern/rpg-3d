@@ -1123,21 +1123,25 @@ def ivy(t, x, y, out_yaw=0.0, h=5.0, z0=0.3, seed=0, spread=0.9):
     z = z0
     drift = 0.0
     k = 0
+    # BUSHY, NOT BEADED. The first pass was one clump every 40 cm up a line
+    # and read as a string of beads: ivy is a mass with a ragged edge. Each
+    # course is a main clump plus two or three smaller ones spread sideways,
+    # overlapping the course below, wider at the foot and thinning at the top.
     while z < z0 + h:
-        drift += (rnd() - 0.5) * 0.36
-        drift = max(-spread, min(spread, drift))
-        r = 0.20 + rnd() * 0.14
-        px = x + lx * drift + ox * (0.10 + r * 0.45)
-        py = y + ly * drift + oy * (0.10 + r * 0.45)
-        out.append(K.blob(f"ivy{k}", (px, py, z), (r * 1.2, r * 1.2, r * 0.8), None,
-                          M["ivy"] if k % 3 else M["leaf"], seg=7, rings=5, squircle=2.3))
-        # a side shoot every third clump, so the strip has width
-        if k % 3 == 2:
-            sd = drift + (0.5 if rnd() < 0.5 else -0.5)
-            out.append(K.blob(f"ivy{k}b", (x + lx * sd + ox * 0.18, y + ly * sd + oy * 0.18,
-                                            z - 0.12), (r, r, r * 0.7), None, M["leaf"],
-                              seg=7, rings=5, squircle=2.3))
-        z += 0.36 + rnd() * 0.10
+        drift += (rnd() - 0.5) * 0.30
+        drift = max(-spread * 0.6, min(spread * 0.6, drift))
+        up = (z - z0) / h
+        width = spread * (1.15 - 0.7 * up)
+        r = (0.26 + rnd() * 0.12) * (1.1 - 0.35 * up)
+        for j in range(3 if up < 0.75 else 2):
+            sd = drift + (rnd() - 0.5) * 2 * width
+            rr = r * (1.0 if j == 0 else 0.6 + rnd() * 0.3)
+            px = x + lx * sd + ox * (0.08 + rr * 0.4)
+            py = y + ly * sd + oy * (0.08 + rr * 0.4)
+            out.append(K.blob(f"ivy{k}_{j}", (px, py, z + (rnd() - 0.5) * 0.16),
+                              (rr * 1.25, rr * 1.25, rr * 0.75), None,
+                              M["ivy"] if (k + j) % 3 else M["leaf"], seg=7, rings=5, squircle=2.3))
+        z += 0.30 + rnd() * 0.08
         k += 1
     return t.add(*out) and out
 
