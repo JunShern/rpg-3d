@@ -353,6 +353,8 @@ def build_terrain(M, step=TERRAIN_STEP):
     # and the toon ramp's lit band is 255 -- so the vertex colour is carrying
     # the whole of the hue with nothing pulling it down.
     GRASS = (0.36, 0.55, 0.25)
+    GRASS_DARK = (0.29, 0.48, 0.24)
+    GRASS_WARM = (0.46, 0.58, 0.25)
     VERGE = (0.45, 0.51, 0.30)
     # DIRT AT 0.50, NOT 0.58. The key is 2.8 and the toon ramp's lit band is
     # 0.97 of it, so a sun-facing slope in earth colour lands at 1.6 before
@@ -391,13 +393,22 @@ def build_terrain(M, step=TERRAIN_STEP):
             # band about nine metres of dirt inside thirteen of verge, which
             # swallowed most of every frame. Bare earth now needs 0.86, which
             # is inside 2.9 m of the centreline, and grass holds out to 0.34.
+            # THE FIELD IS NOT ONE GREEN. A meadow has drier ground and wetter
+            # ground, and it reads as one at the scale of a whole slope: a
+            # slow mottle between a darker, bluer green and a warmer, drier one,
+            # twelve to twenty metres across, under everything the path does.
+            mot = (0.5 + 0.5 * math.sin(x * 0.31 + y * 0.17 + 0.8)
+                   + 0.5 * math.sin(x * 0.13 - y * 0.29 + 2.1)
+                   + 0.25 * math.sin(x * 0.53 + y * 0.47 + 4.0)) / 1.75
+            grass = (mix(GRASS, GRASS_DARK, max(0.0, 0.5 - mot) * 1.6) if mot < 0.5
+                     else mix(GRASS, GRASS_WARM, (mot - 0.5) * 1.6))
             w = _path_weight(x, y) + n
             if w <= 0.34:
-                c = mix(GRASS, VERGE, max(0.0, w / 0.34) * 0.45)
+                c = mix(grass, VERGE, max(0.0, w / 0.34) * 0.45)
             elif w >= 0.86:
                 c = DIRT
             else:
-                c = mix(mix(GRASS, VERGE, 0.45), DIRT, (w - 0.34) / 0.52)
+                c = mix(mix(grass, VERGE, 0.45), DIRT, (w - 0.34) / 0.52)
             # ...then rock wherever it is too steep to hold soil. Sampled at
             # half the grid spacing so the reading is the slope of the SURFACE
             # rather than of the triangle, which matters right at the lip of a
