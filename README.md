@@ -7,8 +7,9 @@ it, a valley to cross, and one thing to do.**
 | | |
 |---|---|
 | ![title](docs/shots/title.png) | ![valley](docs/shots/valley.png) |
-| ![plaza](docs/shots/plaza-talk.png) | ![meadow](docs/shots/meadow-close.png) |
-| ![roofs](docs/shots/roofs.png) | ![dusk](docs/shots/dusk-valley.png) |
+| ![plaza](docs/shots/plaza.png) | ![meadow](docs/shots/meadow-close.png) |
+| ![roofs](docs/shots/roofs.png) | ![pass](docs/shots/pass.png) |
+| ![dusk](docs/shots/dusk-valley.png) | ![ivy](docs/shots/ivy.png) |
 | ![combat](docs/shots/combat.png) | ![beacon](docs/shots/beacon-lit.png) |
 
 The beacon on the north road has been dark three nights. Ask around the square
@@ -30,13 +31,18 @@ they stand in were built here.
   grade, all live-settable (`__look`, `__post`) so looks can be A/B'd in one
   session. The sky is a dome with its own gradient and sun; the far ridges and
   the clouds are painted and sit outside the fog.
-- **A town**: nine buildings with quoins, rafter ends, half-timber braces and
-  dormers; a belltower you can climb; a cellar; a roof route; bunting on
-  festival masts; a fountain with moving water; stalls whose goods come apart.
+- **A town**: nine buildings, each with a stone dado, deep eaves, recessed
+  windows under lintels, a chimney over the ridge; three with a wing, four
+  jettied out over the street on brackets, one faced in ashlar under ivy;
+  shop signs, striped awnings, barrels and crates at the doors; a belltower
+  you can climb; a cellar; a roof route; bunting on festival masts; a
+  fountain with moving water; stalls whose goods come apart.
 - **A valley**: an analytic terrain the runtime and the builder agree on, a
   road that bends, a ford, a ravine, an orchard, a ruin, a stone ring, the
-  pass. Trees with roots and branches. Fifteen thousand instanced grass clumps
-  in the same wind as the bunting and the canopies.
+  pass cut through bedded rock. Trees with roots and branches, bushes at
+  their feet, flower patches, fallen logs. Ten thousand instanced grass
+  clumps in the same wind as the bunting and the canopies. Three rings of
+  mountains behind it, snow on the far two, and mist lying on the low ground.
 - **People**: nine townsfolk, each with a portrait, a gesture that is theirs,
   and a dialogue ladder that changes with the state of the world. Three of them
   run errands round the square and stop when you are near.
