@@ -58,6 +58,7 @@ export function makeAmbient({ scene, groundAt = null }) {
   }));
   motes.frustumCulled = false;
   motes.renderOrder = 5;
+  motes.raycast = () => {};              // atmosphere occludes nothing
   scene.add(motes);
 
   // ---- petals ------------------------------------------------------------
@@ -70,6 +71,7 @@ export function makeAmbient({ scene, groundAt = null }) {
   const palette = [0xf7c7d0, 0xfde3d2, 0xfff4e0, 0xc8dca0];
   const petals = new THREE.InstancedMesh(pgeo, pmat, N_PET);
   petals.frustumCulled = false;
+  petals.raycast = () => {};
   const pcol = new Float32Array(N_PET * 3);
   const P = [];
   const c = new THREE.Color();
@@ -97,6 +99,7 @@ export function makeAmbient({ scene, groundAt = null }) {
   const bmat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, vertexColors: true, fog: true });
   const butterflies = new THREE.InstancedMesh(bgeo, bmat, N_BF);
   butterflies.frustumCulled = false;
+  butterflies.raycast = () => {};
   const bcol = new Float32Array(N_BF * 3);
   const bpal = [0xfff1a8, 0xbfe0ff, 0xffd3e0, 0xfff1a8];
   const B = [];

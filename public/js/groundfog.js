@@ -71,6 +71,8 @@ export function makeGroundFog({ scene, heightAt = null, x0 = -50, x1 = 50, z0 = 
   mesh.renderOrder = 4;
   mesh.frustumCulled = false;
   mesh.userData.isFog = true;
+  // mist occludes nothing: not the camera solver, not a probe's ray
+  mesh.raycast = () => {};
   scene.add(mesh);
   return {
     mesh,
