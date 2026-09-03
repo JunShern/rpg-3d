@@ -17,6 +17,7 @@ import { makePost } from './post.js';
 import { makeFlags } from './flags.js';
 import { makeInteract } from './interact.js';
 import { makeAmbient } from './ambient.js';
+import { makeAudio } from './audio.js';
 import { makeGrass } from './grass.js';
 import {
   toonMaterial, flatMaterial, outlineMaterial, outlineGeometry, skyDome,
@@ -44,6 +45,10 @@ let post = null;
 let flags = null;
 let interact = null;
 let air = null;   // dust and petals in the air round the player
+// EVERY SOUND, synthesised. Built at load, unlocked by the first key or
+// click because no browser will start audio on its own.
+const sfx = makeAudio();
+let duskLevel = 0;   // 0 day .. 1 dusk, for the pad and the wind
 let grass = null;  // the instanced field -- see grass.js
 const EMBERS = [];
 
@@ -756,6 +761,9 @@ const gainsEl = document.getElementById('gains');
 const purseEl = document.getElementById('purse');
 
 function gain(text, kind) {
+  if (kind === 'item') sfx.pickup(false);
+  else if (kind === 'lvl') sfx.level();
+  else if (/^\+\d+ g$/.test(text)) sfx.pickup(true);
   if (!gainsEl) return;
   const el = document.createElement('div');
   if (kind) el.className = kind;
@@ -883,6 +891,11 @@ const uiLocked = () => LOCKS.size > 0;
 
 addEventListener('keydown', (e) => {
   if (e.repeat) return;
+  sfx.unlock();
+  if (e.code === 'KeyM') { e.preventDefault(); sfx.setMute(!sfx.muted); gain(sfx.muted ? 'sound off' : 'sound on'); return; }
+  // a panel's own keys tick: the game does not see them, the ear should
+  if (uiLocked() && (e.code === 'KeyE' || e.code === 'Enter' || e.code === 'Space'
+                     || e.code === 'ArrowUp' || e.code === 'ArrowDown' || e.code === 'Escape')) sfx.ui();
   // WHILE A PANEL IS UP, THE GAME GETS NOTHING. The panel's own capture-phase
   // listener already stops propagation, so this is the belt to that braces --
   // and it is what stops a conversation's Space and E from also jumping and
@@ -896,9 +909,13 @@ addEventListener('keydown', (e) => {
   // it is contextual the way Emberbrook chains its own E handlers: if somebody
   // is in reach, E talks; otherwise E is still a swing. J is always a swing,
   // which means there is never a moment where you cannot attack.
-  if (e.code === 'KeyE' && npcs && npcs.tryTalk()) { e.preventDefault(); return; }
+  if (e.code === 'KeyE' && npcs && npcs.tryTalk()) { e.preventDefault(); sfx.ui(); return; }
   // ...then a THING in reach -- a chest, the beacon -- and only then a swing
-  if (e.code === 'KeyE' && interact && interact.tryUse()) { e.preventDefault(); return; }
+  if (e.code === 'KeyE' && interact && interact.tryUse()) {
+    e.preventDefault();
+    if (interact.near === 'beacon') sfx.cast(); else sfx.ui();
+    return;
+  }
   if (e.code === 'KeyJ' || e.code === 'KeyE') { e.preventDefault(); attack(); }
   if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') { e.preventDefault(); dodge(); }
   if (e.code === 'KeyC') { e.preventDefault(); cycleCharacter(); }
@@ -982,7 +999,8 @@ function attack() {
   if (sheathed && !carry) { startCarry('hand', true); return; }
   if (carry) return;                 // mid draw or sheathe: the clip owns this
   // airborne presses run the falling cut instead of the ground chain
-  combat.attack(!grounded);
+  const swung = combat.attack(!grounded);
+  if (swung !== false) sfx.swing(!grounded);
 }
 
 // --------------------------------------------------------------- collision
@@ -1335,6 +1353,7 @@ function startCarry(to, thenAttack = false) {
   const name = to === 'hip' ? 'sheathe' : 'draw';
   if (!cur.clips[name]) return false;
   playOnce(name, 0.08);
+  if (name === 'sheathe') sfx.sheathe(); else sfx.draw();
   carry = { name, to, thenAttack,
             at: (HANDOFF[name] || 0) / FPS,
             attackAt: DRAW_ATTACK_FRAME / FPS,
@@ -1353,7 +1372,7 @@ function stepCarry() {
   }
   if (carry.thenAttack && !carry.swung && a.time >= carry.attackAt) {
     carry.swung = true;
-    if (combat && !combat.isStaggered()) combat.attack(!grounded);
+    if (combat && !combat.isStaggered()) { combat.attack(!grounded); sfx.swing(!grounded); }
   }
   if (a.time >= (a.getClip().duration || 0) - 1e-3) carry = null;
 }
@@ -1661,7 +1680,8 @@ const camWant = new THREE.Vector3();
 let dragging = false;
 
 let pointerDownAt = 0, pointerDrag = 0;
-canvas.addEventListener('pointerdown', (e) => {
+canvas.addEventListener('pointerdown', (e) => sfx.unlock(), true);
+addEventListener('pointerdown', (e) => {
   dragging = true; pointerDownAt = Date.now(); pointerDrag = 0;
   canvas.setPointerCapture(e.pointerId);
 });
@@ -1777,6 +1797,8 @@ function startCombat() {
       const me = G.state.party.find((m) => m.active) || G.state.party[0];
       return me ? G.stats(me) : null;
     },
+    onHit: (e, dmg, breaks, kill) => sfx.hit(breaks, kill),
+    onHurt: () => sfx.hurt(),
     onKill: (species, e) => {
       const G = window.GS;
       if (!G || !G.ok || !G.data || !G.data.monsters) return;
@@ -2454,6 +2476,7 @@ const LOCK_POLAR = 1.06;
     const g = groundAt(pos.x, pos.z, pos.y + 1.2);
     if (g !== null && vy <= 0 && pos.y <= g) {
       pos.y = g;
+      sfx.land(vy < -9);
       vy = 0;
       grounded = true;
       landing = true;
@@ -2909,6 +2932,7 @@ function setupWorld() {
       label: 'open the chest',
       use: () => {
         chest.t = 0;
+        sfx.chest();
         const G = window.GS;
         if (G && G.ok) { G.addItem('river-steel', 1); G.addGold(120); }
         gain('River Steel', 'item');
@@ -2934,6 +2958,7 @@ function lightBeacon(m) {
   light.position.set(m.x, m.y + 0.35, m.z);
   scene.add(light);
   EMBERS.push(makeEmbers(m.x, m.y + 0.15, m.z, light));
+  sfx.beacon();
   flags.once('beacon.lit', 'The beacon is lit');
 }
 
@@ -3010,6 +3035,27 @@ function updateTask() {
   if (text !== taskText) { taskText = text; taskEl.textContent = text; }
 }
 
+// What is underfoot, for the ear: the town is stone, the road is dirt, the
+// rest of the valley is grass. The gate is at z=-11; the meadow's road is the
+// terrain's own path function, asked in the builder's y.
+function surfaceAt(p) {
+  if (p.z > -11.5) return 'stone';
+  const tr = globalThis.terrain;
+  if (tr && tr.pathAt && Math.abs(p.x - tr.pathAt(-p.z)) < 3.2) return 'dirt';
+  return 'grass';
+}
+function ambienceAt(p) {
+  const inTown = p.z > -11.5;
+  const fountain = Math.hypot(p.x, p.z + 0.5);
+  const stream = Math.hypot(Math.max(0, Math.abs(p.z + 47) - 2.5), Math.max(0, Math.abs(p.x + 2) - 30));
+  const beacon = Math.hypot(p.x - 13.6, p.z + 106);
+  return {
+    inTown, waterD: Math.min(fountain, stream), fireD: beacon,
+    fireOn: !!(flags && flags.get('beacon.lit')), dusk: duskLevel,
+    quiet: !!(npcs && npcs.talking()) || document.body.classList.contains('title'),
+  };
+}
+
 function stepWorld(dt) {
   if (!flags || !interact) return;
   updateTask();
@@ -3029,7 +3075,8 @@ function stepWorld(dt) {
     const k = dusk.t * dusk.t * (3 - 2 * dusk.t);
     applyLighting(mixLook(LOOK, LOOKS.dusk, k));
     if (post) post.set({ bloom: 0.20 + 0.16 * k });
-    if (dusk.t >= 1) { dusk = null; duskDone = true; }
+    duskLevel = k;
+    if (dusk.t >= 1) { dusk = null; duskDone = true; duskLevel = 1; }
   }
 }
 let duskDone = false;
@@ -3055,6 +3102,7 @@ function hitMovers(spec) {
     }
     m.t = 0;
     rang = true;
+    sfx.bell(0);
     // the first thing the world ever told the character sheet about itself
     if (flags) flags.once('bell.rung', 'The bell carries down the valley');
     // NO FLOCK SCATTER, and this is a decision I measured my way out of.
@@ -3119,6 +3167,14 @@ function frame(dt) {
   const scale = (combat ? combat.timeScale() : 1) * (uiLocked() ? 0 : 1);
   const sdt = dt * scale;
   const isMoving = step(sdt);
+  // FOOTSTEPS ON THE CLIP'S CLOCK, not a timer: a footfall is a pose, and the
+  // run clip already knows when the foot is down.
+  if (isMoving && grounded && cur && cur.clips.run) {
+    const a = cur.clips.run;
+    const ph = (a.time / (a.getClip().duration || 1)) % 1;
+    if (sfx.footfall(ph)) sfx.step(surfaceAt(pos), true);
+  }
+  sfx.update(dt, ambienceAt(pos));
   updateCombat(dt, dt);
   if (cur) { cur.mixer.update(sdt); stepCarry(); applyFootIK(cur, sdt); }
   stepWorld(sdt);
@@ -3236,6 +3292,8 @@ function showTitle() {
   document.body.classList.add('title');
   requestAnimationFrame(() => el.classList.add('on'));
   const dismiss = () => {
+    sfx.unlock();
+    sfx.title();
     el.classList.remove('on');
     el.classList.add('off');
     document.body.classList.remove('title');
@@ -3443,6 +3501,7 @@ globalThis.__npcPaths = () => NPC_ROSTER.filter((d) => d.path).map((d) => {
   }
   return `${d.id}: ${hits.length ? hits.slice(0, 4).join(' | ') : 'clear'}`;
 });
+globalThis.__sfx = sfx;
 globalThis.__movers = () => MOVERS.map((m) => `${m.name}${m.obj ? '' : '(unresolved)'} t=${m.t}`);
 globalThis.__wind = WIND;  // set .value directly to A/B the sway
 Object.defineProperty(globalThis, '__breakables', { get: () => breakables, configurable: true });

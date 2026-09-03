@@ -251,6 +251,10 @@ export function createCombat(ctx) {
   // ctx: { scene, camera, world, groundAt, playerPos, playerFacing, hud, onKill,
   //        power }
   const onKill = ctx.onKill || null;
+  // the same coupling for a landed swing and for the player being hit: main.js
+  // owns what a hit SOUNDS like, combat.js only knows that one happened
+  const onHit = ctx.onHit || null;
+  const onHurt = ctx.onHurt || null;
   // WHAT THE CHARACTER SHEET IS WORTH IN THE FIGHT.
   //
   // Buying a sword that changes a number on a menu and nothing else is a menu,
@@ -704,6 +708,7 @@ export function createCombat(ctx) {
              Math.min(1.0, 0.45 + e.spec.height * 0.55));
     fx.number(e.pos.clone().setY(e.pos.y + e.spec.height * 1.15), dmg,
               e.hp <= 0 ? 0xffd25a : 0xffffff);
+    if (onHit) { try { onHit(e, dmg, breaks, e.hp <= 0); } catch (err) { console.error('[hit]', err); } }
 
     if (e.hp <= 0) {
       e.dead = true;
@@ -779,6 +784,7 @@ export function createCombat(ctx) {
       dmg = Math.max(1, dmg * ((DEF_SOFT + DEF_BASE) / (DEF_SOFT + pw.def)));
     }
     player.hp -= dmg;
+    if (onHurt) { try { onHurt(dmg); } catch (err) { console.error('[hurt]', err); } }
     player.invuln = TUNE.playerIFrames;
     hitStop = Math.max(hitStop, 0.07);
     shake.mag = Math.max(shake.mag, 0.22);
