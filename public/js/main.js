@@ -364,7 +364,7 @@ function applyTownLook(root) {
     const opts = { gradient: RAMP_SOFT, rimStrength: 0.28, map, vertexColors: vcol,
                    key: `town:${name}:${vcol ? 'v' : ''}`,
                    ...(card ? { alphaTest: 0.5, side: THREE.DoubleSide, rimStrength: 0.12,
-                                gradient: RAMP_SOFT, sway: 0.05 } : {}),
+                                gradient: RAMP_SOFT, sway: 0.05, flutter: 0.022 } : {}),
                    ...(TOWN_LOOK[name] || {}) };
     SURFACES.push({ mesh: m, flat: TOWN_FLAT.has(name), color: base, opts });
     m.material = TOWN_FLAT.has(name) ? flatMaterial(base)

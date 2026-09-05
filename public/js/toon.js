@@ -83,6 +83,16 @@ const SWAY_GLSL = /* glsl */`
     float b = sin(uWind * 0.87 + ph * 1.3 + 2.1);
     transformed.x += a * uSway;
     transformed.z += b * uSway * 0.45;
+    // FLUTTER, where a material asks for it: a fast, small, per-position
+    // ripple on top of the gust, so a canopy of cards rustles instead of
+    // rocking as one plate. The phase comes from world position, which is
+    // the only per-leaf signal a joined mesh carries.
+    if (uFlutter > 0.0) {
+      float fp = transformed.x * 7.3 + transformed.y * 5.1 + transformed.z * 6.7;
+      float f = sin(uWind * 6.2 + fp) * 0.6 + sin(uWind * 9.7 + fp * 1.9 + 0.8) * 0.4;
+      transformed.y += f * uFlutter * (0.55 + 0.45 * a);
+      transformed.x += f * uFlutter * 0.5;
+    }
   }
 `;
 
@@ -238,6 +248,7 @@ export function toonMaterial(color, opts = {}) {
     ripple = 0,
     alphaTest = 0,
     side = THREE.FrontSide,
+    flutter = 0,
   } = opts;
 
   const mat = new THREE.MeshToonMaterial({ color, gradientMap: gradient, map,
@@ -251,8 +262,9 @@ export function toonMaterial(color, opts = {}) {
     if (sway > 0) {
       shader.uniforms.uWind = WIND;
       shader.uniforms.uSway = { value: sway };
+      shader.uniforms.uFlutter = { value: flutter };
       shader.vertexShader = shader.vertexShader
-        .replace('#include <common>', '#include <common>\nuniform float uWind;\nuniform float uSway;')
+        .replace('#include <common>', '#include <common>\nuniform float uWind;\nuniform float uSway;\nuniform float uFlutter;')
         .replace('#include <begin_vertex>', '#include <begin_vertex>' + SWAY_GLSL);
     }
     // WATER MOVES. A flat blue plane is a painted floor however it is lit;
@@ -313,7 +325,7 @@ export function toonMaterial(color, opts = {}) {
       `);
   };
   // distinct programs per rim config, or three would reuse the first compile
-  mat.customProgramCacheKey = () => 'toonrim:' + key + ':' + sway + ':' + ripple + ':' + (alphaTest > 0 ? 'a' : '');
+  mat.customProgramCacheKey = () => 'toonrim:' + key + ':' + sway + ':' + ripple + ':' + flutter + ':' + (alphaTest > 0 ? 'a' : '');
   return mat;
 }
 
