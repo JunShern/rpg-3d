@@ -653,7 +653,7 @@ def logs(M, t):
     """Fallen logs: three trunks lying where a copse would drop them, and a
     stump beside each. The one horizontal in a valley of vertical trees."""
     out = []
-    for i, (x, y, ang, ln) in enumerate(((-22.0, 30.0, 0.5, 3.4), (33.0, 61.0, 2.2, 2.8), (-11.0, 84.0, 1.1, 3.0))):
+    for i, (x, y, ang, ln) in enumerate(((-25.5, 27.0, 0.5, 3.4), (33.0, 61.0, 2.2, 2.8), (-11.0, 84.0, 1.1, 3.0))):
         if not _inside(x, y):
             continue
         z = height(x, y)
