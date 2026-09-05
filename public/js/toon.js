@@ -350,6 +350,7 @@ export function outlineMaterial(color = 0x241d2b, width = 0.0038, sway = 0) {
       // side of every tree.
       uWind: WIND,
       uSway: { value: sway },
+      uFlutter: { value: 0 },      // hulls never flutter; the uniform must still exist
     },
     vertexShader: /* glsl */`
       #include <common>
@@ -357,6 +358,7 @@ export function outlineMaterial(color = 0x241d2b, width = 0.0038, sway = 0) {
       uniform float uWidth;
       uniform float uWind;
       uniform float uSway;
+      uniform float uFlutter;
       void main() {
         #include <beginnormal_vertex>
         #include <skinbase_vertex>
