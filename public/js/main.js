@@ -3202,6 +3202,7 @@ function frame(dt) {
   if (cur) { cur.mixer.update(sdt); stepCarry(); applyFootIK(cur, sdt); }
   stepWorld(sdt);
   if (air) air.update(sdt, pos);
+  if (grass && grass.update) grass.update(pos);
   updateTrail(sdt);
   updateThreatLines(sdt);
   updateSmash(sdt);

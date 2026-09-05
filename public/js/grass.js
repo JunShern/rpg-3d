@@ -100,11 +100,21 @@ export function makeGrass({ scene, terrain, material, spacing = 0.50, chunks = 8
   const cw = (x1 - x0) / chunks, ch = (yB - yA) / chunks;
   const lists = [];
   for (let i = 0; i < chunks * chunks; i++) lists.push([]);
+  // THE NEAR FIELD: a second grid offset by half a cell, kept in its own
+  // meshes and drawn only for chunks within reach of the player. Density is
+  // what the eye reads at five metres and what nobody can see at fifty, so
+  // the far valley keeps the base spacing and the ground round the player
+  // gets twice the blades for the cost of the chunks she is standing in.
+  const nearLists = [];
+  for (let i = 0; i < chunks * chunks; i++) nearLists.push([]);
   const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), S = new THREE.Vector3();
   const E = new THREE.Euler(), V = new THREE.Vector3();
   let placed = 0;
-  for (let y = yA; y < yB; y += spacing) {
-    for (let x = x0 + 1; x < x1 - 1; x += spacing) {
+  for (let pass = 0; pass < 2; pass++) {
+  const target = pass === 0 ? lists : nearLists;
+  const shift = pass === 0 ? 0 : spacing * 0.5;
+  for (let y = yA + shift; y < yB; y += spacing) {
+    for (let x = x0 + 1 + shift; x < x1 - 1; x += spacing) {
       const px = x + (rnd() - 0.5) * spacing, py = y + (rnd() - 0.5) * spacing;
       // the road and its verge: thin out rather than cut, so the edge is ragged
       const pw = 1 - ramp(Math.abs(px - terrain.pathAt(py)), 1.8, 4.8);
@@ -121,14 +131,16 @@ export function makeGrass({ scene, terrain, material, spacing = 0.50, chunks = 8
       const ci = Math.max(0, Math.min(chunks - 1, Math.floor((px - x0) / cw)));
       const cj = Math.max(0, Math.min(chunks - 1, Math.floor((py - yA) / ch)));
       const s = 0.8 + rnd() * 0.5;
-      lists[cj * chunks + ci].push([px, h - 0.02, -py, rnd() * Math.PI * 2, s, rnd()]);
+      target[cj * chunks + ci].push([px, h - 0.02, -py, rnd() * Math.PI * 2, s, rnd()]);
       placed++;
     }
   }
+  }
   const meshes = [];
+  const nearMeshes = [];
   const c = new THREE.Color();
-  for (const list of lists) {
-    if (!list.length) continue;
+  const build = (list, near) => {
+    if (!list.length) return;
     const im = new THREE.InstancedMesh(geo, mat, list.length);
     list.forEach(([x, y, z, yaw, s, tint], i) => {
       V.set(x, y, z); E.set(0, yaw, 0); Q.setFromEuler(E); S.set(s, s * (0.85 + tint * 0.4), s);
@@ -144,13 +156,27 @@ export function makeGrass({ scene, terrain, material, spacing = 0.50, chunks = 8
     im.receiveShadow = true;
     im.castShadow = false;
     im.userData.isGrass = true;
+    im.raycast = () => {};
     scene.add(im);
-    meshes.push(im);
-  }
+    (near ? nearMeshes : meshes).push(im);
+  };
+  for (const list of lists) build(list, false);
+  for (const list of nearLists) build(list, true);
+  let enabled = true;
+  const NEAR = 30;
   return {
-    meshes,
+    meshes: meshes.concat(nearMeshes),
     count: placed,
-    set enabled(v) { for (const m of meshes) m.visible = v; },
-    get enabled() { return meshes.length ? meshes[0].visible : false; },
+    /** Show the near layer only for chunks within reach of `pos`. */
+    update(pos) {
+      for (const m of nearMeshes) {
+        const sp = m.boundingSphere;
+        if (!sp) continue;
+        const d = Math.hypot(sp.center.x - pos.x, sp.center.z - pos.z) - sp.radius;
+        m.visible = enabled && d < NEAR;
+      }
+    },
+    set enabled(v) { enabled = v; for (const m of meshes) m.visible = v; if (!v) for (const m of nearMeshes) m.visible = false; },
+    get enabled() { return enabled; },
   };
 }
