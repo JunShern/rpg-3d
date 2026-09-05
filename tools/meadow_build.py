@@ -842,28 +842,64 @@ def _branch(M, t, p0, d, length, r0, r1, depth, scale, rnd, tips, bark):
     tips.append((tip, dd))
 
 
-def _canopy_cards(M, t, tips, centre, crown_r, scale, rnd, kind="broad", n_per_tip=2,
-                  size=(1.15, 0.95), camblock=True):
-    """Hang leaf cards at the branch tips. Each card faces a random direction
-    but SHADES with the crown's outward normal, so the mass lights as one
-    round thing under the ramp while its edge is forty ragged cuts."""
+def _one_card(t, mat, c, centre, crown_r, w, h, rnd, facing=None):
+    """Place one leaf card at `c`. `facing` is the direction the card should
+    face (its plane normal); None means random. The SHADING normal is always
+    the crown's outward direction from a point a third of a radius below its
+    centre, so the underside darkens and the top lights, whichever way the
+    card itself is turned."""
+    if facing is None:
+        yaw = rnd() * math.tau
+        tilt = (rnd() - 0.5) * 0.9
+        f = Vector((math.cos(yaw) * math.cos(tilt), math.sin(yaw) * math.cos(tilt), math.sin(tilt)))
+    else:
+        f = Vector(facing).normalized()
+    # a frame in the card's plane, with a random roll about the facing
+    ref = Vector((0, 0, 1)) if abs(f.z) < 0.9 else Vector((1, 0, 0))
+    right = f.cross(ref).normalized()
+    upv = right.cross(f).normalized()
+    roll = rnd() * math.tau
+    r2 = right * math.cos(roll) + upv * math.sin(roll)
+    u2 = -right * math.sin(roll) + upv * math.cos(roll)
+    cx, cy, cz = centre
+    nrm = (Vector(c) - Vector((cx, cy, cz - crown_r * 0.35)))
+    if nrm.length < 1e-3:
+        nrm = Vector((0, 0, 1))
+    t.add(K.card(f"lc{len(t.parts)}", c, r2, u2, w, h, mat, normal=nrm.normalized()))
+
+
+def _canopy_cards(M, t, tips, centre, crown_r, scale, rnd, kind="broad", n_per_tip=4,
+                  size=(1.9, 1.5), shell=28, camblock=True):
+    """Dress a crown in leaf cards, two ways at once. Cards at every branch
+    tip, jittered in a ball round it, so the leaves are visibly held up by
+    something; and cards on the crown's SHELL, facing outward with a random
+    roll, so the silhouette closes from every side. The first version hung
+    two small cards per tip and the trees were scatters of cutouts you could
+    see through -- a canopy is a mass with a ragged edge, and mass takes
+    overlap: about four times the card area the tips alone gave."""
     mat = M[f"leafcard_{kind}"]
     cx, cy, cz = centre
     for (tip, d) in tips:
         for k in range(n_per_tip):
-            off = Vector(((rnd() - 0.5) * 0.5, (rnd() - 0.5) * 0.5, (rnd() - 0.5) * 0.35)) * scale
-            c = Vector(tip) + off + Vector((0, 0, 0.18 * scale))
-            # facing: random yaw, mostly upright, with some tilted like a spread of leaves
-            yaw = rnd() * math.tau
-            tilt = (rnd() - 0.5) * 1.1
-            right = Vector((math.cos(yaw), math.sin(yaw), 0.0))
-            upv = Vector((-math.sin(yaw) * math.sin(tilt), math.cos(yaw) * math.sin(tilt), math.cos(tilt)))
-            w = size[0] * scale * (0.85 + rnd() * 0.35)
-            h = size[1] * scale * (0.85 + rnd() * 0.35)
-            nrm = (c - Vector((cx, cy, cz - crown_r * 0.35)))
-            if nrm.length < 1e-3:
-                nrm = Vector((0, 0, 1))
-            t.add(K.card(f"lc{len(t.parts)}", c, right, upv, w, h, mat, normal=nrm.normalized()))
+            off = Vector(((rnd() - 0.5), (rnd() - 0.5), (rnd() - 0.5) * 0.7)) * 0.9 * scale
+            c = Vector(tip) + off + Vector((0, 0, 0.15 * scale))
+            w = size[0] * scale * (0.8 + rnd() * 0.4)
+            h = size[1] * scale * (0.8 + rnd() * 0.4)
+            _one_card(t, mat, c, centre, crown_r, w, h, rnd)
+    # the shell: points on an ellipsoid slightly inside the tip radius
+    for k in range(shell):
+        u = rnd() * math.tau
+        v = math.acos(1 - 2 * rnd())          # uniform on the sphere
+        # keep the underside sparse: a crown is fuller on top
+        if math.cos(v) < -0.55 and rnd() < 0.6:
+            continue
+        rr = crown_r * (0.8 + rnd() * 0.25)
+        dx, dy, dz = math.sin(v) * math.cos(u), math.sin(v) * math.sin(u), math.cos(v) * 0.8
+        c = Vector((cx + dx * rr, cy + dy * rr, cz + dz * rr))
+        facing = Vector((dx, dy, dz * 0.8)).normalized()
+        w = size[0] * scale * (0.9 + rnd() * 0.4)
+        h = size[1] * scale * (0.9 + rnd() * 0.4)
+        _one_card(t, mat, c, centre, crown_r, w, h, rnd, facing=facing)
     if camblock:
         t.camblock(cx, cy, cz, crown_r * 0.95)
 
@@ -959,7 +995,7 @@ def _tree_conifer(M, t, x, y, scale, rnd):
         ring += 1
     tips.append((Vector((x, y, z + h * 1.0)), Vector((0, 0, 1))))
     _canopy_cards(M, t, tips, (x, y, z + h * 0.55), 1.1 * scale, scale, rnd,
-                  kind="needle", n_per_tip=2, size=(0.95, 0.85))
+                  kind="needle", n_per_tip=3, size=(1.35, 1.15), shell=0)
     t.solid(x, y, 0.30 * scale, 0.30 * scale, top=z + h)
 
 
