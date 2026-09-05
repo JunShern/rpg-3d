@@ -116,16 +116,17 @@ def write_png(path, img):
     """Write RGB float 0-1 to an 8-bit PNG without pulling in an image library."""
     import struct
     import zlib
-    h, w, _ = img.shape
+    h, w, ch = img.shape
     data = (np.clip(img, 0, 1) * 255).astype(np.uint8)
     raw = b''.join(b'\x00' + data[y].tobytes() for y in range(h))
+    ctype = 6 if ch == 4 else 2          # RGBA when there is an alpha channel
 
     def chunk(tag, payload):
         return (struct.pack('>I', len(payload)) + tag + payload
                 + struct.pack('>I', zlib.crc32(tag + payload) & 0xffffffff))
 
     png = (b'\x89PNG\r\n\x1a\n'
-           + chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 2, 0, 0, 0))
+           + chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, ctype, 0, 0, 0))
            + chunk(b'IDAT', zlib.compress(raw, 6))
            + chunk(b'IEND', b''))
     with open(path, 'wb') as f:
@@ -429,6 +430,111 @@ def rooftile(res=RES, rows=11, seed=29, light=1.14, dark=0.66):
     tint = np.array([0.72, 0.92, 0.70], np.float32)
     img = img * (1 - m[..., None]) + img * tint * m[..., None] * 1.05
     return np.clip(img, 0, 1)
+
+
+def _leaf_shape(uu, vv, cx, cy, ang, L, W, kind):
+    """Signed-inside mask of one leaf at (cx, cy), pointing along `ang`."""
+    ca, sa = np.cos(ang), np.sin(ang)
+    x = (uu - cx) * ca + (vv - cy) * sa          # along the leaf
+    y = -(uu - cx) * sa + (vv - cy) * ca         # across
+    if kind == "needle":
+        return (np.abs(y) < W * (1 - np.abs(x) / L)) & (np.abs(x) < L)
+    if kind == "round":
+        return (x / L) ** 2 + (y / W) ** 2 < 1.0
+    # pointed leaf: an ellipse pinched to a tip
+    t = np.clip((x + L * 0.35) / (L * 1.35), 0, 1)
+    w = W * np.sin(np.pi * t) ** 0.75
+    return (np.abs(y) < w) & (x > -L * 0.35) & (x < L)
+
+
+def leafcard(kind="broad", res=256, seed=101):
+    """A CLUSTER OF LEAVES ON A TRANSPARENT CARD. What a canopy is made of in
+    every stylised game with trees worth looking at: not a solid ball but forty
+    of these, facing every way, with their normals borrowed from the crown so
+    the toon ramp lights the cluster as one volume. RGBA; alpha is the cut.
+
+    kinds: broad (round-ish leaves in a loose mass), needle (a spray of
+    needles), bush (small leaves, dense), fern (one frond), flower (a spray of
+    small blooms over leaves)."""
+    rng = np.random.RandomState(seed)
+    u = (np.arange(res) + 0.5) / res
+    uu, vv = np.meshgrid(u, u, indexing='xy')
+    rgb = np.zeros((res, res, 3), np.float32)
+    alpha = np.zeros((res, res), np.float32)
+    # painted leaf tones: a mid green with a lighter face and a darker back
+    if kind == "needle":
+        base = np.array([0.24, 0.42, 0.26], np.float32)
+    elif kind == "fern":
+        base = np.array([0.30, 0.52, 0.24], np.float32)
+    elif kind == "bush":
+        base = np.array([0.34, 0.54, 0.26], np.float32)
+    elif kind == "flower":
+        base = np.array([0.36, 0.56, 0.28], np.float32)
+    else:
+        base = np.array([0.38, 0.58, 0.27], np.float32)
+
+    def paint(mask, tone, shade):
+        nonlocal rgb, alpha
+        m = mask & (alpha < 0.5)
+        col = tone * shade
+        rgb[m] = col
+        alpha[m] = 1.0
+
+    if kind == "fern":
+        # one frond up the card: a midrib with paired leaflets shrinking to the tip
+        n = 12
+        for i in range(n):
+            t = i / n
+            cy = 0.10 + 0.80 * t
+            L = 0.19 * (1 - t) + 0.05
+            for side in (-1, 1):
+                # leaflets leave the midrib SIDEWAYS and a little upward
+                ang = (0.0 if side > 0 else np.pi) - side * (0.30 + 0.25 * t)
+                paint(_leaf_shape(uu, vv, 0.5 + side * 0.012, cy, ang, L, 0.028, "leaf"),
+                      base, 0.85 + 0.3 * t)
+        paint(np.abs(uu - 0.5) < 0.008 * (1 - vv) + 0.003, base * 0.6, 1.0)
+    elif kind == "needle":
+        # a spray: needles fanning from a point near the bottom
+        for _ in range(70):
+            ang = np.pi * 0.5 + (rng.rand() - 0.5) * 2.4
+            L = 0.28 + rng.rand() * 0.22
+            cx, cy = 0.5 + (rng.rand() - 0.5) * 0.25, 0.30 + rng.rand() * 0.25
+            paint(_leaf_shape(uu, vv, cx, cy, ang, L, 0.010 + rng.rand() * 0.006, "needle"),
+                  base, 0.7 + rng.rand() * 0.6)
+    else:
+        n = {"broad": 26, "bush": 40, "flower": 30}[kind]
+        Ls = {"broad": (0.14, 0.10), "bush": (0.09, 0.06), "flower": (0.10, 0.07)}[kind]
+        for i in range(n):
+            # clustered towards the centre so the card has a solid heart and a ragged rim
+            r = np.sqrt(rng.rand()) * 0.42
+            a = rng.rand() * 2 * np.pi
+            cx, cy = 0.5 + np.cos(a) * r, 0.5 + np.sin(a) * r * 0.9
+            ang = a + (rng.rand() - 0.5) * 1.2
+            L = Ls[0] + rng.rand() * Ls[1]
+            W = L * (0.55 if kind != "bush" else 0.7)
+            shade = 0.72 + rng.rand() * 0.55
+            paint(_leaf_shape(uu, vv, cx, cy, ang, L, W, "round" if kind == "bush" else "leaf"),
+                  base, shade)
+            # a midrib on the bigger leaves
+            if kind == "broad" and L > 0.17:
+                paint(_leaf_shape(uu, vv, cx, cy, ang, L * 0.9, 0.006, "needle"), base * 0.75, 1.0)
+        if kind == "flower":
+            petal = np.array([0.95, 0.70, 0.78], np.float32)
+            for _ in range(14):
+                cx, cy = 0.5 + (rng.rand() - 0.5) * 0.7, 0.5 + (rng.rand() - 0.5) * 0.7
+                for k in range(5):
+                    ang = k * 1.2566 + rng.rand() * 0.3
+                    m = _leaf_shape(uu, vv, cx + np.cos(ang) * 0.02, cy + np.sin(ang) * 0.02,
+                                    ang, 0.035, 0.016, "round")
+                    rgb[m] = petal * (0.9 + rng.rand() * 0.2); alpha[m] = 1.0
+                m = (uu - cx) ** 2 + (vv - cy) ** 2 < 0.010 ** 2
+                rgb[m] = np.array([0.98, 0.85, 0.35], np.float32); alpha[m] = 1.0
+    # a little painted variation so a card is not flat colour
+    var = _fbm(res, seed + 5, octaves=3, base=9)
+    rgb = rgb * (0.90 + 0.20 * var[..., None])
+    # premultiply-safe edge: slightly erode alpha so bilinear halos stay green
+    out = np.concatenate([np.clip(rgb, 0, 1), alpha[..., None]], axis=2).astype(np.float32)
+    return out
 
 
 def stripes(res=RES, n=7, seed=83, a=(1.0, 1.0, 1.0), b=(0.90, 0.42, 0.40)):

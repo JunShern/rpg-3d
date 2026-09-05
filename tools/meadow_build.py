@@ -561,11 +561,26 @@ def _clear_of_landmarks(x, y, pad=0.0):
     return True
 
 
+def _plant_cards(M, t, x, y, z, kind, n, size, rnd, lean=0.35):
+    """A small plant as a fan of crossed cards standing on the ground."""
+    mat = M[f"leafcard_{kind}"]
+    for k in range(n):
+        yaw = k * (math.pi / n) + rnd() * 0.5
+        tilt = (rnd() - 0.5) * lean
+        right = Vector((math.cos(yaw), math.sin(yaw), 0.0))
+        upv = Vector((-math.sin(yaw) * math.sin(tilt), math.cos(yaw) * math.sin(tilt), math.cos(tilt)))
+        w = size[0] * (0.85 + rnd() * 0.3)
+        h = size[1] * (0.85 + rnd() * 0.3)
+        c = Vector((x + (rnd() - 0.5) * 0.15, y + (rnd() - 0.5) * 0.15, z + h * 0.45))
+        # standing plants shade with an upward-and-outward normal
+        nrm = Vector((math.cos(yaw + 1.57) * 0.5, math.sin(yaw + 1.57) * 0.5, 1.0)).normalized()
+        t.add(K.card(f"pc{len(t.parts)}", c, right, upv, w, h, mat, normal=nrm))
+
+
 def bushes(M, t, rnd):
-    """Bushes: low clusters of leaf blobs, where the ground cover is otherwise
-    a hard edge between grass and stone. Two greens per bush, or it is a
-    green boulder."""
-    out = []
+    """Bushes as clumps of leaf cards: a low mass with a ragged edge, not a
+    green boulder. Three to five cards crossed at the centre and two or
+    three more leaning out, on a short dark heart so the middle is not air."""
     spots = []
     for _ in range(70):
         x = MEADOW["x0"] + 4 + rnd() * (MEADOW["x1"] - MEADOW["x0"] - 8)
@@ -575,22 +590,44 @@ def bushes(M, t, rnd):
         spots.append((x, y))
     for i, (x, y) in enumerate(spots[:36]):
         z = height(x, y)
-        n = 3 + int(rnd() * 3)
         s = 0.7 + rnd() * 0.6
+        t.add(K.blob(f"bushheart{i}", (x, y, z + 0.28 * s), (0.34 * s, 0.34 * s, 0.26 * s), None,
+                     M["leaf_lo"], seg=7, rings=5, squircle=2.3))
+        _plant_cards(M, t, x, y, z, "bush", 4, (1.05 * s, 0.85 * s), rnd, lean=0.5)
+        for k in range(3):
+            a = rnd() * math.tau
+            _plant_cards(M, t, x + math.cos(a) * 0.35 * s, y + math.sin(a) * 0.35 * s, z,
+                         "bush", 2, (0.7 * s, 0.6 * s), rnd, lean=0.9)
+
+
+def ferns(M, t, rnd, spots):
+    """Ferns in the shade: a ring of fronds under every tree, where the grass
+    thins and a real wood has its understory."""
+    for (x, y, r) in spots:
+        n = 3 + int(rnd() * 3)
         for k in range(n):
             a = rnd() * math.tau
-            r = 0.30 * s * math.sqrt(rnd())
-            br = (0.30 + rnd() * 0.22) * s
-            out.append(K.blob(f"bush{i}_{k}", (x + math.cos(a) * r, y + math.sin(a) * r, z + br * 0.55),
-                              (br, br, br * 0.75), None,
-                              M["leaf_lo"] if k % 2 else M["leaf"], seg=8, rings=6, squircle=2.3))
-    t.add(*out)
+            d = r * (0.55 + rnd() * 0.55)
+            px, py = x + math.cos(a) * d, y + math.sin(a) * d
+            if on_path(px, py, 2.4) or not _inside(px, py):
+                continue
+            z = height(px, py)
+            for j in range(4):
+                yaw = a + j * 1.5 + rnd() * 0.5
+                tilt = 0.55 + rnd() * 0.35          # fronds lean outward
+                right = Vector((math.cos(yaw), math.sin(yaw), 0.0))
+                # the frond stands in the plane through `right`, leaning away from the centre
+                out = Vector((-math.sin(yaw), math.cos(yaw), 0.0))
+                upv = (Vector((0, 0, 1)) * math.cos(tilt) + out * math.sin(tilt)).normalized()
+                w, h = 0.30 + rnd() * 0.12, 0.62 + rnd() * 0.25
+                c = Vector((px, py, z)) + upv * (h * 0.48)
+                t.add(K.card(f"fern{len(t.parts)}", c, right, upv, w, h, M["leafcard_fern"],
+                             normal=(out * 0.4 + Vector((0, 0, 1))).normalized()))
 
 
 def flowers(M, t, rnd):
-    """Flower patches: small heads in three colours, above the grass. A colour
-    the meadow did not have, and the first thing a screenshot's eye lands on."""
-    out = []
+    """Flower patches as crossed cards: a spray of blooms over leaves, in
+    clumps, where the eye lands first in any screenshot of a meadow."""
     k = 0
     for _ in range(40):
         x = MEADOW["x0"] + 6 + rnd() * (MEADOW["x1"] - MEADOW["x0"] - 12)
@@ -599,20 +636,17 @@ def flowers(M, t, rnd):
             continue
         if height(x, y) > 5.5:
             continue
-        mat = (M["flower_a"], M["flower_b"], M["flower_c"])[k % 3]
-        for _h in range(18 + int(rnd() * 10)):
+        for _h in range(7 + int(rnd() * 5)):
             a = rnd() * math.tau
-            r = 2.2 * math.sqrt(rnd())
+            r = 2.0 * math.sqrt(rnd())
             px, py = x + math.cos(a) * r, y + math.sin(a) * r
             if on_path(px, py, 2.6):
                 continue
-            hr = 0.055 + rnd() * 0.035
-            out.append(K.blob(f"flower{k}", (px, py, height(px, py) + 0.22 + rnd() * 0.08),
-                              (hr, hr, hr * 0.6), None, mat, seg=6, rings=4, squircle=2.2))
+            _plant_cards(M, t, px, py, height(px, py), "flower", 2,
+                         (0.50, 0.42), rnd, lean=0.4)
         k += 1
         if k >= 14:
             break
-    t.add(*out)
 
 
 def logs(M, t):
@@ -765,39 +799,101 @@ def _lcg(seed):
     return rnd
 
 
-def _tree_broadleaf(M, t, x, y, scale, rnd):
-    """The round one -- and now a TREE rather than a cloud on a stick.
+def _branch(M, t, p0, d, length, r0, r1, depth, scale, rnd, tips, bark):
+    """One branch of the grammar, recursively. Grows from `p0` along unit
+    direction `d` for `length`, tapering r0 -> r1, bending a little upward and
+    wandering, then forks into two or three children that are shorter, thinner
+    and spread apart. Every tip is recorded so the canopy can be hung there."""
+    up = Vector((0, 0, 1))
+    # the branch curves: three sections, each bent toward up and wandered
+    pts = [Vector(p0)]
+    dd = Vector(d)
+    seg_len = length / 3
+    for k in range(3):
+        wander = Vector(((rnd() - 0.5) * 0.5, (rnd() - 0.5) * 0.5, (rnd() - 0.5) * 0.3))
+        dd = (dd + up * 0.18 + wander * 0.5).normalized()
+        pts.append(pts[-1] + dd * seg_len)
+    sections = []
+    for k, pt in enumerate(pts):
+        u = k / 3
+        rr = r0 + (r1 - r0) * u
+        sections.append({"p": pt, "r": (rr, rr), "n": 2.5})
+    t.add(K.tube(f"br{len(t.parts)}", K.dome(sections, at="end", steps=1, height=0.02),
+                 seg=6 if depth < 2 else 5, mat=M[bark], squircle=2.5))
+    tip = pts[-1]
+    if depth >= 2 or length < 0.55 * scale:
+        tips.append((tip, dd))
+        return
+    n = 2 if rnd() < 0.6 else 3
+    # children fan out from the tip's direction
+    side = dd.cross(up)
+    if side.length < 1e-3:
+        side = Vector((1, 0, 0))
+    side.normalize()
+    a0 = rnd() * math.tau
+    for k in range(n):
+        a = a0 + k * (math.tau / n)
+        spread = 0.55 + rnd() * 0.35
+        cd = (dd + (side * math.cos(a) + up.cross(side) * math.sin(a)) * spread
+              + up * 0.25).normalized()
+        _branch(M, t, tip, cd, length * (0.62 + rnd() * 0.16), r1, r1 * 0.55,
+                depth + 1, scale, rnd, tips, bark)
+    # and a tip on the parent too, so there are leaves along the branch
+    tips.append((tip, dd))
 
-    The first recipe was four overlapping spheres on a tapering tube, and at
-    the five metres the camera sits from anything it read as exactly that.
-    What a broadleaf tree has that a sphere does not: a trunk that flares into
-    roots and leans a little, three or four BRANCHES you can see leave the
-    trunk and vanish into the leaves, a canopy made of a dozen lobes at two
-    tones so it has an underside and a lit crown rather than one gradient, and
-    a ragged edge -- a few small clumps hanging below the canopy line so the
-    silhouette is not a circle. About twice the triangles of the old one, on
-    the object that is in every outdoor frame.
+
+def _canopy_cards(M, t, tips, centre, crown_r, scale, rnd, kind="broad", n_per_tip=2,
+                  size=(1.15, 0.95), camblock=True):
+    """Hang leaf cards at the branch tips. Each card faces a random direction
+    but SHADES with the crown's outward normal, so the mass lights as one
+    round thing under the ramp while its edge is forty ragged cuts."""
+    mat = M[f"leafcard_{kind}"]
+    cx, cy, cz = centre
+    for (tip, d) in tips:
+        for k in range(n_per_tip):
+            off = Vector(((rnd() - 0.5) * 0.5, (rnd() - 0.5) * 0.5, (rnd() - 0.5) * 0.35)) * scale
+            c = Vector(tip) + off + Vector((0, 0, 0.18 * scale))
+            # facing: random yaw, mostly upright, with some tilted like a spread of leaves
+            yaw = rnd() * math.tau
+            tilt = (rnd() - 0.5) * 1.1
+            right = Vector((math.cos(yaw), math.sin(yaw), 0.0))
+            upv = Vector((-math.sin(yaw) * math.sin(tilt), math.cos(yaw) * math.sin(tilt), math.cos(tilt)))
+            w = size[0] * scale * (0.85 + rnd() * 0.35)
+            h = size[1] * scale * (0.85 + rnd() * 0.35)
+            nrm = (c - Vector((cx, cy, cz - crown_r * 0.35)))
+            if nrm.length < 1e-3:
+                nrm = Vector((0, 0, 1))
+            t.add(K.card(f"lc{len(t.parts)}", c, right, upv, w, h, mat, normal=nrm.normalized()))
+    if camblock:
+        t.camblock(cx, cy, cz, crown_r * 0.95)
+
+
+def _tree_broadleaf(M, t, x, y, scale, rnd):
+    """A broadleaf tree grown from a grammar and dressed in cards.
+
+    The old recipe was a trunk, four branches and a dozen blobs; at five metres
+    it read as exactly that. This one grows: a trunk that forks into two or
+    three limbs, each limb into two or three branches, each branch into twigs,
+    curving up and wandering as it goes, every tree its own shape from its own
+    seed. The leaves are painted clusters on cards hung at every twig, shaded
+    with the crown's normal -- the technique every stylised game with trees
+    worth looking at uses, and the one thing that was never going to come out
+    of a sphere.
     """
     z = height(x, y)
-    h = 2.8 * scale
+    h = 2.9 * scale
     lean_a = rnd() * math.tau
     lean = 0.10 * scale * (0.4 + rnd())
     lx, ly = math.cos(lean_a) * lean, math.sin(lean_a) * lean
-    # the trunk: flared foot, slight S, thinning to a tip that ends INSIDE the
-    # canopy rather than at its centre, so the lobes have something to sit on
+    fork_z = z + h * (0.42 + rnd() * 0.12)
+    fork = Vector((x + lx, y + ly, fork_z))
     t.add(K.tube(f"trunk{len(t.parts)}", K.dome([
         {"p": Vector((x, y, z - 0.20)), "r": (0.34 * scale, 0.34 * scale), "n": 2.6},
         {"p": Vector((x, y, z + 0.18 * scale)), "r": (0.24 * scale, 0.24 * scale), "n": 2.6},
-        {"p": Vector((x + lx * 0.5, y + ly * 0.5, z + h * 0.40)),
-         "r": (0.17 * scale, 0.17 * scale), "n": 2.6},
-        {"p": Vector((x + lx, y + ly, z + h * 0.72)),
-         "r": (0.12 * scale, 0.12 * scale), "n": 2.6},
-        {"p": Vector((x + lx * 1.3, y + ly * 1.3, z + h * 1.02)),
-         "r": (0.07 * scale, 0.07 * scale), "n": 2.6},
-    ], at="end", steps=2, height=0.08), seg=8, mat=M["bark"], squircle=2.6))
-    # ROOTS: three short buttresses. The place a trunk meets the ground is the
-    # one joint on a tree the player is at eye level with, and a cylinder
-    # entering a lawn is the thing that says "model".
+        {"p": Vector((x + lx * 0.5, y + ly * 0.5, z + h * 0.25)),
+         "r": (0.19 * scale, 0.19 * scale), "n": 2.6},
+        {"p": fork, "r": (0.15 * scale, 0.15 * scale), "n": 2.6},
+    ], at="end", steps=1, height=0.05), seg=9, mat=M["bark"], squircle=2.6))
     for k in range(3):
         a = lean_a + 1.1 + k * 2.05 + (rnd() - 0.5) * 0.6
         reach = (0.42 + rnd() * 0.2) * scale
@@ -808,107 +904,63 @@ def _tree_broadleaf(M, t, x, y, scale, rnd):
             {"p": Vector((x + math.cos(a) * reach, y + math.sin(a) * reach, z - 0.16)),
              "r": (0.05 * scale, 0.04 * scale), "n": 2.4},
         ], at="end", steps=1, height=0.03), seg=6, mat=M["bark"], squircle=2.4))
-    # BRANCHES, and the lobes hang off their ends. Four of them, leaving the
-    # trunk between 55% and 80% of its height, each reaching out and up to
-    # where a satellite lobe will sit -- so every outer lobe is visibly held
-    # up by something.
-    lobes = []
-    nb = 4
+    # THE GRAMMAR: two or three limbs off the fork, each a branch that forks twice
+    tips = []
+    n_limbs = 2 if rnd() < 0.45 else 3
     a0 = rnd() * math.tau
-    for k in range(nb):
-        a = a0 + k * (math.tau / nb) + (rnd() - 0.5) * 0.7
-        u = 0.50 + 0.22 * (k / max(1, nb - 1))
-        bz = z + h * u
-        # LONG AND HIGH. The first pass ended each branch at the centre of the
-        # lobe it carried, which hid the branch completely -- the tree read as
-        # the old cloud again. The lobe now sits a third of a metre BEYOND the
-        # tip, so the lower half of every branch is in open air.
-        reach = (1.10 + rnd() * 0.40) * scale
-        rise = (0.95 + rnd() * 0.30) * scale
-        tip = (x + lx * u * 1.2 + math.cos(a) * reach,
-               y + ly * u * 1.2 + math.sin(a) * reach, bz + rise)
-        t.add(K.tube(f"branch{len(t.parts)}", K.dome([
-            {"p": Vector((x + lx * u * 1.2, y + ly * u * 1.2, bz)),
-             "r": (0.085 * scale, 0.085 * scale), "n": 2.5},
-            {"p": Vector((x + lx * u * 1.2 + math.cos(a) * reach * 0.55,
-                          y + ly * u * 1.2 + math.sin(a) * reach * 0.55,
-                          bz + rise * 0.45)), "r": (0.055 * scale, 0.055 * scale), "n": 2.5},
-            {"p": Vector(tip), "r": (0.03 * scale, 0.03 * scale), "n": 2.5},
-        ], at="end", steps=1, height=0.03), seg=6, mat=M["bark"], squircle=2.5))
-        lobes.append((tip[0] + math.cos(a) * 0.30 * scale, tip[1] + math.sin(a) * 0.30 * scale,
-                      tip[2] + 0.30 * scale, (0.70 + rnd() * 0.20) * scale))
-    # THE CROWN: one big lobe over the trunk's tip and two shoulders, so the
-    # top of the tree is a mass and not a ring of balls round a hole.
-    cx, cy = x + lx * 1.3, y + ly * 1.3
-    lobes.append((cx, cy, z + h * 1.14, 1.25 * scale))
-    lobes.append((cx + 0.35 * scale, cy - 0.30 * scale, z + h * 1.34, 0.78 * scale))
-    lobes.append((cx - 0.40 * scale, cy + 0.25 * scale, z + h * 1.30, 0.72 * scale))
-    # and an UNDERSIDE: two lower, darker lobes between the branches, which is
-    # where a real canopy is densest and least lit
-    for k in range(2):
-        a = a0 + (k + 0.5) * math.pi + (rnd() - 0.5) * 0.5
-        lobes.append((cx + math.cos(a) * 0.60 * scale, cy + math.sin(a) * 0.60 * scale,
-                      z + h * 0.96, 0.70 * scale))
-    for i, (px, py, pz, r) in enumerate(lobes):
-        under = pz < z + h * 1.05
-        mat = M["leaf_lo"] if (under or i % 3 == 1) else M["leaf"]
-        t.add(K.blob(f"canopy{len(t.parts)}", (px, py, pz),
-                     (r, r * (0.92 + rnd() * 0.16), r * 0.78), None, mat,
-                     seg=10, rings=6, squircle=2.3))
-        t.camblock(px, py, pz, r * 1.02)
-    # THE RAGGED EDGE: small clumps hanging below the canopy line. Nothing
-    # about a tree is a clean curve, and four 30 cm balls are what stops the
-    # silhouette being one.
-    for k in range(4):
-        a = a0 + k * 1.6 + rnd()
-        rr = (1.35 + rnd() * 0.45) * scale
-        t.add(K.blob(f"clump{len(t.parts)}",
-                     (cx + math.cos(a) * rr, cy + math.sin(a) * rr,
-                      z + h * (0.80 + rnd() * 0.14)),
-                     (0.30 * scale, 0.30 * scale, 0.24 * scale), None,
-                     M["leaf_lo"] if k % 2 else M["leaf"], seg=7, rings=5, squircle=2.3))
+    for k in range(n_limbs):
+        a = a0 + k * (math.tau / n_limbs) + (rnd() - 0.5) * 0.6
+        d = Vector((math.cos(a) * 0.75, math.sin(a) * 0.75, 0.9 + rnd() * 0.4)).normalized()
+        _branch(M, t, fork, d, (1.35 + rnd() * 0.45) * scale, 0.13 * scale, 0.07 * scale,
+                0, scale, rnd, tips, "bark")
+    # crown centre and radius from where the tips landed
+    if tips:
+        cx = sum(p.x for p, _ in tips) / len(tips)
+        cy = sum(p.y for p, _ in tips) / len(tips)
+        cz = sum(p.z for p, _ in tips) / len(tips) + 0.2 * scale
+        cr = max(0.9 * scale, max((Vector((p.x - cx, p.y - cy, p.z - cz)).length for p, _ in tips)) * 0.9)
+    else:
+        cx, cy, cz, cr = x, y, z + h, 1.2 * scale
+    _canopy_cards(M, t, tips, (cx, cy, cz), cr, scale, rnd, kind="broad", n_per_tip=2)
     t.solid(x, y, 0.42 * scale, 0.42 * scale, top=z + h)
 
 
 def _tree_conifer(M, t, x, y, scale, rnd):
-    """The pointed one, and the reason the roster needed a second recipe.
-
-    A meadow of nothing but round canopies has ONE silhouette repeated sixty
-    times, and silhouette is the only thing a tree contributes at the distance
-    most of them are seen. A cone against the sky is a different word in the
-    same sentence. Four stacked skirts rather than a single cone, because a
-    smooth cone reads as a traffic bollard.
-    """
+    """A conifer as a spire of needle sprays. The trunk is one tapering pole;
+    whorls of short branches leave it every half metre, shorter toward the
+    top, and each carries two needle cards -- so the silhouette is a ragged
+    cone of sprays, not four stacked skirts."""
     z = height(x, y)
-    h = 4.4 * scale
+    h = 4.6 * scale
     t.add(K.tube(f"trunk{len(t.parts)}", K.dome([
         {"p": Vector((x, y, z - 0.15)), "r": (0.20 * scale, 0.20 * scale), "n": 2.6},
-        {"p": Vector((x, y, z + h * 0.92)), "r": (0.07 * scale, 0.07 * scale), "n": 2.6},
-    ], at="end", steps=2, height=0.08), seg=8, mat=M["bark"], squircle=2.6))
-    # FIVE TIERS, EACH A LITTLE OFF-AXIS, and a spike of bare trunk above the
-    # last one. Four concentric skirts on one axis is a lathe-turned object; a
-    # few centimetres of wander per tier and a leader poking out of the top
-    # is the difference between a bollard and a spruce.
-    tiers = 5
-    for i in range(tiers):
-        u = i / tiers
-        cz = z + h * (0.22 + 0.66 * u)
-        r = (1.32 - 0.90 * u) * scale
-        ox = (rnd() - 0.5) * 0.16 * scale
-        oy = (rnd() - 0.5) * 0.16 * scale
-        t.add(K.tube(f"needle{len(t.parts)}", [
-            {"p": Vector((x + ox, y + oy, cz)), "r": (r, r), "n": 2.4},
-            {"p": Vector((x + ox * 0.6, y + oy * 0.6, cz + h * 0.05)),
-             "r": (r * 0.90, r * 0.90), "n": 2.4},
-            {"p": Vector((x, y, cz + h * 0.215)), "r": (r * 0.16, r * 0.16), "n": 2.4},
-        ], seg=10, mat=M["leaf_lo"] if i % 2 else M["conifer"],
-            squircle=2.4, up=(0, 0, 1)))
-        t.camblock(x, y, cz + h * 0.10, r * 1.05)
-    t.add(K.tube(f"leader{len(t.parts)}", K.dome([
-        {"p": Vector((x, y, z + h * 0.96)), "r": (0.05 * scale, 0.05 * scale), "n": 2.4},
-        {"p": Vector((x, y, z + h * 1.08)), "r": (0.02 * scale, 0.02 * scale), "n": 2.4},
-    ], at="end", steps=1, height=0.02), seg=6, mat=M["bark"], squircle=2.4))
-    t.solid(x, y, 0.34 * scale, 0.34 * scale, top=z + h)
+        {"p": Vector((x, y, z + h * 0.55)), "r": (0.11 * scale, 0.11 * scale), "n": 2.6},
+        {"p": Vector((x, y, z + h * 1.02)), "r": (0.03 * scale, 0.03 * scale), "n": 2.6},
+    ], at="end", steps=1, height=0.06), seg=8, mat=M["bark"], squircle=2.6))
+    tips = []
+    zz = z + h * 0.18
+    ring = 0
+    while zz < z + h * 0.95:
+        u = (zz - z) / h
+        reach = (1.25 - 1.05 * u) * scale * (0.85 + rnd() * 0.3)
+        n = 5 if u < 0.6 else 4
+        a0 = rnd() * math.tau
+        for k in range(n):
+            a = a0 + k * (math.tau / n) + (rnd() - 0.5) * 0.4
+            d = Vector((math.cos(a), math.sin(a), -0.18 + 0.1 * rnd())).normalized()
+            p0 = Vector((x, y, zz))
+            p1 = p0 + d * reach
+            t.add(K.tube(f"cb{len(t.parts)}", [
+                {"p": p0, "r": (0.045 * scale, 0.045 * scale), "n": 2.4},
+                {"p": p1 + Vector((0, 0, 0.08 * scale)), "r": (0.015 * scale, 0.015 * scale), "n": 2.4},
+            ], seg=5, mat=M["bark"], squircle=2.4))
+            tips.append((p1 + Vector((0, 0, 0.06 * scale)), d))
+        zz += (0.42 + rnd() * 0.12) * scale
+        ring += 1
+    tips.append((Vector((x, y, z + h * 1.0)), Vector((0, 0, 1))))
+    _canopy_cards(M, t, tips, (x, y, z + h * 0.55), 1.1 * scale, scale, rnd,
+                  kind="needle", n_per_tip=2, size=(0.95, 0.85))
+    t.solid(x, y, 0.30 * scale, 0.30 * scale, top=z + h)
 
 
 def _tree_snag(M, t, x, y, scale, rnd):
@@ -950,6 +1002,9 @@ def _tree_snag(M, t, x, y, scale, rnd):
     t.solid(x, y, 0.34 * scale, 0.34 * scale, top=z + h)
 
 
+TREE_SPOTS = []     # (x, y, crown radius) of every tree placed, for the understory
+
+
 def tree(M, t, x, y, scale, kind=None, rnd=None):
     """Place one tree. `kind` picks the silhouette; None means "by position".
 
@@ -961,6 +1016,8 @@ def tree(M, t, x, y, scale, kind=None, rnd=None):
     if kind is None:
         k = (int(abs(x * 13.7 + y * 7.3)) % 10)
         kind = "conifer" if k < 3 else ("snag" if k == 3 else "broadleaf")
+    if kind != "snag":
+        TREE_SPOTS.append((x, y, 1.6 * scale))
     ({"conifer": _tree_conifer, "snag": _tree_snag}.get(kind, _tree_broadleaf))(
         M, t, x, y, scale, rnd)
 
@@ -2261,6 +2318,16 @@ def materials(M):
         M[f"{nm}_tex"] = K.image_material(
             f"{nm}_tex", bpy.data.images.load(path, check_existing=True),
             roughness=0.92, preview=(0.98, 0.98, 0.98), vertex_color="Col")
+    # LEAF CARDS: painted clusters with a transparent cut, one image per
+    # kind. `leafcard_` is the prefix the runtime keys alpha testing, double
+    # siding, the shadow cut and the missing ink hull off.
+    for kind in ("broad", "needle", "bush", "fern", "flower"):
+        path = os.path.abspath(f"public/assets/tex/leafcard_{kind}.png")
+        surface_tex.write_png(path, surface_tex.leafcard(kind, res=256))
+        img = bpy.data.images.load(path, check_existing=True)
+        img.alpha_mode = 'STRAIGHT'
+        M[f"leafcard_{kind}"] = K.image_material(
+            f"leafcard_{kind}", img, roughness=0.85, preview=(0.35, 0.55, 0.28), alpha=True)
     M.update({
         "grass":    K.material("grass", (0.44, 0.62, 0.30), roughness=0.9),
         "grass_hi": K.material("grass_hi", (0.58, 0.74, 0.34), roughness=0.9),
@@ -2386,6 +2453,7 @@ def main():
     scatter(M, t)
     bushes(M, t, _lcg(70211))
     flowers(M, t, _lcg(70223))
+    ferns(M, t, _lcg(70241), TREE_SPOTS)
     logs(M, t)
 
     town, floor = A.finish(t, name_town="MEADOW", name_floor="FLOOR_MEADOW")

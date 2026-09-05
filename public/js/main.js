@@ -356,11 +356,23 @@ function applyTownLook(root) {
     // material whose entire grass-to-path transition is a COLOR_0 attribute --
     // ignoring it ships a field of flat mottled white.
     const vcol = !!m.geometry.getAttribute('color');
+    // LEAF CARDS. A canopy is forty transparent cards, not a ball: the cut is
+    // the alpha in the painted leaf texture, both faces draw, and the shadow
+    // pass has to see the same cut or every tree casts a square. No ink hull
+    // round a card -- the alpha edge IS the line.
+    const card = name.startsWith('leafcard');
     const opts = { gradient: RAMP_SOFT, rimStrength: 0.28, map, vertexColors: vcol,
-                   key: `town:${name}:${vcol ? 'v' : ''}`, ...(TOWN_LOOK[name] || {}) };
+                   key: `town:${name}:${vcol ? 'v' : ''}`,
+                   ...(card ? { alphaTest: 0.5, side: THREE.DoubleSide, rimStrength: 0.12,
+                                gradient: RAMP_SOFT, sway: 0.05 } : {}),
+                   ...(TOWN_LOOK[name] || {}) };
     SURFACES.push({ mesh: m, flat: TOWN_FLAT.has(name), color: base, opts });
     m.material = TOWN_FLAT.has(name) ? flatMaterial(base)
                                      : surfaceMaterial(LOOK, base, opts);
+    if (card && map) {
+      m.customDepthMaterial = new THREE.MeshDepthMaterial({
+        depthPacking: THREE.RGBADepthPacking, map, alphaTest: 0.5, side: THREE.DoubleSide });
+    }
     // NOT EVERYTHING CASTS. The shadow map is a second full pass over the
     // scene, so a 6k-triangle terrain and 500 grass tufts casting shadows
     // nobody can see is the most expensive nothing in the build. Ground
@@ -373,14 +385,14 @@ function applyTownLook(root) {
     // the far side of the object, where nothing visible is being compared
     // against it. Texel snapping stopped the speckle crawling; this is what
     // stops it existing.
-    m.material.shadowSide = THREE.BackSide;
+    m.material.shadowSide = card ? THREE.DoubleSide : THREE.BackSide;
     if (NO_FOG_ENV.has(name)) { m.material.fog = false; m.renderOrder = -1; }
     m.castShadow = !NO_SHADOW_ENV.has(name);
     m.receiveShadow = !TINY_ENV.has(name);
   }
   for (const m of meshes) {
     const name = m.userData.matName || '';
-    if (NO_OUTLINE_ENV.has(name)) continue;
+    if (NO_OUTLINE_ENV.has(name) || name.startsWith('leafcard')) continue;
     // the shell has to move with what it wraps, or it leaks out of one side
     addOutline(m, 0.0022, (TOWN_LOOK[name] || {}).sway || 0);
   }

@@ -236,12 +236,15 @@ export function toonMaterial(color, opts = {}) {
     vertexColors = false,
     opacity = 1,
     ripple = 0,
+    alphaTest = 0,
+    side = THREE.FrontSide,
   } = opts;
 
   const mat = new THREE.MeshToonMaterial({ color, gradientMap: gradient, map,
                                            vertexColors,
                                            transparent: opacity < 1,
                                            opacity,
+                                           alphaTest, side,
                                            depthWrite: opacity >= 1 });
 
   mat.onBeforeCompile = (shader) => {
@@ -310,7 +313,7 @@ export function toonMaterial(color, opts = {}) {
       `);
   };
   // distinct programs per rim config, or three would reuse the first compile
-  mat.customProgramCacheKey = () => 'toonrim:' + key + ':' + sway + ':' + ripple;
+  mat.customProgramCacheKey = () => 'toonrim:' + key + ':' + sway + ':' + ripple + ':' + (alphaTest > 0 ? 'a' : '');
   return mat;
 }
 

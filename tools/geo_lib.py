@@ -457,7 +457,7 @@ def set_vertex_colors(obj, rgb_per_vertex, name="Col"):
     return layer
 
 
-def box_uvs(obj, tile=2.0, name="UVMap"):
+def box_uvs(obj, tile=2.0, name="UVMap", keep_prefix="leafcard"):
     """Per-face planar projection along each face's dominant normal axis.
 
     Architecture here is bevelled boxes at arbitrary yaws, which have no natural
@@ -470,7 +470,13 @@ def box_uvs(obj, tile=2.0, name="UVMap"):
     """
     me = obj.data
     uvl = me.uv_layers.get(name) or me.uv_layers.new(name=name)
+    # cards carry their own UVs into the image; projecting over them would
+    # sample one corner of the leaf texture across the whole quad
+    keep = {i for i, m in enumerate(me.materials)
+            if m is not None and m.name.startswith(keep_prefix)}
     for poly in me.polygons:
+        if poly.material_index in keep:
+            continue
         n = poly.normal
         ax, ay, az = abs(n.x), abs(n.y), abs(n.z)
         for li in poly.loop_indices:
@@ -491,7 +497,7 @@ def box_uvs(obj, tile=2.0, name="UVMap"):
 
 
 def image_material(name, image, roughness=0.7, preview=(0.8, 0.8, 0.8),
-                   uv_layer="UVMap", vertex_color=None):
+                   uv_layer="UVMap", vertex_color=None, alpha=False):
     """A material whose base colour comes from an image.
 
     `vertex_color` names a colour attribute to MULTIPLY the texture by. It has
@@ -533,8 +539,40 @@ def image_material(name, image, roughness=0.7, preview=(0.8, 0.8, 0.8),
     else:
         mat.node_tree.links.new(tex.outputs["Color"], bsdf.inputs["Base Color"])
     bsdf.inputs["Roughness"].default_value = roughness
+    if alpha:
+        # THE CUT TRAVELS WITH THE IMAGE. Wiring the texture's alpha into the
+        # BSDF is what makes the exporter keep the alpha channel and mark the
+        # material as not opaque; the runtime turns that into an alpha test.
+        mat.node_tree.links.new(tex.outputs["Alpha"], bsdf.inputs["Alpha"])
+        mat.surface_render_method = 'DITHERED'
+        mat.use_backface_culling = False
     mat.diffuse_color = (*preview, 1.0)
     return mat
+
+
+def card(name, center, right, up, w, h, mat, normal=None, uv=(0.0, 0.0, 1.0, 1.0)):
+    """One textured quad: `right` and `up` are unit vectors in the card's
+    plane, `w`/`h` its full size, `center` its middle. `normal` overrides the
+    shading normal for every vertex -- a canopy's cards borrow the crown's
+    outward direction so the toon ramp lights forty cards as one round mass
+    instead of forty flat plates. UVs are the given rectangle of the image."""
+    r, u = Vector(right).normalized() * (w / 2), Vector(up).normalized() * (h / 2)
+    c = Vector(center)
+    verts = [c - r - u, c + r - u, c + r + u, c - r + u]
+    obj = _new_obj(name, verts, [(0, 1, 2, 3)], mat=mat, smooth=True, recalc=False)
+    me = obj.data
+    if not me.uv_layers:
+        me.uv_layers.new(name="UVMap")
+    u0, v0, u1, v1 = uv
+    uvs = [(u0, v0), (u1, v0), (u1, v1), (u0, v1)]
+    layer = me.uv_layers[0].data
+    for poly in me.polygons:
+        for li, vi in zip(poly.loop_indices, poly.vertices):
+            layer[li].uv = uvs[vi]
+    if normal is not None:
+        n = Vector(normal).normalized()
+        me.normals_split_custom_set_from_vertices([n] * len(me.vertices))
+    return obj
 
 
 def transform(obj, rotate=None, around=None, translate=None, scale=None, quat=None,
