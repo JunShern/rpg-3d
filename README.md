@@ -9,6 +9,7 @@ it, a valley to cross, and one thing to do.**
 | ![title](docs/shots/title.png) | ![valley](docs/shots/valley.png) |
 | ![plaza](docs/shots/plaza.png) | ![meadow](docs/shots/meadow-close.png) |
 | ![roofs](docs/shots/roofs.png) | ![pass](docs/shots/pass.png) |
+| ![wood](docs/shots/wood.png) | ![hill](docs/shots/hill.png) |
 | ![dusk](docs/shots/dusk-valley.png) | ![ivy](docs/shots/ivy.png) |
 | ![combat](docs/shots/combat.png) | ![beacon](docs/shots/beacon-lit.png) |
 
@@ -39,10 +40,13 @@ they stand in were built here.
   fountain with moving water; stalls whose goods come apart.
 - **A valley**: an analytic terrain the runtime and the builder agree on, a
   road that bends, a ford, a ravine, an orchard, a ruin, a stone ring, the
-  pass cut through bedded rock. Trees with roots and branches, bushes at
-  their feet, flower patches, fallen logs. Ten thousand instanced grass
-  clumps in the same wind as the bunting and the canopies. Three rings of
-  mountains behind it, snow on the far two, and mist lying on the low ground.
+  pass cut through bedded rock. Trees grown from a branching grammar, every
+  one its own shape, dressed in painted leaf cards that shade with the
+  crown's normal and flutter on their own phase; firs as spires of needle
+  sprays; ferns under every tree, bushes and flower patches as cards. Ten
+  thousand instanced grass clumps, doubled within thirty metres of you, in
+  the same wind as the bunting and the canopies. Three rings of mountains
+  behind it, snow on the far two, and mist lying on the low ground.
 - **People**: nine townsfolk, each with a portrait, a gesture that is theirs,
   and a dialogue ladder that changes with the state of the world. Three of them
   run errands round the square and stop when you are near.
