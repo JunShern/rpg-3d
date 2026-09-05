@@ -463,7 +463,10 @@ def leafcard(kind="broad", res=256, seed=101):
     alpha = np.zeros((res, res), np.float32)
     # painted leaf tones: a mid green with a lighter face and a darker back
     if kind == "needle":
-        base = np.array([0.24, 0.42, 0.26], np.float32)
+        # not the old blue-black: a fir is a cooler green than a broadleaf,
+        # but it is still a green, and under the ramp's shadow band anything
+        # this dark went to a silhouette
+        base = np.array([0.30, 0.50, 0.31], np.float32)
     elif kind == "fern":
         base = np.array([0.30, 0.52, 0.24], np.float32)
     elif kind == "bush":

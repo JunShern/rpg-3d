@@ -636,14 +636,14 @@ def flowers(M, t, rnd):
             continue
         if height(x, y) > 5.5:
             continue
-        for _h in range(7 + int(rnd() * 5)):
+        for _h in range(11 + int(rnd() * 6)):
             a = rnd() * math.tau
-            r = 2.0 * math.sqrt(rnd())
+            r = 2.2 * math.sqrt(rnd())
             px, py = x + math.cos(a) * r, y + math.sin(a) * r
             if on_path(px, py, 2.6):
                 continue
             _plant_cards(M, t, px, py, height(px, py), "flower", 2,
-                         (0.50, 0.42), rnd, lean=0.4)
+                         (0.72, 0.58), rnd, lean=0.4)
         k += 1
         if k >= 14:
             break
@@ -842,7 +842,7 @@ def _branch(M, t, p0, d, length, r0, r1, depth, scale, rnd, tips, bark):
     tips.append((tip, dd))
 
 
-def _one_card(t, mat, c, centre, crown_r, w, h, rnd, facing=None):
+def _one_card(t, mat, c, centre, crown_r, w, h, rnd, facing=None, radial=False):
     """Place one leaf card at `c`. `facing` is the direction the card should
     face (its plane normal); None means random. The SHADING normal is always
     the crown's outward direction from a point a third of a radius below its
@@ -862,14 +862,22 @@ def _one_card(t, mat, c, centre, crown_r, w, h, rnd, facing=None):
     r2 = right * math.cos(roll) + upv * math.sin(roll)
     u2 = -right * math.sin(roll) + upv * math.cos(roll)
     cx, cy, cz = centre
-    nrm = (Vector(c) - Vector((cx, cy, cz - crown_r * 0.35)))
+    if radial:
+        # a spire lights from the side all the way up: the normal points
+        # straight out from the trunk at the card's own height, tipped up
+        nrm = Vector((c[0] - cx, c[1] - cy, 0.0))
+        if nrm.length < 1e-3:
+            nrm = Vector((1, 0, 0))
+        nrm = (nrm.normalized() + Vector((0, 0, 0.45)))
+    else:
+        nrm = (Vector(c) - Vector((cx, cy, cz - crown_r * 0.35)))
     if nrm.length < 1e-3:
         nrm = Vector((0, 0, 1))
     t.add(K.card(f"lc{len(t.parts)}", c, r2, u2, w, h, mat, normal=nrm.normalized()))
 
 
 def _canopy_cards(M, t, tips, centre, crown_r, scale, rnd, kind="broad", n_per_tip=4,
-                  size=(1.9, 1.5), shell=28, camblock=True):
+                  size=(1.9, 1.5), shell=28, camblock=True, radial=False):
     """Dress a crown in leaf cards, two ways at once. Cards at every branch
     tip, jittered in a ball round it, so the leaves are visibly held up by
     something; and cards on the crown's SHELL, facing outward with a random
@@ -885,7 +893,7 @@ def _canopy_cards(M, t, tips, centre, crown_r, scale, rnd, kind="broad", n_per_t
             c = Vector(tip) + off + Vector((0, 0, 0.15 * scale))
             w = size[0] * scale * (0.8 + rnd() * 0.4)
             h = size[1] * scale * (0.8 + rnd() * 0.4)
-            _one_card(t, mat, c, centre, crown_r, w, h, rnd)
+            _one_card(t, mat, c, centre, crown_r, w, h, rnd, radial=radial)
     # the shell: points on an ellipsoid slightly inside the tip radius
     for k in range(shell):
         u = rnd() * math.tau
@@ -995,7 +1003,7 @@ def _tree_conifer(M, t, x, y, scale, rnd):
         ring += 1
     tips.append((Vector((x, y, z + h * 1.0)), Vector((0, 0, 1))))
     _canopy_cards(M, t, tips, (x, y, z + h * 0.55), 1.1 * scale, scale, rnd,
-                  kind="needle", n_per_tip=3, size=(1.35, 1.15), shell=0)
+                  kind="needle", n_per_tip=3, size=(1.35, 1.15), shell=0, radial=True)
     t.solid(x, y, 0.30 * scale, 0.30 * scale, top=z + h)
 
 
