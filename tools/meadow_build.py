@@ -929,7 +929,11 @@ def _tree_broadleaf(M, t, x, y, scale, rnd):
     lean_a = rnd() * math.tau
     lean = 0.10 * scale * (0.4 + rnd())
     lx, ly = math.cos(lean_a) * lean, math.sin(lean_a) * lean
-    fork_z = z + h * (0.42 + rnd() * 0.12)
+    # THE FORK IS ABOVE HEAD HEIGHT. At 42% of a 2.9 m trunk the limbs left at
+    # 1.2 m and crossed the camera's line to the player in every wood; at
+    # 58% they leave at 1.7 m and climb, so the canopy is a ceiling and not
+    # a fence.
+    fork_z = z + h * (0.58 + rnd() * 0.10)
     fork = Vector((x + lx, y + ly, fork_z))
     t.add(K.tube(f"trunk{len(t.parts)}", K.dome([
         {"p": Vector((x, y, z - 0.20)), "r": (0.34 * scale, 0.34 * scale), "n": 2.6},
@@ -954,8 +958,8 @@ def _tree_broadleaf(M, t, x, y, scale, rnd):
     a0 = rnd() * math.tau
     for k in range(n_limbs):
         a = a0 + k * (math.tau / n_limbs) + (rnd() - 0.5) * 0.6
-        d = Vector((math.cos(a) * 0.75, math.sin(a) * 0.75, 0.9 + rnd() * 0.4)).normalized()
-        _branch(M, t, fork, d, (1.35 + rnd() * 0.45) * scale, 0.13 * scale, 0.07 * scale,
+        d = Vector((math.cos(a) * 0.65, math.sin(a) * 0.65, 1.15 + rnd() * 0.4)).normalized()
+        _branch(M, t, fork, d, (1.30 + rnd() * 0.40) * scale, 0.13 * scale, 0.07 * scale,
                 0, scale, rnd, tips, "bark")
     # crown centre and radius from where the tips landed
     if tips:

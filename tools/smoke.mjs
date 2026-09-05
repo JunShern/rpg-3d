@@ -2160,8 +2160,10 @@ async function run() {
     // so it is neither a mesh in the sense this check means (a prop the
     // runtime could remove) nor a cost this check can price. It is reported
     // beside the number, not added to it.
-    ['plaza', 0.5, 6.2, 0, 230, 840],
-    ['path', 3, -32, 0, 100, 700],
+    // ...and again for the town's wings, clutter and ivy and the card
+    // canopies: measured plaza 221/716k, path 95/667k.
+    ['plaza', 0.5, 6.2, 0, 270, 880],
+    ['path', 3, -32, 0, 130, 780],
     ['flock', 6, -44, 0, 55, 340],
     ['meadow', 6, -54, 0, 40, 320],
     ['ridge', 13, -74, 0, 35, 320],
