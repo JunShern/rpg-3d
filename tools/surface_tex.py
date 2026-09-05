@@ -494,19 +494,20 @@ def leafcard(kind="broad", res=256, seed=101):
                       base, 0.85 + 0.3 * t)
         paint(np.abs(uu - 0.5) < 0.008 * (1 - vv) + 0.003, base * 0.6, 1.0)
     elif kind == "needle":
-        # a spray: needles fanning from a point near the bottom
-        for _ in range(70):
-            ang = np.pi * 0.5 + (rng.rand() - 0.5) * 2.4
-            L = 0.28 + rng.rand() * 0.22
-            cx, cy = 0.5 + (rng.rand() - 0.5) * 0.25, 0.30 + rng.rand() * 0.25
-            paint(_leaf_shape(uu, vv, cx, cy, ang, L, 0.010 + rng.rand() * 0.006, "needle"),
+        # a spray: needles fanning from a point near the bottom, dense enough
+        # that the card reads as a bough and not as a comb
+        for _ in range(160):
+            ang = np.pi * 0.5 + (rng.rand() - 0.5) * 2.6
+            L = 0.24 + rng.rand() * 0.24
+            cx, cy = 0.5 + (rng.rand() - 0.5) * 0.35, 0.28 + rng.rand() * 0.30
+            paint(_leaf_shape(uu, vv, cx, cy, ang, L, 0.012 + rng.rand() * 0.008, "needle"),
                   base, 0.7 + rng.rand() * 0.6)
     else:
-        n = {"broad": 26, "bush": 40, "flower": 30}[kind]
-        Ls = {"broad": (0.14, 0.10), "bush": (0.09, 0.06), "flower": (0.10, 0.07)}[kind]
+        n = {"broad": 44, "bush": 54, "flower": 30}[kind]
+        Ls = {"broad": (0.15, 0.10), "bush": (0.10, 0.06), "flower": (0.10, 0.07)}[kind]
         for i in range(n):
             # clustered towards the centre so the card has a solid heart and a ragged rim
-            r = np.sqrt(rng.rand()) * 0.42
+            r = np.sqrt(rng.rand()) * 0.46
             a = rng.rand() * 2 * np.pi
             cx, cy = 0.5 + np.cos(a) * r, 0.5 + np.sin(a) * r * 0.9
             ang = a + (rng.rand() - 0.5) * 1.2
