@@ -986,7 +986,11 @@ def _tree_conifer(M, t, x, y, scale, rnd):
         {"p": Vector((x, y, z + h * 1.02)), "r": (0.03 * scale, 0.03 * scale), "n": 2.6},
     ], at="end", steps=1, height=0.06), seg=8, mat=M["bark"], squircle=2.6))
     tips = []
-    zz = z + h * 0.18
+    # THE LOWEST WHORL IS ABOVE THE CAMERA'S LINE. At 18% of a 4.6 m spire the
+    # first boughs left the trunk at 80 cm and lay across the boom to the
+    # player at the copse lip -- the same 1.32 m in every rebuild. At 34%
+    # they leave at 1.6 m; a spruce with a bare foot is also how one grows.
+    zz = z + h * 0.34
     ring = 0
     while zz < z + h * 0.95:
         u = (zz - z) / h
