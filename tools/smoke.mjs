@@ -2007,8 +2007,13 @@ async function run() {
       camera.getWorldDirection(dir);
       rc.set(camera.position.clone(), dir);
       rc.near = 0.02; rc.far = 9;
+      // FOLIAGE IS NOT A WALL. A leaf card between the camera and the player
+      // is a tree she is standing under, and the runtime dithers cards away
+      // within reach of the camera; what this check guards against is the
+      // boom ending up behind masonry or ground.
       const hit = rc.intersectObjects(scene.children, true)
-        .filter((h) => h.object.visible && h.distance > 0.05)[0];
+        .filter((h) => h.object.visible && h.distance > 0.05
+                       && !String(h.object.userData.matName || '').startsWith('leafcard'))[0];
       const name = hit ? (hit.object.userData.matName || hit.object.name || '?') : 'nothing';
       // the player's own materials are the acceptable answer; so is open air,
       // which happens when the camera is looking past her down a slope

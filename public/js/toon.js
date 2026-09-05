@@ -249,6 +249,7 @@ export function toonMaterial(color, opts = {}) {
     alphaTest = 0,
     side = THREE.FrontSide,
     flutter = 0,
+    nearFade = 0,
   } = opts;
 
   const mat = new THREE.MeshToonMaterial({ color, gradientMap: gradient, map,
@@ -296,6 +297,27 @@ export function toonMaterial(color, opts = {}) {
           }
         `);
     }
+    // FOLIAGE OUT OF THE CAMERA'S FACE. A card closer than `nearFade` metres
+    // dissolves through a screen-door dither, so the boom can sit inside a
+    // canopy without the frame filling with one leaf, and the player is
+    // never hidden behind the tree she is standing under.
+    if (nearFade > 0) {
+      shader.uniforms.uNearFade = { value: nearFade };
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <common>', '#include <common>\nuniform float uNearFade;')
+        .replace('#include <alphatest_fragment>', /* glsl */`
+          #include <alphatest_fragment>
+          {
+            float dz = length(vViewPosition);
+            float k = smoothstep(uNearFade * 0.45, uNearFade, dz);
+            // ordered 4x4 dither on screen position
+            vec2 fc = floor(mod(gl_FragCoord.xy, 4.0));
+            float idx = fc.x + fc.y * 4.0;
+            float th = mod(idx * 9.0 + floor(idx / 4.0) * 3.0, 16.0) / 16.0;
+            if (k < th + 0.03) discard;
+          }
+        `);
+    }
     shader.uniforms.uRimColor = { value: new THREE.Color(rimColor) };
     shader.uniforms.uRimPower = { value: rimPower };
     shader.uniforms.uRimStrength = { value: rimStrength };
@@ -325,7 +347,7 @@ export function toonMaterial(color, opts = {}) {
       `);
   };
   // distinct programs per rim config, or three would reuse the first compile
-  mat.customProgramCacheKey = () => 'toonrim:' + key + ':' + sway + ':' + ripple + ':' + flutter + ':' + (alphaTest > 0 ? 'a' : '');
+  mat.customProgramCacheKey = () => 'toonrim:' + key + ':' + sway + ':' + ripple + ':' + flutter + ':' + nearFade + ':' + (alphaTest > 0 ? 'a' : '');
   return mat;
 }
 
