@@ -56,7 +56,10 @@ they stand in were built here.
   damage numbers, drops, an economy, a menu and a shop, with a sheathe you
   control.
 - **The air**: dust in the sunlight and petals on the wind, in a box that
-  follows you.
+  follows you; butterflies over the meadow; cloud shadows drifting across the
+  whole world; sun shafts when the sun is low; a three-tier wind, with each
+  leaf card carrying its own weight in its UVs so a crown's rim and top move
+  more than its heart.
 - **Sound, with no sound files**: footsteps by surface, swings, hits, the
   bell's partials, the beacon catching, a chest's hinge, wind, birds, water
   and fire by distance, and a quiet pad that warms at dusk -- all synthesised
