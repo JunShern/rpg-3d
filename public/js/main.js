@@ -3266,7 +3266,7 @@ function frame(dt) {
     const sx = _sunP.x * 0.5 + 0.5, sy = _sunP.y * 0.5 + 0.5;
     const out = Math.max(Math.abs(_sunP.x), Math.abs(_sunP.y));
     const w = behind ? 0 : 1 - Math.max(0, Math.min(1, (out - 1.0) / 0.9));
-    post.setSun(sx, sy, w * (dusk || duskDone ? 1.0 : 0.6));
+    post.setSun(sx, sy, SHAFTS_ON ? w * (dusk || duskDone ? 1.0 : 0.6) : 0);
     post.render(dt);
   } else renderer.render(scene, camera);
   hud.textContent =
@@ -3579,6 +3579,8 @@ globalThis.__npcPaths = () => NPC_ROSTER.filter((d) => d.path).map((d) => {
 });
 globalThis.__sfx = sfx;
 Object.defineProperty(globalThis, '__gfog', { get: () => gfog, configurable: true });
+let SHAFTS_ON = true;
+globalThis.__shaftsOn = (v) => { SHAFTS_ON = !!v; return SHAFTS_ON; };
 globalThis.__sun = () => ({ x: +(_sunP.x * 0.5 + 0.5).toFixed(2), y: +(_sunP.y * 0.5 + 0.5).toFixed(2), z: +_sunP.z.toFixed(2), post: !!post });
 globalThis.__shafts = (strength, threshold) => post && post.setShafts(strength, threshold);
 globalThis.__cloud = (k) => { if (k !== undefined) CLOUD.strength.value = k; return CLOUD.strength.value; };
