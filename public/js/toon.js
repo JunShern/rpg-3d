@@ -191,7 +191,7 @@ export const LOOKS = {
   dusk: {
     label: 'dusk',
     lit: false, outlines: true, rim: 1.0,
-    key: { color: 0xffa868, intensity: 1.9, position: [14, 7, 6] },
+    key: { color: 0xffa868, intensity: 1.9, position: [14, 5, 6] },   // 18 degrees up: low enough to sit in frame
     hemi: { sky: 0x7d8cc4, ground: 0x6c4e3e, intensity: 0.95 },
     ambient: { color: 0x5a6494, intensity: 0.34 },
     exposure: 0.98, albedo: 1, ramp: 'painted',
