@@ -193,7 +193,7 @@ export const LOOKS = {
     lit: false, outlines: true, rim: 1.0,
     key: { color: 0xffa868, intensity: 1.9, position: [14, 5, 6] },   // 18 degrees up: low enough to sit in frame
     hemi: { sky: 0x7d8cc4, ground: 0x6c4e3e, intensity: 0.95 },
-    ambient: { color: 0x5a6494, intensity: 0.34 },
+    ambient: { color: 0x5a6494, intensity: 0.46 },   // the shadow side at dusk was reading as black
     exposure: 0.98, albedo: 1, ramp: 'painted',
     sky: { top: 0x2c4a8a, mid: 0xd0895c, horizon: 0xffcf96, sun: 0xffb070 },
     fog: { color: 0xd9a488, near: 30, far: 150 },
