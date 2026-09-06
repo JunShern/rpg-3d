@@ -73,6 +73,30 @@ export const RAMP_SOFT = gradientMap([112, 112, 176, 176, 216, 216, 255]);
  */
 export const WIND = { value: 0 };
 
+/**
+ * CLOUD SHADOWS. One low-frequency noise image, scrolled across the world in
+ * XZ, scales the sun's colour in every toon material -- so patches of the
+ * valley go into shade and come out again as the clouds drift over. It is
+ * the cheapest thing that makes a still landscape move, and the one LAAS
+ * feature that costs nothing on this renderer. `main.js` owns the drift.
+ */
+export const CLOUD = {
+  map: { value: null },
+  offset: { value: new THREE.Vector2(0, 0) },
+  scale: { value: 1 / 90 },          // one image tile per 90 m
+  strength: { value: 0.0 },          // 0 = off; main sets 0.35 once the map exists
+};
+const CLOUD_GLSL_VERT = /* glsl */`
+  vCloudPos = (modelMatrix * vec4(transformed, 1.0)).xz;
+`;
+const CLOUD_GLSL_FRAG = /* glsl */`
+  float cloudFactor = 1.0;
+  if (uCloudStrength > 0.0) {
+    float cl = texture2D(uCloudMap, vCloudPos * uCloudScale + uCloudOffset).r;
+    cloudFactor = 1.0 - uCloudStrength * smoothstep(0.35, 0.8, cl);
+  }
+`;
+
 /** The vertex-shader body both the lit material and its outline shell use. */
 const SWAY_GLSL = /* glsl */`
   {
@@ -81,6 +105,15 @@ const SWAY_GLSL = /* glsl */`
     float a = sin(uWind * 1.10 + ph) * 0.68
             + sin(uWind * 2.30 + ph * 1.7 + 1.3) * 0.32;
     float b = sin(uWind * 0.87 + ph * 1.3 + 2.1);
+    // THE WEIGHT RIDES IN THE UVs. Leaf cards carry an integer added to u,
+    // 0..8, which repeat wrapping ignores when sampling and this reads back
+    // as how much of the gust this card takes: the crown's rim and top most,
+    // its heart least. Anything without the flag moves as one piece.
+    float wv = 1.0;
+    #ifdef USE_UV
+    if (uWindUV > 0.5) wv = clamp(floor(uv.x + 0.001) / 8.0, 0.0, 1.0);
+    #endif
+    a *= wv; b *= wv;
     transformed.x += a * uSway;
     transformed.z += b * uSway * 0.45;
     // FLUTTER, where a material asks for it: a fast, small, per-position
@@ -90,8 +123,8 @@ const SWAY_GLSL = /* glsl */`
     if (uFlutter > 0.0) {
       float fp = transformed.x * 7.3 + transformed.y * 5.1 + transformed.z * 6.7;
       float f = sin(uWind * 6.2 + fp) * 0.6 + sin(uWind * 9.7 + fp * 1.9 + 0.8) * 0.4;
-      transformed.y += f * uFlutter * (0.55 + 0.45 * a);
-      transformed.x += f * uFlutter * 0.5;
+      transformed.y += f * uFlutter * (0.55 + 0.45 * a) * (0.3 + 0.7 * wv);
+      transformed.x += f * uFlutter * 0.5 * (0.3 + 0.7 * wv);
     }
   }
 `;
@@ -250,6 +283,8 @@ export function toonMaterial(color, opts = {}) {
     side = THREE.FrontSide,
     flutter = 0,
     nearFade = 0,
+    windUV = false,
+    cloud = true,
   } = opts;
 
   const mat = new THREE.MeshToonMaterial({ color, gradientMap: gradient, map,
@@ -264,8 +299,9 @@ export function toonMaterial(color, opts = {}) {
       shader.uniforms.uWind = WIND;
       shader.uniforms.uSway = { value: sway };
       shader.uniforms.uFlutter = { value: flutter };
+      shader.uniforms.uWindUV = { value: windUV ? 1 : 0 };
       shader.vertexShader = shader.vertexShader
-        .replace('#include <common>', '#include <common>\nuniform float uWind;\nuniform float uSway;\nuniform float uFlutter;')
+        .replace('#include <common>', '#include <common>\nuniform float uWind;\nuniform float uSway;\nuniform float uFlutter;\nuniform float uWindUV;')
         .replace('#include <begin_vertex>', '#include <begin_vertex>' + SWAY_GLSL);
     }
     // WATER MOVES. A flat blue plane is a painted floor however it is lit;
@@ -318,6 +354,23 @@ export function toonMaterial(color, opts = {}) {
           }
         `);
     }
+    if (cloud) {
+      shader.uniforms.uCloudMap = CLOUD.map;
+      shader.uniforms.uCloudOffset = CLOUD.offset;
+      shader.uniforms.uCloudScale = CLOUD.scale;
+      shader.uniforms.uCloudStrength = CLOUD.strength;
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', '#include <common>\nvarying vec2 vCloudPos;')
+        .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>' + CLOUD_GLSL_VERT);
+      // the sun is the first (and only) directional light: scale its colour
+      // by the cloud cover over this fragment before the ramp reads it
+      const lights = THREE.ShaderChunk.lights_fragment_begin
+        .replace('getDirectionalLightInfo( directionalLight, directLight );',
+                 'getDirectionalLightInfo( directionalLight, directLight );\n\t\tdirectLight.color *= cloudFactor;');
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <common>', '#include <common>\nvarying vec2 vCloudPos;\nuniform sampler2D uCloudMap;\nuniform vec2 uCloudOffset;\nuniform float uCloudScale;\nuniform float uCloudStrength;')
+        .replace('#include <lights_fragment_begin>', CLOUD_GLSL_FRAG + lights);
+    }
     shader.uniforms.uRimColor = { value: new THREE.Color(rimColor) };
     shader.uniforms.uRimPower = { value: rimPower };
     shader.uniforms.uRimStrength = { value: rimStrength };
@@ -347,7 +400,7 @@ export function toonMaterial(color, opts = {}) {
       `);
   };
   // distinct programs per rim config, or three would reuse the first compile
-  mat.customProgramCacheKey = () => 'toonrim:' + key + ':' + sway + ':' + ripple + ':' + flutter + ':' + nearFade + ':' + (alphaTest > 0 ? 'a' : '');
+  mat.customProgramCacheKey = () => 'toonrim:' + key + ':' + sway + ':' + ripple + ':' + flutter + ':' + nearFade + ':' + (windUV ? 'w' : '') + (cloud ? 'c' : '') + (alphaTest > 0 ? 'a' : '');
   return mat;
 }
 
@@ -372,6 +425,8 @@ export function outlineMaterial(color = 0x241d2b, width = 0.0038, sway = 0) {
       // side of every tree.
       uWind: WIND,
       uSway: { value: sway },
+      uFlutter: { value: 0 },
+      uWindUV: { value: 0 },
       uFlutter: { value: 0 },      // hulls never flutter; the uniform must still exist
     },
     vertexShader: /* glsl */`
@@ -380,6 +435,8 @@ export function outlineMaterial(color = 0x241d2b, width = 0.0038, sway = 0) {
       uniform float uWidth;
       uniform float uWind;
       uniform float uSway;
+      uniform float uFlutter;
+      uniform float uWindUV;
       uniform float uFlutter;
       void main() {
         #include <beginnormal_vertex>

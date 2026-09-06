@@ -550,7 +550,7 @@ def image_material(name, image, roughness=0.7, preview=(0.8, 0.8, 0.8),
     return mat
 
 
-def card(name, center, right, up, w, h, mat, normal=None, uv=(0.0, 0.0, 1.0, 1.0)):
+def card(name, center, right, up, w, h, mat, normal=None, uv=(0.0, 0.0, 1.0, 1.0), wind=None):
     """One textured quad: `right` and `up` are unit vectors in the card's
     plane, `w`/`h` its full size, `center` its middle. `normal` overrides the
     shading normal for every vertex -- a canopy's cards borrow the crown's
@@ -564,6 +564,14 @@ def card(name, center, right, up, w, h, mat, normal=None, uv=(0.0, 0.0, 1.0, 1.0
     if not me.uv_layers:
         me.uv_layers.new(name="UVMap")
     u0, v0, u1, v1 = uv
+    # THE WIND WEIGHT TRAVELS IN THE UVs. A vertex attribute the material does
+    # not read is dropped by the exporter, but the UV map is not -- and with
+    # repeat wrapping an integer added to `u` samples the same texel. So the
+    # weight is written as that integer, 0..8, and the vertex shader reads it
+    # back with floor(uv.x) / 8.
+    if wind is not None:
+        k = float(max(0, min(8, round(wind * 8.0))))
+        u0, u1 = u0 + k, u1 + k
     uvs = [(u0, v0), (u1, v0), (u1, v1), (u0, v1)]
     layer = me.uv_layers[0].data
     for poly in me.polygons:

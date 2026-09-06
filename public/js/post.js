@@ -35,6 +35,56 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 // The grade. Lift is ADDED into the dark end, gain MULTIPLIES the bright end,
 // so the two can carry different hues -- that split is the whole trick behind
 // a warm-light / cool-shade palette.
+/**
+ * SUN SHAFTS. Screen-space: the bright part of the frame is smeared toward
+ * the sun's projected position in a few dozen taps and added back, faintly.
+ * It only does anything when the sun is near the frame -- low at dusk, or
+ * when the camera is tilted up -- which is exactly when shafts read as
+ * light and not as a smear. `weight` fades it out as the sun leaves the
+ * screen so nothing pops.
+ */
+const ShaftShader = {
+  uniforms: {
+    tDiffuse: { value: null },
+    uSun: { value: new THREE.Vector2(0.5, 0.5) },   // in 0..1 screen space
+    uWeight: { value: 0.0 },
+    uStrength: { value: 0.55 },
+    uThreshold: { value: 0.75 },
+  },
+  vertexShader: /* glsl */`
+    varying vec2 vUv;
+    void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
+  `,
+  fragmentShader: /* glsl */`
+    uniform sampler2D tDiffuse;
+    uniform vec2 uSun;
+    uniform float uWeight;
+    uniform float uStrength;
+    uniform float uThreshold;
+    varying vec2 vUv;
+    void main() {
+      vec4 base = texture2D(tDiffuse, vUv);
+      if (uWeight <= 0.001) { gl_FragColor = base; return; }
+      const int N = 40;
+      vec2 d = (uSun - vUv) / float(N) * 0.85;
+      vec2 p = vUv;
+      float decay = 1.0;
+      vec3 acc = vec3(0.0);
+      for (int i = 0; i < N; i++) {
+        p += d;
+        vec3 c = texture2D(tDiffuse, p).rgb;
+        float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
+        acc += max(c - uThreshold, 0.0) * decay;
+        decay *= 0.965;
+      }
+      acc /= float(N);
+      // fade with distance from the sun so the far side of the frame stays clean
+      float fall = 1.0 - smoothstep(0.35, 1.25, distance(vUv, uSun));
+      gl_FragColor = vec4(base.rgb + acc * uStrength * uWeight * fall * 6.0, base.a);
+    }
+  `,
+};
+
 const GradeShader = {
   uniforms: {
     tDiffuse: { value: null },
@@ -128,12 +178,15 @@ export function makePost({ renderer, scene, camera, width, height }) {
     scale: 1.0, samples: 12, distanceFallOff: 1.0, screenSpaceRadius: false,
   });
   const bloom = new UnrealBloomPass(size.clone(), 0.2, 0.5, 0.85);
+  const shafts = new ShaderPass(ShaftShader);
+  shafts.enabled = false;
   const output = new OutputPass();
   const grade = new ShaderPass(GradeShader);
 
   composer.addPass(renderPass);
   composer.addPass(ao);
   composer.addPass(bloom);
+  composer.addPass(shafts);
   composer.addPass(output);
   composer.addPass(grade);
 
@@ -170,6 +223,12 @@ export function makePost({ renderer, scene, camera, width, height }) {
       composer.setSize(w, h);
       ao.setSize(w, h);
       bloom.setSize(w, h);
+    },
+    /** Where the sun sits on screen (0..1) and how much of the shaft to show. */
+    setSun(x, y, weight) {
+      shafts.uniforms.uSun.value.set(x, y);
+      shafts.uniforms.uWeight.value = weight;
+      shafts.enabled = weight > 0.001;
     },
     /** Set knobs by name, or a whole preset by string. Returns the live config. */
     set(next) {

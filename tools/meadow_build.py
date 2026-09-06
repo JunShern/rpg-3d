@@ -574,7 +574,7 @@ def _plant_cards(M, t, x, y, z, kind, n, size, rnd, lean=0.35):
         c = Vector((x + (rnd() - 0.5) * 0.15, y + (rnd() - 0.5) * 0.15, z + h * 0.45))
         # standing plants shade with an upward-and-outward normal
         nrm = Vector((math.cos(yaw + 1.57) * 0.5, math.sin(yaw + 1.57) * 0.5, 1.0)).normalized()
-        t.add(K.card(f"pc{len(t.parts)}", c, right, upv, w, h, mat, normal=nrm))
+        t.add(K.card(f"pc{len(t.parts)}", c, right, upv, w, h, mat, normal=nrm, wind=0.45))
 
 
 def bushes(M, t, rnd):
@@ -622,7 +622,7 @@ def ferns(M, t, rnd, spots):
                 w, h = 0.30 + rnd() * 0.12, 0.62 + rnd() * 0.25
                 c = Vector((px, py, z)) + upv * (h * 0.48)
                 t.add(K.card(f"fern{len(t.parts)}", c, right, upv, w, h, M["leafcard_fern"],
-                             normal=(out * 0.4 + Vector((0, 0, 1))).normalized()))
+                             normal=(out * 0.4 + Vector((0, 0, 1))).normalized(), wind=0.5))
 
 
 def flowers(M, t, rnd):
@@ -873,7 +873,15 @@ def _one_card(t, mat, c, centre, crown_r, w, h, rnd, facing=None, radial=False):
         nrm = (Vector(c) - Vector((cx, cy, cz - crown_r * 0.35)))
     if nrm.length < 1e-3:
         nrm = Vector((0, 0, 1))
-    t.add(K.card(f"lc{len(t.parts)}", c, r2, u2, w, h, mat, normal=nrm.normalized()))
+    # HIERARCHICAL WIND: the outside of the crown moves most, the heart least,
+    # and the top more than the bottom. A leaf on a twig at the edge is what
+    # the eye follows; the mass behind it stays put.
+    cx, cy, cz = centre
+    rel = Vector(c) - Vector((cx, cy, cz))
+    outward = min(1.0, rel.length / max(0.5, crown_r))
+    upness = max(0.0, min(1.0, (rel.z + crown_r) / max(0.5, 2 * crown_r)))
+    wind = 0.2 + 0.5 * outward + 0.3 * upness
+    t.add(K.card(f"lc{len(t.parts)}", c, r2, u2, w, h, mat, normal=nrm.normalized(), wind=wind))
 
 
 def _canopy_cards(M, t, tips, centre, crown_r, scale, rnd, kind="broad", n_per_tip=4,

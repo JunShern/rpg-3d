@@ -17,6 +17,7 @@ import { makePost } from './post.js';
 import { makeFlags } from './flags.js';
 import { makeInteract } from './interact.js';
 import { makeAmbient } from './ambient.js';
+import { CLOUD } from './toon.js';
 import { makeAudio } from './audio.js';
 import { makeGroundFog } from './groundfog.js';
 import { makeGrass } from './grass.js';
@@ -69,6 +70,7 @@ const key = new THREE.DirectionalLight(0xfff2d8, 2.5);
 // WHERE THE SUN IS, as an offset from the player: the shadow frustum follows
 // them every frame (see `step`), so this is the one vector that decides the
 // light direction and it has to be the look's, not a literal in the loop.
+const _sunP = new THREE.Vector3(), _sunDir = new THREE.Vector3();
 const KEY_OFFSET = new THREE.Vector3(7, 24, 9);
 key.position.copy(KEY_OFFSET);
 key.castShadow = true;
@@ -364,7 +366,8 @@ function applyTownLook(root) {
     const opts = { gradient: RAMP_SOFT, rimStrength: 0.28, map, vertexColors: vcol,
                    key: `town:${name}:${vcol ? 'v' : ''}`,
                    ...(card ? { alphaTest: 0.5, side: THREE.DoubleSide, rimStrength: 0.12,
-                                gradient: RAMP_SOFT, sway: 0.05, flutter: 0.022, nearFade: 1.6 } : {}),
+                                gradient: RAMP_SOFT, sway: 0.06, flutter: 0.022, nearFade: 1.6,
+                                windUV: true } : {}),
                    ...(TOWN_LOOK[name] || {}) };
     SURFACES.push({ mesh: m, flat: TOWN_FLAT.has(name), color: base, opts });
     m.material = TOWN_FLAT.has(name) ? flatMaterial(base)
@@ -849,6 +852,11 @@ Promise.all(ROSTER.concat(NPC_RIGS).map((def) =>
   const n = npcs.load(NPC_ROSTER);
   setupWorld();
   air = makeAmbient({ scene, groundAt });
+  // CLOUD SHADOWS: one 256px noise image the toon materials scroll across
+  // the world. Built here from the same fbm the textures use, on a canvas,
+  // so no file is fetched and no build is needed to change it.
+  CLOUD.map.value = makeCloudMap();
+  CLOUD.strength.value = 0.38;
   console.log('[npc]', n + ' placed:', npcs.debug());
   if (window.EBUI) window.EBUI.assetBase = '/assets/';
   if (window.Dialogue) window.Dialogue.load().catch((e) => console.warn('[dlg]', e));
@@ -2987,6 +2995,35 @@ function lightBeacon(m) {
 // Sparks off a fire: a handful of points that rise, drift, gutter and respawn.
 // CPU-driven and tiny, because eighty sprites is plenty for a basket of coals
 // and a particle system is not a thing this demo needs to own.
+function makeCloudMap(res = 256) {
+  const c = document.createElement('canvas');
+  c.width = c.height = res;
+  const g = c.getContext('2d');
+  const img = g.createImageData(res, res);
+  // value noise in three octaves, tileable by construction (integer lattice)
+  const lat = (n) => { const a = new Float32Array(n * n); for (let i = 0; i < a.length; i++) a[i] = Math.random(); return a; };
+  const L = [lat(4), lat(8), lat(16)];
+  const sample = (a, n, u, v) => {
+    const x = u * n, y = v * n, x0 = Math.floor(x) % n, y0 = Math.floor(y) % n;
+    const x1 = (x0 + 1) % n, y1 = (y0 + 1) % n, fx = x - Math.floor(x), fy = y - Math.floor(y);
+    const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
+    const a00 = a[y0 * n + x0], a10 = a[y0 * n + x1], a01 = a[y1 * n + x0], a11 = a[y1 * n + x1];
+    return (a00 * (1 - sx) + a10 * sx) * (1 - sy) + (a01 * (1 - sx) + a11 * sx) * sy;
+  };
+  for (let y = 0; y < res; y++) for (let x = 0; x < res; x++) {
+    const u = x / res, v = y / res;
+    const n = 0.55 * sample(L[0], 4, u, v) + 0.30 * sample(L[1], 8, u, v) + 0.15 * sample(L[2], 16, u, v);
+    const k = Math.max(0, Math.min(255, Math.round(n * 255)));
+    const i = (y * res + x) * 4;
+    img.data[i] = k; img.data[i + 1] = k; img.data[i + 2] = k; img.data[i + 3] = 255;
+  }
+  g.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.NoColorSpace;
+  return t;
+}
+
 function makeEmbers(x, y, z, light) {
   const N = 80;
   const pos = new Float32Array(N * 3);
@@ -3203,6 +3240,9 @@ function frame(dt) {
   stepWorld(sdt);
   if (air) air.update(sdt, pos);
   if (grass && grass.update) grass.update(pos);
+  // the clouds drift with the prevailing wind, a metre or so a second
+  CLOUD.offset.value.x += sdt * 0.9 * CLOUD.scale.value;
+  CLOUD.offset.value.y += sdt * 0.35 * CLOUD.scale.value;
   updateTrail(sdt);
   updateThreatLines(sdt);
   updateSmash(sdt);
@@ -3216,7 +3256,19 @@ function frame(dt) {
   // through hit-stop with everything else, and it must not be collectable
   // while a conversation is frozen over the top of it.
   if (drops) drops.update(sdt);
-  if (post) post.render(dt); else renderer.render(scene, camera);
+  if (post) {
+    // SUN SHAFTS need to know where the sun is on screen. Project a point far
+    // along the key direction; weight falls off as it leaves the frame and
+    // is zero when it is behind the camera.
+    _sunP.copy(camera.position).addScaledVector(_sunDir.copy(KEY_OFFSET).normalize(), 500);
+    _sunP.project(camera);
+    const behind = _sunP.z > 1.0;
+    const sx = _sunP.x * 0.5 + 0.5, sy = _sunP.y * 0.5 + 0.5;
+    const out = Math.max(Math.abs(_sunP.x), Math.abs(_sunP.y));
+    const w = behind ? 0 : 1 - Math.max(0, Math.min(1, (out - 1.0) / 0.9));
+    post.setSun(sx, sy, w * (dusk || duskDone ? 1.0 : 0.6));
+    post.render(dt);
+  } else renderer.render(scene, camera);
   hud.textContent =
     `${fps} fps  ·  ${cur ? cur.name : '—'}  ·  ${combat && combat.isStaggered() ? 'hurt' : slip.t > 0 ? 'slip' : attacking ? 'attack' : !grounded ? 'air'
         : landing ? 'land' : isMoving ? 'run' : 'idle'}`
@@ -3527,6 +3579,7 @@ globalThis.__npcPaths = () => NPC_ROSTER.filter((d) => d.path).map((d) => {
 });
 globalThis.__sfx = sfx;
 Object.defineProperty(globalThis, '__gfog', { get: () => gfog, configurable: true });
+globalThis.__cloud = (k) => { if (k !== undefined) CLOUD.strength.value = k; return CLOUD.strength.value; };
 globalThis.__movers = () => MOVERS.map((m) => `${m.name}${m.obj ? '' : '(unresolved)'} t=${m.t}`);
 globalThis.__wind = WIND;  // set .value directly to A/B the sway
 Object.defineProperty(globalThis, '__breakables', { get: () => breakables, configurable: true });
