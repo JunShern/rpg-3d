@@ -70,7 +70,7 @@ const key = new THREE.DirectionalLight(0xfff2d8, 2.5);
 // WHERE THE SUN IS, as an offset from the player: the shadow frustum follows
 // them every frame (see `step`), so this is the one vector that decides the
 // light direction and it has to be the look's, not a literal in the loop.
-const _sunP = new THREE.Vector3(), _sunDir = new THREE.Vector3();
+const _sunP = new THREE.Vector3(), _sunDir = new THREE.Vector3(), _sunFwd = new THREE.Vector3();
 const KEY_OFFSET = new THREE.Vector3(7, 24, 9);
 key.position.copy(KEY_OFFSET);
 key.castShadow = true;
@@ -3260,9 +3260,14 @@ function frame(dt) {
     // SUN SHAFTS need to know where the sun is on screen. Project a point far
     // along the key direction; weight falls off as it leaves the frame and
     // is zero when it is behind the camera.
-    _sunP.copy(camera.position).addScaledVector(_sunDir.copy(KEY_OFFSET).normalize(), 500);
+    // 50 m out, not 500: beyond the far plane the projected z lands past 1
+    // and read as "behind the camera" every frame. In front is a direction
+    // test, not a depth test.
+    _sunDir.copy(KEY_OFFSET).normalize();
+    camera.getWorldDirection(_sunFwd);
+    const behind = _sunDir.dot(_sunFwd) < 0.05;
+    _sunP.copy(camera.position).addScaledVector(_sunDir, 50);
     _sunP.project(camera);
-    const behind = _sunP.z > 1.0;
     const sx = _sunP.x * 0.5 + 0.5, sy = _sunP.y * 0.5 + 0.5;
     const out = Math.max(Math.abs(_sunP.x), Math.abs(_sunP.y));
     const w = behind ? 0 : 1 - Math.max(0, Math.min(1, (out - 1.0) / 0.9));
