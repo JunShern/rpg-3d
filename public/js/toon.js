@@ -93,7 +93,7 @@ const CLOUD_GLSL_FRAG = /* glsl */`
   float cloudFactor = 1.0;
   if (uCloudStrength > 0.0) {
     float cl = texture2D(uCloudMap, vCloudPos * uCloudScale + uCloudOffset).r;
-    cloudFactor = 1.0 - uCloudStrength * smoothstep(0.35, 0.8, cl);
+    cloudFactor = 1.0 - uCloudStrength * smoothstep(0.42, 0.72, cl);
   }
 `;
 
@@ -435,7 +435,6 @@ export function outlineMaterial(color = 0x241d2b, width = 0.0038, sway = 0) {
       uniform float uWidth;
       uniform float uWind;
       uniform float uSway;
-      uniform float uFlutter;
       uniform float uWindUV;
       uniform float uFlutter;
       void main() {

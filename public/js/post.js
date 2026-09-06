@@ -230,6 +230,12 @@ export function makePost({ renderer, scene, camera, width, height }) {
       shafts.uniforms.uWeight.value = weight;
       shafts.enabled = weight > 0.001;
     },
+    setShafts(strength, threshold) {
+      if (strength !== undefined) shafts.uniforms.uStrength.value = strength;
+      if (threshold !== undefined) shafts.uniforms.uThreshold.value = threshold;
+      return { strength: shafts.uniforms.uStrength.value, threshold: shafts.uniforms.uThreshold.value,
+               weight: shafts.uniforms.uWeight.value, enabled: shafts.enabled };
+    },
     /** Set knobs by name, or a whole preset by string. Returns the live config. */
     set(next) {
       if (typeof next === 'string') {

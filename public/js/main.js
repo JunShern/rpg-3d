@@ -856,7 +856,7 @@ Promise.all(ROSTER.concat(NPC_RIGS).map((def) =>
   // the world. Built here from the same fbm the textures use, on a canvas,
   // so no file is fetched and no build is needed to change it.
   CLOUD.map.value = makeCloudMap();
-  CLOUD.strength.value = 0.38;
+  CLOUD.strength.value = 0.5;
   console.log('[npc]', n + ' placed:', npcs.debug());
   if (window.EBUI) window.EBUI.assetBase = '/assets/';
   if (window.Dialogue) window.Dialogue.load().catch((e) => console.warn('[dlg]', e));
@@ -3579,6 +3579,8 @@ globalThis.__npcPaths = () => NPC_ROSTER.filter((d) => d.path).map((d) => {
 });
 globalThis.__sfx = sfx;
 Object.defineProperty(globalThis, '__gfog', { get: () => gfog, configurable: true });
+globalThis.__sun = () => ({ x: +(_sunP.x * 0.5 + 0.5).toFixed(2), y: +(_sunP.y * 0.5 + 0.5).toFixed(2), z: +_sunP.z.toFixed(2), post: !!post });
+globalThis.__shafts = (strength, threshold) => post && post.setShafts(strength, threshold);
 globalThis.__cloud = (k) => { if (k !== undefined) CLOUD.strength.value = k; return CLOUD.strength.value; };
 globalThis.__movers = () => MOVERS.map((m) => `${m.name}${m.obj ? '' : '(unresolved)'} t=${m.t}`);
 globalThis.__wind = WIND;  // set .value directly to A/B the sway
