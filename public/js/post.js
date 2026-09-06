@@ -48,8 +48,8 @@ const ShaftShader = {
     tDiffuse: { value: null },
     uSun: { value: new THREE.Vector2(0.5, 0.5) },   // in 0..1 screen space
     uWeight: { value: 0.0 },
-    uStrength: { value: 0.55 },
-    uThreshold: { value: 0.75 },
+    uStrength: { value: 0.9 },
+    uThreshold: { value: 0.6 },
   },
   vertexShader: /* glsl */`
     varying vec2 vUv;
