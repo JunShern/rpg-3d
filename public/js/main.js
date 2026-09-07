@@ -1839,6 +1839,7 @@ function startCombat() {
       return me ? G.stats(me) : null;
     },
     onHit: (e, dmg, breaks, kill) => sfx.hit(breaks, kill),
+    playerAirborne: () => !grounded,
     // THE ENTRANCE: the Warden noticing you is the loudest moment on the road
     onNotice: (e) => {
       sfx.roar();
@@ -3088,7 +3089,7 @@ function lightBeacon(m, quiet = false) {
     // UNLIT ON PURPOSE. A toon material would put a shadow band on the coals;
     // a fire has no dark side. Basic material, over-bright, so bloom takes it.
     o.material = new THREE.MeshBasicMaterial({ color: 0xffb35a });
-    o.material.color.multiplyScalar(1.6);
+    o.material.color.multiplyScalar(1.15);   // 1.6 bloomed the basket into a sun
   });
   const light = new THREE.PointLight(0xff9a3a, 14, 18, 1.7);
   light.position.set(m.x, m.y + 0.35, m.z);
@@ -3250,6 +3251,7 @@ function ambienceAt(p) {
     inTown, waterD: Math.min(fountain, stream), fireD: beacon,
     fireOn: !!(flags && flags.get('beacon.lit')), dusk: duskLevel,
     quiet: !!(npcs && npcs.talking()) || document.body.classList.contains('title'),
+    boss: !!bossShown,
   };
 }
 
@@ -3553,8 +3555,19 @@ function showTitle() {
   const el = document.getElementById('title');
   if (!el) return;
   document.body.classList.add('title');
+  // A SAVE IN PROGRESS IS SAID SO. Flags persist and the world now catches
+  // up with them, so the card offers to continue, and N starts over.
+  const G = window.GS;
+  const started = !!(G && G.state && G.state.flags && G.state.flags['quest.beacon']);
+  const press = el.querySelector('.press');
+  if (press) press.textContent = started ? 'Press any key to continue  ·  N for a new game' : 'Press any key';
   requestAnimationFrame(() => el.classList.add('on'));
-  const dismiss = () => {
+  const dismiss = (ev) => {
+    if (ev && ev.type === 'keydown' && ev.code === 'KeyN' && started) {
+      try { G.reset(); } catch (e) { /* no save */ }
+      location.reload();
+      return;
+    }
     sfx.unlock();
     sfx.title();
     el.classList.remove('on');

@@ -216,7 +216,7 @@ export const SPECIES = {
             sack: { rimStrength: 1.0, rimColor: 0xff7040 },
             horn: { rimStrength: 1.0, rimColor: 0xfff0c0 } },
     tell: ['sack'],
-    flat: ['eye'], hostile: true, boss: true, title: 'The Warden of the Pass',
+    flat: ['eye'], hostile: true, boss: true, shock: true, title: 'The Warden of the Pass',
   },
 
   // GRAZER, and the only thing out here that does not want to fight. It exists
@@ -307,6 +307,37 @@ export function createCombat(ctx) {
 
   let hitStop = 0;          // seconds of frozen time remaining
   const shake = { mag: 0, t: 0 };
+  const shocks = [];        // ground rings in flight, from a boss's slam
+  const shockGeo = new THREE.RingGeometry(0.82, 1.0, 48);
+  function shockRing(at) {
+    const m = new THREE.Mesh(shockGeo, new THREE.MeshBasicMaterial({
+      color: 0xffb060, transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide, fog: false }));
+    m.rotation.x = -Math.PI / 2;
+    m.position.set(at.x, at.y + 0.08, at.z);
+    m.renderOrder = 8;
+    m.raycast = () => {};
+    ctx.scene.add(m);
+    return m;
+  }
+  function updateShocks(dt) {
+    const p = ctx.playerPos();
+    const air = ctx.playerAirborne ? ctx.playerAirborne() : false;
+    for (let i = shocks.length - 1; i >= 0; i--) {
+      const s = shocks[i];
+      s.t += dt;
+      s.r += 9.0 * dt;
+      s.mesh.scale.setScalar(s.r);
+      s.mesh.material.opacity = Math.max(0, 0.85 * (1 - s.r / 7.5));
+      const d = Math.hypot(p.x - s.x, p.z - s.z);
+      if (!s.hit && Math.abs(d - s.r) < 0.7 && !air && Math.abs(p.y - s.y) < 2.0) {
+        s.hit = true;
+        hurtPlayer(18, new THREE.Vector3(s.x, s.y, s.z));
+      }
+      if (s.r > 7.5) { ctx.scene.remove(s.mesh); s.mesh.material.dispose(); shocks.splice(i, 1); }
+    }
+  }
+  /** for probes: rings in flight */
+  const shockList = () => shocks.map((s) => ({ r: +s.r.toFixed(2), hit: s.hit }));
 
   const player = {
     hp: TUNE.playerHP,
@@ -874,6 +905,7 @@ export function createCombat(ctx) {
 
     updatePlayerSwing(scaled);
     for (const e of enemies) updateEnemy(e, scaled);
+    updateShocks(scaled);
     for (let i = enemies.length - 1; i >= 0; i--) {
       const e = enemies[i];
       if (e.dead && e.deadT > 1.9) {
@@ -1364,6 +1396,16 @@ export function createCombat(ctx) {
             e.didHit = true;
             hurtPlayer(e.spec.damage, e.pos);
           }
+          // THE WARDEN'S SLAM SHAKES THE GROUND. A ring runs out from the
+          // impact at nine metres a second; on the ground it takes you, in
+          // the air it passes under. It is the one move in the game that
+          // asks for the jump, and it is only the boss that has it.
+          if (e.spec.shock && !e.shocked) {
+            e.shocked = true;
+            shocks.push({ x: e.pos.x, z: e.pos.z, y: e.pos.y, r: 0.6, t: 0, hit: false,
+                          mesh: shockRing(e.pos) });
+            shake.mag = Math.max(shake.mag, 0.22); shake.t = 0.35;
+          }
         }
         if (e.t >= e.spec.attackTime) {
           // A CHARGE THAT MISSES COSTS MORE THAN ONE THAT LANDS. Stepping aside
@@ -1371,6 +1413,7 @@ export function createCombat(ctx) {
           // something -- otherwise dodging and tanking have the same price and
           // the enemy has no puzzle in it.
           e.recoverScale = (e.spec.charge && !e.didHit) ? 1.7 : 1;
+          e.shocked = false;
           setState(e, 'recover');
           play(e, 'recover', 0.06);
         }
@@ -1495,6 +1538,7 @@ export function createCombat(ctx) {
 
     load, spawn, update, attack, respawn,
     toggleLock, cycleLock,
+    get shocks() { return shockList(); },
     /** For probes: end an enemy the way a hit would, so the kill pays out. */
     slay(e) { if (e && !e.dead) hurtEnemy(e, e.hp + 1, e.pos.clone().add(new THREE.Vector3(0, 0, 1)), 0, 0, 0, 0, 0, false); },
     get lockTarget() { return lockTarget; },

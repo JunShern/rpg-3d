@@ -293,10 +293,37 @@ export function makeAudio() {
   }
 
   // ---------------------------------------------------------- per frame
-  function update(dt, { pos = null, inTown = true, waterD = 99, fireD = 99, fireOn = false, dusk: dk = 0, quiet = false } = {}) {
+  let bossT = 0, bossOn = false, melodyNext = 8;
+  const MELODY = [[0, 2, 4, 7], [7, 4, 2, 0], [4, 7, 9, 12], [2, 0, -3, 0]];
+  const PENTA_ROOT = 62;
+  function update(dt, { pos = null, inTown = true, waterD = 99, fireD = 99, fireOn = false, dusk: dk = 0, quiet = false, boss = false } = {}) {
     if (!ctx || muted) return;
     dusk = dk;
     const t = ctx.currentTime;
+    // THE BOSS PULSE: while the Warden has you, a low beat every half second
+    // under the pad and the pad's filter shut down -- the valley's music
+    // does not stop, it hunkers. It lets go when the fight does.
+    bossOn = boss;
+    if (boss && !quiet) {
+      bossT -= dt;
+      if (bossT <= 0) {
+        bossT = 0.5;
+        tone(55, 0.32, { gain: 0.42, type: 'sine', attack: 0.004, out: bus.music });
+        noise(0.06, { type: 'lowpass', f0: 240, gain: 0.25 });
+      }
+    }
+    // A MELODY AT DUSK: a four-note phrase every eight seconds or so over
+    // the pad, once the light has gone warm. The day is birds and wind; the
+    // evening is the one time the valley sings.
+    melodyNext -= dt;
+    if (dusk > 0.6 && !boss && !quiet && melodyNext <= 0) {
+      melodyNext = 7 + Math.random() * 6;
+      const phrase = MELODY[Math.floor(Math.random() * MELODY.length)];
+      phrase.forEach((n, i) => {
+        tone(mtof(PENTA_ROOT + n), 1.3, { gain: 0.07, type: 'triangle', attack: 0.02, at: i * 0.55, out: bus.music });
+        tone(mtof(PENTA_ROOT + n) * 2, 0.8, { gain: 0.015, type: 'sine', attack: 0.02, at: i * 0.55, out: bus.music });
+      });
+    }
     const ease = (g, v) => g.gain.setTargetAtTime(v, t, 0.6);
     // wind: fuller in the open, and higher when dusk comes in
     ease(beds.wind.g, quiet ? 0.05 : (inTown ? 0.10 : 0.20) * (1 + 0.4 * dusk));
@@ -324,7 +351,7 @@ export function makeAudio() {
     if (pad.t >= pad.next) { pad.next = pad.t + 12; setChord((pad.chord + 1) % CHORDS.length, 2.5); }
     pad.pluckNext -= dt;
     if (pad.pluckNext <= 0) { pad.pluckNext = 2.5 + Math.random() * 5; if (!quiet) pluck(); }
-    pad.flt.frequency.setTargetAtTime(520 + 900 * dusk, t, 3);
+    pad.flt.frequency.setTargetAtTime(bossOn ? 220 : 520 + 900 * dusk, t, bossOn ? 0.8 : 3);
     pad.out.gain.setTargetAtTime(quiet ? 0.35 : 1, t, 1.5);
   }
 
