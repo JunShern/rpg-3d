@@ -86,6 +86,13 @@
   #boss .lag { background: #d8556a; transition: width 520ms cubic-bezier(.2,.7,.3,1) 200ms; }
   #boss .fill { background: linear-gradient(180deg, #ffb46a 0%, #e06a3a 60%, #b8452a 100%); transition: width 90ms linear; }
   body.talking #boss { opacity: 0; }
+  /* THE ENTRANCE: the name lands large and settles, once, when the Warden notices you */
+  #boss.intro .name { animation: bossname 1.6s cubic-bezier(.2,.8,.2,1) both; }
+  @keyframes bossname {
+    0%   { transform: scale(2.2) translateY(60px); opacity: 0; letter-spacing: .5em; }
+    25%  { opacity: 1; }
+    100% { transform: none; letter-spacing: .18em; }
+  }
   #letterbox { position: fixed; inset: 0; pointer-events: none; }
   #letterbox .bar { position: absolute; left: 0; right: 0; height: 0; background: #06070b; transition: height 700ms cubic-bezier(.4,0,.2,1); }
   #letterbox .top { top: 0; } #letterbox .bottom { bottom: 0; }

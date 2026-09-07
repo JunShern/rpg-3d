@@ -115,7 +115,10 @@ export function makeNpcs({ scene, chars, groundAt, hud }) {
       ((h & 3) === 0 ? 'talk_emphatic' : 'talk');
     // the walk is the run clip at half speed; nobody in this square is in a hurry
     if (clips.run) clips.run.timeScale = 0.55;
-    return { group, mixer, clips, current: idle || null, gesture };
+    // the head bone, for turning to look at you
+    let head = null;
+    group.traverse((o) => { if (!head && o.isBone && o.name.replace(/[._\s]/g, '').toLowerCase() === 'head') head = o; });
+    return { group, mixer, clips, current: idle || null, gesture, head, look: 0 };
   }
 
   // Same crossfade main.js uses on the player. Kept here rather than shared
@@ -158,6 +161,39 @@ export function makeNpcs({ scene, chars, groundAt, hud }) {
 
   // ---- per frame ---------------------------------------------------------
   const _p = new THREE.Vector3();
+  const _hq = new THREE.Quaternion(), _hp = new THREE.Quaternion(), _hi = new THREE.Quaternion(), _ht = new THREE.Quaternion();
+  const _hw = new THREE.Vector3(), _hd = new THREE.Vector3();
+  const UP = new THREE.Vector3(0, 1, 0);
+  /** Turn a person's head toward `target` after the mixer has posed it. */
+  function lookAt(n, target, dt, want) {
+    const head = n.b.head;
+    if (!head) return;
+    n.b.look += (want - n.b.look) * Math.min(1, dt * 4);
+    const w = n.b.look;
+    if (w < 0.01) return;
+    head.getWorldPosition(_hw);
+    _hd.set(target.x - _hw.x, (target.y + 1.5) - _hw.y, target.z - _hw.z);
+    const flat = Math.hypot(_hd.x, _hd.z);
+    if (flat < 0.3) return;
+    // yaw relative to the body's facing, clamped to what a neck does
+    let yaw = Math.atan2(_hd.x, _hd.z) - n.b.group.rotation.y;
+    yaw = Math.atan2(Math.sin(yaw), Math.cos(yaw));
+    yaw = Math.max(-1.0, Math.min(1.0, yaw)) * w;
+    const pitch = Math.max(-0.35, Math.min(0.35, Math.atan2(_hd.y, flat))) * w;
+    rotateWorld(head, UP, yaw);
+    // pitch about the head's world right axis, after the yaw
+    _hd.set(Math.cos(n.b.group.rotation.y + yaw), 0, -Math.sin(n.b.group.rotation.y + yaw));
+    rotateWorld(head, _hd, -pitch);
+  }
+  function rotateWorld(bone, axis, angle) {
+    if (!isFinite(angle) || Math.abs(angle) < 1e-5) return;
+    _hq.setFromAxisAngle(axis, angle);
+    bone.parent.getWorldQuaternion(_hp);
+    _hi.copy(_hp).invert();
+    _ht.copy(_hi).multiply(_hq).multiply(_hp);
+    bone.quaternion.premultiply(_ht);
+    bone.updateMatrixWorld(true);
+  }
 
   function update(dt, pos) {
     let best = null, bestD = 1e9;
@@ -201,6 +237,10 @@ export function makeNpcs({ scene, chars, groundAt, hud }) {
         }
       }
       setClip(n.b, n === speaking ? n.b.gesture : (walking ? 'run' : 'idle'));
+      // THE HEAD TURNS FIRST. The body turns at reach; the head turns at
+      // seven metres, so a person has noticed you before you can speak to
+      // them -- which is the difference between a townsperson and a kiosk.
+      lookAt(n, pos, dt, d < 7 && !walking ? 1 : 0);
       // TURN TO FACE YOU. It is the whole of the body language budget and it
       // is what makes a standing figure read as a person rather than a statue
       // -- and it has to happen BEFORE you press anything, or the first frame
@@ -247,6 +287,12 @@ export function makeNpcs({ scene, chars, groundAt, hud }) {
     load, update, tryTalk, talking,
     get count() { return npcs.length; },
     get near() { return near ? near.id : null; },
+    /** The nearest person to a point, as {x,y,z,d}, or null. */
+    nearest(p) {
+      let best = null, bd = 1e9;
+      for (const n of npcs) { const d = Math.hypot(n.x - p.x, n.z - p.z); if (d < bd) { bd = d; best = n; } }
+      return best ? { x: best.x, y: best.gy, z: best.z, d: bd, id: best.id } : null;
+    },
     /** For probes: where everybody thinks they are. */
     debug: () => npcs.map((n) =>
       `${n.id}@(${n.x.toFixed(1)},${n.z.toFixed(1)},y${n.gy.toFixed(2)})`).join(' '),

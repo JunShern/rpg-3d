@@ -1259,7 +1259,11 @@ export function createCombat(ctx) {
 
     switch (e.state) {
       case 'idle':
-        if (dist < e.spec.notice) { setState(e, 'approach'); play(e, 'move'); }
+        if (dist < e.spec.notice) {
+          setState(e, 'approach'); play(e, 'move');
+          // a boss noticing you is an event; the rest are just enemies
+          if (e.spec.boss && ctx.onNotice) { try { ctx.onNotice(e); } catch (err) { console.error('[notice]', err); } }
+        }
         else play(e, 'idle');
         break;
 

@@ -184,6 +184,15 @@ export function makeAudio() {
       for (let i = 0; i < 12; i++) noise(0.03, { type: 'highpass', f0: 2000, gain: 0.12, at: 0.3 + Math.random() * 1.2 });
       beds.fire.on = true;
     },
+    roar() {
+      // THE WARDEN'S NOTICE: a chest-deep sweep down, a rasp over it, and a
+      // sub thump at the end, so the moment lands in the body and not only
+      // on the bar that appears with it.
+      if (!ok()) return;
+      tone(110, 1.3, { f1: 48, gain: 0.5, type: 'sawtooth', attack: 0.04 });
+      noise(1.1, { type: 'bandpass', f0: 180, f1: 90, q: 2.2, gain: 0.45, decay: 0.9 });
+      tone(46, 0.7, { f1: 30, gain: 0.5, at: 0.55 });
+    },
     cast() {
       if (!ok()) return;
       noise(0.6, { type: 'bandpass', f0: 400, f1: 3000, q: 1.5, gain: 0.2 });

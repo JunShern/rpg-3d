@@ -854,6 +854,12 @@ Promise.all(ROSTER.concat(NPC_RIGS).map((def) =>
   npcs = makeNpcs({ scene, chars, groundAt, hud });
   const n = npcs.load(NPC_ROSTER);
   setupWorld();
+  // THE WORLD CATCHES UP WITH THE SAVE. Flags persist; the beacon, the
+  // Warden, the chest and the stray did not, so a refresh mid-arc used to
+  // hand back a lit-beacon save standing in front of cold coals.
+  const G = window.GS;
+  if (G && G.ready && G.ready.then) G.ready.then(() => restoreWorld());
+  else restoreWorld();
   air = makeAmbient({ scene, groundAt });
   marker = makeMarker({ scene, camera });
   // CLOUD SHADOWS: one 256px noise image the toon materials scroll across
@@ -1833,6 +1839,12 @@ function startCombat() {
       return me ? G.stats(me) : null;
     },
     onHit: (e, dmg, breaks, kill) => sfx.hit(breaks, kill),
+    // THE ENTRANCE: the Warden noticing you is the loudest moment on the road
+    onNotice: (e) => {
+      sfx.roar();
+      if (combat) { combat.shake.mag = Math.max(combat.shake.mag, 0.32); combat.shake.t = 0.55; }
+      if (bossEl) { bossEl.classList.remove('intro'); void bossEl.offsetWidth; bossEl.classList.add('intro'); }
+    },
     onHurt: () => sfx.hurt(),
     onKill: (species, e) => {
       // the boss is a flag first and a payout second: the arc must advance
@@ -2010,8 +2022,8 @@ function updateEncounters() {
   if (encountersFrozen) return;
   for (const enc of ENCOUNTERS) {
     const d = Math.hypot(pos.x - enc.x, pos.z - enc.z);
-    if (!enc.armed && d < enc.trigger) armEncounter(enc);
-    else if (enc.armed && enc.refill && d < enc.trigger
+    if (!enc.armed && d < enc.trigger && !(enc.boss && flags && flags.get('warden.down'))) armEncounter(enc);
+    else if (enc.armed && enc.refill !== false && enc.refill && d < enc.trigger
              && enc.spawned.every((e) => e.dead)) {
       armEncounter(enc);
     }
@@ -2766,9 +2778,9 @@ const LOCK_POLAR = 1.06;
     const k = u * u * (3 - 2 * u);
     // orbit from beside the coals to above and behind them, looking south
     const a = -0.6 + k * 2.2;
-    const r = 4.0 + k * 6.0;
-    camera.position.set(cine.from.x + Math.sin(a) * r, cine.from.y + 1.6 + k * 5.5, cine.from.z + Math.cos(a) * r);
-    _o.set(cine.from.x, cine.from.y + 2.4, cine.from.z);
+    const r = 3.2 + k * 6.8;
+    camera.position.set(cine.from.x + Math.sin(a) * r, cine.from.y + 0.9 + k * 6.2, cine.from.z + Math.cos(a) * r);
+    _o.set(cine.from.x, cine.from.y + 1.0, cine.from.z);
     const townward = _o2.set(2.0, 6.0, -20.0);      // the valley, then the town
     _o.lerp(townward, Math.max(0, (k - 0.35) / 0.65));
     camera.lookAt(_o);
@@ -2978,7 +2990,7 @@ function setupWorld() {
       label: 'light the beacon',
       refuse: () => (flags.get('warden.down') ? 'the beacon wants embercaps — five of them'
                                               : 'the Warden holds the pass'),
-      can: () => !!(breakables && breakables.found >= 5 && flags.get('warden.down')),
+      can: () => !!((flags.get('caps.5') || (breakables && breakables.found >= 5)) && flags.get('warden.down')),
       use: () => lightBeacon(beacon),
     });
   }
@@ -3007,15 +3019,70 @@ function setupWorld() {
   }
 }
 
-function lightBeacon(m) {
+// THE HERO LOOKS AT THINGS: the lock target in a fight, otherwise the
+// nearest person within six metres. Applied after the mixer, so the clip
+// still owns the neck and this only leans it.
+const _lw = new THREE.Vector3(), _ld = new THREE.Vector3(), _lax = new THREE.Vector3();
+const _UP = new THREE.Vector3(0, 1, 0);
+let heroLookW = 0;
+function heroLook(dt) {
+  if (!cur) return;
+  if (cur.head === undefined) cur.head = findBone(cur.group, 'head');
+  const head = cur.head;
+  if (!head) return;
+  let tx = null, ty = 0, tz = 0;
+  const lock = combat && combat.lockTarget && !combat.lockTarget.dead ? combat.lockTarget : null;
+  if (lock) { tx = lock.pos.x; ty = lock.pos.y + lock.spec.height * 0.7; tz = lock.pos.z; }
+  else if (npcs && !attacking) {
+    const n = npcs.nearest(pos);
+    if (n && n.d < 6) { tx = n.x; ty = n.y + 1.5; tz = n.z; }
+  }
+  heroLookW += ((tx === null ? 0 : 1) - heroLookW) * Math.min(1, dt * 4);
+  if (heroLookW < 0.01 || tx === null) return;
+  head.getWorldPosition(_lw);
+  _ld.set(tx - _lw.x, ty - _lw.y, tz - _lw.z);
+  const flat = Math.hypot(_ld.x, _ld.z);
+  if (flat < 0.3) return;
+  let yaw = Math.atan2(_ld.x, _ld.z) - facing;
+  yaw = Math.atan2(Math.sin(yaw), Math.cos(yaw));
+  if (Math.abs(yaw) > 1.6) return;                 // behind: a neck does not do that
+  yaw = Math.max(-0.9, Math.min(0.9, yaw)) * heroLookW;
+  const pitch = Math.max(-0.35, Math.min(0.3, Math.atan2(_ld.y, flat))) * heroLookW;
+  rotateWorld(head, _UP, yaw);
+  _lax.set(Math.cos(facing + yaw), 0, -Math.sin(facing + yaw));
+  rotateWorld(head, _lax, -pitch);
+}
+
+function restoreWorld() {
+  if (!flags || !interact) return;
+  if (flags.get('beacon.lit')) {
+    const b = MOVERS.find((m) => m.name === 'beacon');
+    if (b && b.obj) lightBeacon(b, true);
+    const it = interact.at('beacon'); if (it) it.done = true;
+    duskDone = true;
+    applyLighting(LOOKS.dusk);
+    if (post) post.set({ bloom: 0.36 });
+  }
+  if (flags.get('chest.opened')) {
+    const c = MOVERS.find((m) => m.name === 'chest');
+    if (c && c.obj) { c.t = 10; c.hold = true; c.obj.rotation.x = -1.85; c.obj.updateMatrix && c.obj.updateMatrix(); }
+    const it = interact.at('chest'); if (it) it.done = true;
+  }
+  updateTask();
+}
+
+function lightBeacon(m, quiet = false) {
   if (m.lit) return;
   m.lit = true;
   // THE SWEEP: five and a half seconds in which the camera is not yours. It
   // rises off the coals, turns down the valley and holds on the town as the
   // light goes -- the one moment the demo has been building to, shown from
-  // the one place that can see all of it.
-  cine = { t: 0, dur: 5.5, from: new THREE.Vector3(m.x, m.y, m.z) };
-  document.body.classList.add('cine');
+  // the one place that can see all of it. Not on a reload: a save that
+  // already has the beacon lit gets the fire, not the ceremony.
+  if (!quiet) {
+    cine = { t: 0, dur: 5.5, from: new THREE.Vector3(m.x, m.y, m.z) };
+    document.body.classList.add('cine');
+  }
   m.obj.traverse((o) => {
     if (!o.isMesh || !o.userData.litMat) return;
     // UNLIT ON PURPOSE. A toon material would put a shadow band on the coals;
@@ -3211,8 +3278,10 @@ function updateBossBar() {
 function updateStray() {
   if (!combat) return;
   if (!stray) {
-    const e = combat.spawn('woolt', -12.5, -52.5);
-    if (e) { e.stray = true; stray = e; e.home = e.pos.clone(); }
+    // home already, on a reload: she grazes at the fold and never strays again
+    const home = flags.get('sheep.home');
+    const e = home ? combat.spawn('woolt', FOLD[0] + 1.5, FOLD[1] + 1.0) : combat.spawn('woolt', -12.5, -52.5);
+    if (e) { e.stray = !home; stray = e; e.home = e.pos.clone(); }
     return;
   }
   if (stray.following && !flags.get('sheep.home')) {
@@ -3348,7 +3417,7 @@ function frame(dt) {
   sfx.update(dt, ambienceAt(pos));
   if (gfog) gfog.update(camera.position, { dusk: duskLevel, color: scene.fog.color });
   updateCombat(dt, dt);
-  if (cur) { cur.mixer.update(sdt); stepCarry(); applyFootIK(cur, sdt); }
+  if (cur) { cur.mixer.update(sdt); stepCarry(); applyFootIK(cur, sdt); heroLook(dt); }
   stepWorld(sdt);
   if (air) air.update(sdt, pos);
   if (marker) marker.update(dt, pos);
