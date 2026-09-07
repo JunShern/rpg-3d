@@ -198,7 +198,7 @@ export function makeNpcs({ scene, chars, groundAt, hud }) {
     bone.updateMatrixWorld(true);
   }
 
-  function update(dt, pos) {
+  function update(dt, pos, dusk = 0) {
     let best = null, bestD = 1e9;
     // WHO IS SPEAKING, not who is nearest. `near` keeps moving while the
     // window is open -- the player can still be nudged around by knockback or
@@ -215,8 +215,12 @@ export function makeNpcs({ scene, chars, groundAt, hud }) {
       // pause at each -- and stops for you the moment you are in reach, which
       // is the whole difference between a square with people in it and a
       // square with statues. The speaking person never walks off mid-line.
+      // THE ERRANDS STOP WHEN THE LIGHT GOES. Once the beacon has taken and
+      // the square is lamplit, the three who run errands stand where they
+      // are and look at it like everyone else -- a person still trotting
+      // between stalls at dusk reads as clockwork that nobody switched off.
       let walking = false;
-      if (n.path && !close && n !== speaking && !talk0) {
+      if (n.path && !close && n !== speaking && !talk0 && dusk < 0.7) {
         if (n.wait > 0) {
           n.wait -= dt;
         } else {

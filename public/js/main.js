@@ -3682,7 +3682,7 @@ function frame(dt) {
   // keep turning to face you while you are talking to them -- freezing the
   // person you are mid-conversation with is the one thing worse than not
   // having them at all.
-  if (npcs) npcs.update(dt, pos);
+  if (npcs) npcs.update(dt, pos, duskLevel);
   // ON SCALED TIME. A drop is part of the fight -- it should hang in the air
   // through hit-stop with everything else, and it must not be collectable
   // while a conversation is frozen over the top of it.
@@ -4011,6 +4011,7 @@ globalThis.__dusk = (t) => {
   if (t === undefined) { startDusk(); return 'dusk started'; }
   applyLighting(mixLook(LOOK, LOOKS.dusk, t));
   setEvening(t);
+  duskLevel = t;
   if (post) post.set({ bloom: 0.20 + 0.16 * t });
   return `dusk ${t}`;
 };
