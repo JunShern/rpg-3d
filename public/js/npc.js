@@ -115,6 +115,9 @@ export function makeNpcs({ scene, chars, groundAt, hud }) {
       ((h & 3) === 0 ? 'talk_emphatic' : 'talk');
     // the walk is the run clip at half speed; nobody in this square is in a hurry
     if (clips.run) clips.run.timeScale = 0.55;
+    // the fidget is a one-shot that HOLDS its last pose (which is the neutral
+    // base) so the crossfade back to idle starts from where it ended
+    if (clips.idle2) { clips.idle2.setLoop(THREE.LoopOnce, 1); clips.idle2.clampWhenFinished = true; }
     // the head bone, for turning to look at you
     let head = null;
     group.traverse((o) => { if (!head && o.isBone && o.name.replace(/[._\s]/g, '').toLowerCase() === 'head') head = o; });
@@ -236,7 +239,18 @@ export function makeNpcs({ scene, chars, groundAt, hud }) {
           }
         }
       }
-      setClip(n.b, n === speaking ? n.b.gesture : (walking ? 'run' : 'idle'));
+      // THE FIDGET. Nine people breathing on one loop, however well the phases
+      // are spread, are nine people on a loop. Every 12-30 s a standing person
+      // plays the idle2 one-shot -- a weight shift, a hand to the collar, a
+      // glance -- and while it runs nothing else is allowed to reclaim them.
+      // Not while speaking (the gesture owns them) and not while walking.
+      const idle2 = n.b.clips.idle2;
+      const fidgeting = idle2 && n.b.current === idle2 && idle2.isRunning();
+      n.fidgetT = (n.fidgetT === undefined ? 4 + Math.random() * 12 : n.fidgetT) - dt;
+      if (n === speaking || walking) setClip(n.b, n === speaking ? n.b.gesture : 'run');
+      else if (fidgeting) { /* let it finish */ }
+      else if (idle2 && n.fidgetT <= 0) { setClip(n.b, 'idle2', 0.3); n.fidgetT = 12 + Math.random() * 18; }
+      else setClip(n.b, 'idle');
       // THE HEAD TURNS FIRST. The body turns at reach; the head turns at
       // seven metres, so a person has noticed you before you can speak to
       // them -- which is the difference between a townsperson and a kiosk.

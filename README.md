@@ -52,11 +52,12 @@ they stand in were built here.
   behind it, snow on the far two, and mist lying on the low ground.
 - **People**: nine townsfolk, each with a portrait, a gesture that is theirs,
   and a dialogue ladder that changes with the state of the world. Three of them
-  run errands round the square and stop when you are near. The hero, left
-  standing, fidgets every so often -- a weight shift, a hand to the strap, a
-  glance off to the right -- and never in combat.
+  run errands round the square and stop when you are near. Left standing,
+  the hero and the townsfolk fidget every so often -- a weight shift, a hand
+  to the collar, a glance off to the right -- and the hero never in combat.
 - **An evening**: once the beacon takes, the light goes warm, the windows
-  come on amber, the clouds go dusky, the stars come out over the ridge and
+  come on amber, the clouds go dusky, the ridges go to shadow with alpenglow
+  on the snow, the stars come out and
   a melody sits under the pad. When the town has said its piece, an ending
   card; the title then offers to continue or start again.
 - **Things you use, not hit**: a beacon that wants fuel, a chest with a lid,
@@ -65,7 +66,8 @@ they stand in were built here.
   damage numbers, drops, an economy, a menu and a shop, with a sheathe you
   control. The Warden of the Pass, a boss with a name across the top of the
   screen, an entrance, and a slam that runs a ring along the ground which
-  only the jump avoids.
+  only the jump avoids -- and, if you hang back from it, a head-down rush on
+  a committed line that a sidestep beats and a backpedal does not.
 - **The air**: dust in the sunlight and petals on the wind, in a box that
   follows you; butterflies over the meadow; cloud shadows drifting across the
   whole world; sun shafts when the sun is low; a three-tier wind, with each

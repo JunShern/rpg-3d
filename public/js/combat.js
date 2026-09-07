@@ -217,6 +217,15 @@ export const SPECIES = {
             horn: { rimStrength: 1.0, rimColor: 0xfff0c0 } },
     tell: ['sack'],
     flat: ['eye'], hostile: true, boss: true, shock: true, title: 'The Warden of the Pass',
+    // THE RUSH: the second move, and the answer to standing off. A boss with
+    // one move is a rhythm; with two it is a read. If you hang back past the
+    // slam's reach it drops its head and comes -- a committed line at body
+    // width, like the Curler's, that a sidestep beats and a backpedal does
+    // not -- and a rush that misses costs it the same long recovery. It is
+    // withheld inside slam range (that is the slam's job) and for `after`
+    // seconds of any approach, so the first thing it does is still the walk.
+    rush: { min: 4.6, max: 12.0, charge: 13.0, telegraph: 0.95, time: 0.8,
+            damage: 28, cooldown: 7.0, after: 1.4 },
   },
 
   // GRAZER, and the only thing out here that does not want to fight. It exists
@@ -1216,6 +1225,7 @@ export function createCombat(ctx) {
       e.resistT = 0;
       e.token = false;
       e.lockDir = null;
+      e.rushing = false; e.rushCd = 0;
       e.state = 'idle';
       e.t = 0;
       e.group.position.copy(e.pos);
@@ -1226,6 +1236,7 @@ export function createCombat(ctx) {
     // stagger resistance decays, so a fight you walk away from and come back to
     // starts from the same place it did the first time
     if (e.resistT > 0 && (e.resistT -= dt) <= 0) { e.resist = 1; e.resistT = 0; }
+    if (e.rushCd > 0) e.rushCd -= dt;
 
     // THE WIND-UP GLOWS.
     //
@@ -1329,6 +1340,13 @@ export function createCombat(ctx) {
           setState(e, 'telegraph'); e.token = true;
           e.poiseLeft = (e.spec.poise ?? 0) * (e.resist || 1);
           play(e, 'telegraph', 0.06);
+        } else if (e.spec.rush && !(e.rushCd > 0) && e.t > e.spec.rush.after
+                   && dist > e.spec.rush.min && dist < e.spec.rush.max && attackTokens() < 2) {
+          e.rushing = true;
+          setState(e, 'telegraph'); e.token = true;
+          e.poiseLeft = (e.spec.poise ?? 0) * (e.resist || 1);
+          play(e, 'telegraph', 0.06);
+          if (ctx.onRush) { try { ctx.onRush(e); } catch (err) { console.error('[rush]', err); } }
         }
         break;
       }
@@ -1336,9 +1354,9 @@ export function createCombat(ctx) {
       case 'telegraph':
         // it can still track you WHILE winding up, but slowly -- that is the
         // difference between a tell you can dodge and a tell you can ignore
-        faceToward(e, p, dt, e.spec.charge ? 2.2 : 4);
+        faceToward(e, p, dt, (e.spec.charge || e.rushing) ? 2.2 : 4);
         e.vel.multiplyScalar(0.80);
-        if (e.t >= e.spec.telegraph) {
+        if (e.t >= (e.rushing ? e.spec.rush.telegraph : e.spec.telegraph)) {
           setState(e, 'attack');
           e.poiseLeft = (e.spec.poise ?? 0) * (e.resist || 1);
           play(e, 'attack', 0.04);
@@ -1346,15 +1364,18 @@ export function createCombat(ctx) {
           // a charger COMMITS: the direction is locked in now, and no amount
           // of moving afterwards will make it turn. Only chargers -- a lunger
           // gets one impulse and that is the whole move.
-          e.lockDir = e.spec.charge ? _v.clone() : null;
-          e.vel.addScaledVector(_v, e.spec.charge || 7.5);
+          const charge = e.rushing ? e.spec.rush.charge : e.spec.charge;
+          e.lockDir = charge ? _v.clone() : null;
+          e.vel.addScaledVector(_v, charge || 7.5);
         }
         break;
 
-      case 'attack':
+      case 'attack': {
+        // a rushing boss is a charger for the length of this one state
+        const charge = e.rushing ? e.spec.rush.charge : e.spec.charge;
         if (e.lockDir) {
           // hold the committed line and keep the charge fed
-          e.vel.addScaledVector(e.lockDir, e.spec.charge * 2.2 * dt);
+          e.vel.addScaledVector(e.lockDir, charge * 2.2 * dt);
           e.facing = Math.atan2(e.lockDir.x, e.lockDir.z);
           if (e.spec.roll) e.spin = (e.spin || 0) + e.spec.roll * dt;
         }
@@ -1379,7 +1400,7 @@ export function createCombat(ctx) {
         // aside and it goes past you, which is the thing the animation, the
         // committed `lockDir` and the 1.7x whiff penalty have all been
         // promising since it was built.
-        const contact = !!e.spec.charge;
+        const contact = !!charge;
         const openAt = contact ? 0 : e.spec.attackTime * (e.spec.impact ?? 0.35);
         if (!e.didHit && e.t >= openAt) {
           _v.subVectors(p, e.pos).setY(0);
@@ -1394,30 +1415,32 @@ export function createCombat(ctx) {
           const arc = contact ? 1.5 : (e.spec.hitArc ?? 1.7);
           if (d2 < reach && dot > Math.cos(arc / 2)) {
             e.didHit = true;
-            hurtPlayer(e.spec.damage, e.pos);
+            hurtPlayer(e.rushing ? e.spec.rush.damage : e.spec.damage, e.pos);
           }
           // THE WARDEN'S SLAM SHAKES THE GROUND. A ring runs out from the
           // impact at nine metres a second; on the ground it takes you, in
           // the air it passes under. It is the one move in the game that
           // asks for the jump, and it is only the boss that has it.
-          if (e.spec.shock && !e.shocked) {
+          if (e.spec.shock && !e.shocked && !e.rushing) {
             e.shocked = true;
             shocks.push({ x: e.pos.x, z: e.pos.z, y: e.pos.y, r: 0.6, t: 0, hit: false,
                           mesh: shockRing(e.pos) });
             shake.mag = Math.max(shake.mag, 0.22); shake.t = 0.35;
           }
         }
-        if (e.t >= e.spec.attackTime) {
+        if (e.t >= (e.rushing ? e.spec.rush.time : e.spec.attackTime)) {
           // A CHARGE THAT MISSES COSTS MORE THAN ONE THAT LANDS. Stepping aside
           // is the answer to the Curler, so stepping aside has to be worth
           // something -- otherwise dodging and tanking have the same price and
           // the enemy has no puzzle in it.
-          e.recoverScale = (e.spec.charge && !e.didHit) ? 1.7 : 1;
+          e.recoverScale = (charge && !e.didHit) ? 1.7 : 1;
           e.shocked = false;
+          if (e.rushing) { e.rushing = false; e.rushCd = e.spec.rush.cooldown; }
           setState(e, 'recover');
           play(e, 'recover', 0.06);
         }
         break;
+      }
 
       case 'recover':
         e.vel.multiplyScalar(0.84);
@@ -1427,6 +1450,7 @@ export function createCombat(ctx) {
         break;
 
       case 'hurt':
+        if (e.rushing) { e.rushing = false; e.rushCd = e.spec.rush.cooldown * 0.5; }
         if (e.hitLock <= 0) { setState(e, 'approach'); e.token = false; }
         break;
     }
@@ -1526,7 +1550,7 @@ export function createCombat(ctx) {
       const min = e.spec.radius + 0.62;
       if (d > min) continue;
       if (d < 1e-4) { _v.set(Math.sin(e.facing), 0, Math.cos(e.facing)); d = 1; }
-      const push = (min - d) * (e.state === 'attack' && e.spec.charge ? 0.35 : 1);
+      const push = (min - d) * (e.state === 'attack' && (e.spec.charge || e.rushing) ? 0.35 : 1);
       e.pos.addScaledVector(_v.divideScalar(d), push);
     }
   }

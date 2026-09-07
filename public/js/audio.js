@@ -184,14 +184,15 @@ export function makeAudio() {
       for (let i = 0; i < 12; i++) noise(0.03, { type: 'highpass', f0: 2000, gain: 0.12, at: 0.3 + Math.random() * 1.2 });
       beds.fire.on = true;
     },
-    roar() {
+    roar(k = 1) {
       // THE WARDEN'S NOTICE: a chest-deep sweep down, a rasp over it, and a
       // sub thump at the end, so the moment lands in the body and not only
-      // on the bar that appears with it.
+      // on the bar that appears with it. `k` < 1 is the shorter, lower grunt
+      // it gives before a rush -- same voice, different sentence.
       if (!ok()) return;
-      tone(110, 1.3, { f1: 48, gain: 0.5, type: 'sawtooth', attack: 0.04 });
-      noise(1.1, { type: 'bandpass', f0: 180, f1: 90, q: 2.2, gain: 0.45, decay: 0.9 });
-      tone(46, 0.7, { f1: 30, gain: 0.5, at: 0.55 });
+      tone(110 * (0.7 + 0.3 * k), 1.3 * k, { f1: 48, gain: 0.5 * k, type: 'sawtooth', attack: 0.04 });
+      noise(1.1 * k, { type: 'bandpass', f0: 180, f1: 90, q: 2.2, gain: 0.45 * k, decay: 0.9 * k });
+      tone(46, 0.7 * k, { f1: 30, gain: 0.5, at: 0.55 * k });
     },
     cast() {
       if (!ok()) return;

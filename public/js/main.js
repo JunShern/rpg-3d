@@ -1850,6 +1850,13 @@ function startCombat() {
       if (combat) { combat.shake.mag = Math.max(combat.shake.mag, 0.32); combat.shake.t = 0.55; }
       if (bossEl) { bossEl.classList.remove('intro'); void bossEl.offsetWidth; bossEl.classList.add('intro'); }
     },
+    // THE RUSH has its own tell, on top of the glow: a shorter, lower bellow
+    // and the ground trembling under it, so the head-down charge reads as a
+    // different sentence from the slam before it has moved a metre
+    onRush: () => {
+      sfx.roar(0.55);
+      if (combat) { combat.shake.mag = Math.max(combat.shake.mag, 0.14); combat.shake.t = 0.3; }
+    },
     onHurt: () => sfx.hurt(),
     onKill: (species, e) => {
       // the boss is a flag first and a payout second: the arc must advance
@@ -3686,6 +3693,12 @@ globalThis.__carry = () => ({
   handoff: HANDOFF, attacking, locked: uiLocked(),
 });
 
+globalThis.__npcAt = (id) => {
+  const n = npcs && npcs.at(id);
+  if (!n) return null;
+  return { id, clip: n.b.current ? n.b.current.getClip().name : null, fidgetT: n.fidgetT,
+           poke: () => { n.fidgetT = 0; } };
+};
 globalThis.__fidget = (at) => {
   if (at !== undefined) { fidgetAt = at; still = 0; }
   return { still, at: fidgetAt, clip: cur && cur.current ? cur.current.getClip().name : null,
@@ -3717,6 +3730,7 @@ const _lc = [new THREE.Color(), new THREE.Color()];
 // which bloom then lifts. Stars in the dome come with it.
 let GLASS_BASE = null;
 let CLOUD_BASE = null;
+let RIDGE_BASE = null;
 function setEvening(k) {
   if (GLASS_BASE === null) {
     GLASS_BASE = SURFACES.filter((s) => s.flat && s.mesh.userData.matName === 'glass')
@@ -3734,6 +3748,16 @@ function setEvening(k) {
   }
   const dusky = _lc[0].set(0x9c8aa6);
   for (const g of CLOUD_BASE) g.m.color.copy(g.c).lerp(dusky, k * 0.85);
+  // and the ridges: the far ranges go to shadow-mauve and the snow on them
+  // takes the alpenglow, which is the one thing a mountain does at dusk that
+  // everybody has seen
+  if (RIDGE_BASE === null) {
+    RIDGE_BASE = SURFACES.filter((s) => s.flat && /^(ridge_[abc]|snow)$/.test(s.mesh.userData.matName))
+      .map((s) => ({ m: s.mesh.material, c: s.mesh.material.color.clone(),
+                     snow: s.mesh.userData.matName === 'snow' }));
+  }
+  const shade = _lc[0].set(0x6f6288), glow = _lc[1].set(0xf0b39c);
+  for (const g of RIDGE_BASE) g.m.color.copy(g.c).lerp(g.snow ? glow : shade, k * (g.snow ? 0.7 : 0.6));
   if (sky) sky.material.uniforms.uNight.value = k * 0.9;
 }
 
