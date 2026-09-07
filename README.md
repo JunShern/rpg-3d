@@ -269,10 +269,12 @@ everything below was checked by Playwright probes and captures, not by hand:
 - **Verified by probe and capture**: the Warden (entrance, slam ring, rush,
   fights alone, checkpoint respawn), the beacon cinematic and the dusk
   (windows, clouds, ridges, stars, melody), the ending and opening cards,
-  the objective marker, Mara's stray, the hero's and townsfolk's fidget,
-  head look-at, title continue. Console probes for all of it live at the
-  bottom of `main.js` (`__slay`, `__flags_set`, `__dusk`, `__fidget`,
-  `__npcAt`, `__checkpoint`, `__openCard`, `__shafts`, `__cloud`).
+  the objective marker, Mara's stray, Pip's hat, the hero's and townsfolk's
+  fidget, head look-at, title continue, the autosave. Console probes for all
+  of it live at the bottom of `main.js` (`__slay`, `__flags_set`, `__dusk`,
+  `__fidget`, `__npcAt`, `__checkpoint`, `__hat`, `__groundAt`, `__openCard`,
+  `__shafts`, `__cloud`), and the four that matter most are now checks in
+  `tools/smoke.mjs` under **The Warden and the errands** -- 68 checks.
 - **Not run to completion here**: the 64-check suite. The container restarts
   under it, and the `World` and `Lock-on` groups stall on their long
   single-evaluate walks in this headless GL. Run `node tools/smoke.mjs` on

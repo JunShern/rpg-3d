@@ -2098,6 +2098,114 @@ async function run() {
   });
 
   await fresh();
+  group('The Warden and the errands');
+
+  // THE LAST SESSION'S PROBES, kept. Every one of these was a scratch script
+  // that drove the page step by step from node and took ten minutes; in the
+  // page they are one evaluate each. They are the behaviours the demo's
+  // second half is made of, and the ones nothing else here measures.
+
+  await check('the hero fidgets after standing still, and never while locked on', () => {
+    __freezeEncounters(true);
+    for (const e of combat.enemies) { e.dead = true; e.deadT = 99; e.group.visible = false; }
+    __sim({ warp: [8.0, 10, -80.0], az: 0.4, steps: 10 });
+    __fidget(1.5);                       // the next one is due in 1.5 s of calm
+    let fired = null;
+    for (let i = 0; i < 80 && fired === null; i++) { __sim({ steps: 1, dt: 1 / 20 }); if (__fidget().running) fired = i / 20; }
+    if (fired === null) return { ok: false, detail: `idle2 never played in 4 s of standing (${JSON.stringify(__fidget())})` };
+    __sim({ steps: 90, dt: 1 / 20 });    // the one-shot is 3 s; it must hand back
+    const back = __fidget().clip;
+    // now with a target: no fidget however long she stands
+    __freezeEncounters(false);
+    __respawnEncounters();
+    __sim({ warp: FIGHT, steps: 20 });
+    combat.toggleLock();
+    if (!combat.lockTarget) return { ok: false, detail: 'could not lock on at FIGHT' };
+    __fidget(0.5);
+    let leaked = false;
+    for (let i = 0; i < 60; i++) { __sim({ steps: 1, dt: 1 / 20 }); if (__fidget().running) leaked = true; }
+    combat.toggleLock();
+    return { ok: back === 'idle' && !leaked,
+             detail: `fired at ${fired} s, back to ${back}; locked on: ${leaked ? 'LEAKED' : 'held'}` };
+  });
+
+  await check('the Warden fights alone, slams a player who stands, rushes one who backs off', () => {
+    __freezeEncounters(false);
+    __respawnEncounters();
+    __flags_set('warden.down', false);
+    combat.respawn();
+    const boss = () => combat.enemies.find((e) => e.spec.boss && !e.dead);
+    const others = () => combat.enemies.filter((e) => !e.dead && e.spec.hostile && !e.spec.boss && e.pos.z < -70);
+    // arrive with the flank group awake (walk in from the south so it arms)
+    __sim({ warp: [13.0, 0, -72], az: 0, steps: 3 });
+    __sim({ warp: [11.0, 0, -76], az: 0, steps: 3 });
+    const awake = others().filter((e) => e.state !== 'idle').length;
+    for (let i = 0; i < 80 && !(boss() && boss().state !== 'idle'); i++) __sim({ steps: 1, dt: 1 / 20, held: ['KeyW'] });
+    const w = boss();
+    if (!w || w.state === 'idle') return { ok: false, detail: 'the Warden never noticed a player walking up to it' };
+    __sim({ steps: 4, dt: 1 / 20 });
+    const stillUp = others().filter((e) => e.state !== 'idle' && e.state !== 'return').map((e) => `${e.name}:${e.state}`);
+    // trial 1: stand -- the first move must be the slam, not the rush
+    const firstMove = (held) => {
+      for (let i = 0; i < 200; i++) {
+        const b = boss(); if (!b) return null;
+        const o = __sim({ steps: 1, dt: 1 / 20, held: typeof held === 'function' ? held(i) : held });
+        if (b.state === 'telegraph' || b.state === 'attack') return { kind: b.rushing ? 'RUSH' : 'SLAM', t: i / 20, d: +Math.hypot(b.pos.x - o.heroPos[0], b.pos.z - o.heroPos[2]).toFixed(1) };
+      }
+      return null;
+    };
+    for (const e of others()) combat.slay(e);      // the road behind is clear for the trials
+    const reset = () => { __sim({ warp: [13.4, 0, -20], steps: 3 }); combat.respawn(); __sim({ warp: [13.4, 0, -60], az: Math.PI, steps: 3 }); __sim({ warp: [13.4, 0, -91.5], az: Math.PI, steps: 5 }); };
+    reset();
+    const stand = firstMove([]);
+    reset();
+    const back = firstMove((i) => (i < 12 ? ['KeyW'] : []));   // az PI looks south: W backs away, then stand
+    const ok = awake > 0 && stillUp.length === 0 && stand && stand.kind === 'SLAM' && back && back.kind === 'RUSH';
+    return { ok, detail: `${awake} awake on arrival, ${stillUp.length ? stillUp.join(',') + ' still up' : 'all sent home'}; `
+      + `stand -> ${stand ? `${stand.kind} at ${stand.t}s/${stand.d}m` : 'nothing'}, back off -> ${back ? `${back.kind} at ${back.t}s/${back.d}m` : 'nothing'}` };
+  });
+
+  await check('going down puts you on the road short of the fight, with the Warden sent home', () => {
+    __freezeEncounters(false);
+    combat.respawn();
+    const boss = () => combat.enemies.find((e) => e.spec.boss && !e.dead);
+    __sim({ warp: [13.4, 0, -20], steps: 3 });
+    __sim({ warp: [13.4, 0, -60], az: Math.PI, steps: 3 });
+    __sim({ warp: [13.4, 0, -91.5], az: Math.PI, steps: 5 });
+    for (let i = 0; i < 60 && !(boss() && boss().state !== 'idle'); i++) __sim({ steps: 1, dt: 1 / 20 });
+    const cp = __checkpoint();
+    if (!cp) return { ok: false, detail: 'no checkpoint after the Warden armed' };
+    combat.player.hp = 1;
+    let died = false;
+    for (let i = 0; i < 300 && !died; i++) { __sim({ steps: 1, dt: 1 / 20 }); died = combat.player.dead; }
+    if (!died) return { ok: false, detail: 'stood in front of the Warden on 1 HP for 15 s and lived' };
+    __sim({ steps: 60, dt: 1 / 20 });
+    const r = __sim({ steps: 1 });
+    const off = Math.hypot(r.heroPos[0] - cp.x, r.heroPos[2] - cp.z);
+    const w = boss();
+    const home = w ? (w.state === 'return' || w.state === 'idle') : true;
+    return { ok: !combat.player.dead && off < 0.6 && home && cp.z > -85 && cp.z < -60,
+             detail: `checkpoint z ${cp.z.toFixed(1)}, woke ${off.toFixed(2)} m from it with ${Math.round(combat.player.hp)} HP, Warden ${w ? w.state : 'gone'}` };
+  });
+
+  await check('a taken hat is in the save a second later', async () => {
+    __freezeEncounters(true);
+    if (window.GS && GS.ok) GS.reset();
+    const h = __hat();
+    if (!h) return { ok: false, detail: 'no hat on the roofs' };
+    __sim({ warp: [h.x + 0.8, h.y + 0.5, h.z + 0.9], steps: 4, dt: 1 / 30 });
+    const near = __interact.near;
+    __interact.at('hat').use();
+    __sim({ steps: 2, dt: 1 / 30 });
+    await new Promise((r) => setTimeout(r, 1400));
+    const raw = localStorage.getItem(window.EB_SAVE_KEY || 'emberbrook-save');
+    const st = raw ? JSON.parse(raw) : null;
+    const saved = !!(st && st.flags && st.flags['hat.taken']);
+    return { ok: near === 'hat' && !__hat().visible && saved && Array.isArray(st.pos),
+             detail: `prompt ${near}, hat ${__hat().visible ? 'still there' : 'gone'}, save ${saved ? 'has hat.taken' : 'MISSING hat.taken'}${st && st.pos ? ` and pos [${st.pos}]` : ', no pos'}` };
+  });
+
+  await fresh();
   group('Draw budget');
   //
   // NOT FRAME TIME. Headless Chromium reports about 1400 fps here, which is not

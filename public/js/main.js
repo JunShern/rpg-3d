@@ -2052,6 +2052,38 @@ globalThis.__respawnEncounters = () => {
 // hill. Now it is the road nine metres short of the encounter that took you,
 // on the path's own centreline so it cannot be inside a wall or a stone.
 let checkpoint = null;
+let cpEnc = null;              // the group the checkpoint is short of
+
+// The checkpoint follows THE NEAREST LIVE GROUP YOU ARE INSIDE, not the one
+// that most recently armed: a group armed once per session, so a fight you
+// left and came back to -- or one the suite pre-armed -- set no checkpoint
+// at all, and dying to the Warden woke you short of the plaza group.
+function updateCheckpoint() {
+  if (!terrain || !terrain.pathAt) return;
+  let best = null, bd = 1e9;
+  for (const enc of ENCOUNTERS) {
+    if (!enc.armed || enc.spawned.every((e) => e.dead)) continue;
+    const d = Math.hypot(pos.x - enc.x, pos.z - enc.z);
+    if (d < enc.trigger && d < bd) { bd = d; best = enc; }
+  }
+  if (!best || best === cpEnc) return;
+  cpEnc = best;
+  // nine metres back toward town, on the path's own line -- and clear of
+  // every OTHER live group's trigger, or you wake up inside the flank fight
+  // below the Warden: measured, hit 3 s after coming back at a bare nine
+  let z = pos.z + 9;
+  for (let guard = 0; guard < 30; guard++) {
+    const x = terrain.pathAt(-z);
+    // a group you have already wiped is not a group; one you ran past is,
+    // and so is one that has not woken yet
+    const inside = ENCOUNTERS.some((o) => o !== best
+      && !(o.armed && o.spawned.every((e) => e.dead))
+      && Math.hypot(x - o.x, z - o.z) < o.trigger + 2);
+    if (!inside) break;
+    z += 2;
+  }
+  checkpoint = { x: terrain.pathAt(-z), z };
+}
 
 function updateEncounters() {
   if (encountersFrozen) return;
@@ -2059,29 +2091,13 @@ function updateEncounters() {
     const d = Math.hypot(pos.x - enc.x, pos.z - enc.z);
     if (!enc.armed && d < enc.trigger && !(enc.boss && flags && flags.get('warden.down'))) {
       armEncounter(enc);
-      if (enc.armed && terrain && terrain.pathAt) {
-        // ...and clear of every OTHER group's trigger, or you wake up inside
-        // the flank fight below the Warden: measured, hit 3 s after coming
-        // back at the first version's nine metres
-        let z = pos.z + 9;
-        for (let guard = 0; guard < 30; guard++) {
-          const x = terrain.pathAt(-z);
-          // a group you have already wiped is not a group; one you ran past
-          // is, and so is one that has not woken yet
-          const inside = ENCOUNTERS.some((o) => o !== enc
-            && !(o.armed && o.spawned.every((e) => e.dead))
-            && Math.hypot(x - o.x, z - o.z) < o.trigger + 2);
-          if (!inside) break;
-          z += 2;
-        }
-        checkpoint = { x: terrain.pathAt(-z), z };
-      }
     }
     else if (enc.armed && enc.refill !== false && enc.refill && d < enc.trigger
              && enc.spawned.every((e) => e.dead)) {
       armEncounter(enc);
     }
   }
+  updateCheckpoint();
 }
 
 function updateCombat(dt, raw) {
