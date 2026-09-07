@@ -11,6 +11,7 @@
   "draw",
   "hurt",
   "idle",
+  "idle2",
   "jump",
   "land",
   "open",

@@ -86,6 +86,59 @@ def anim_idle(rig, weapon=True):
     return act
 
 
+def anim_idle2(rig, weapon=True):
+    """The fidget: a one-shot the runtime drops into the idle every so often.
+
+    Weight goes onto the left leg, the free hand comes up to the collar, the
+    head turns to look off to the right as if something moved there, then it
+    all settles back.  The clip starts and ends on the neutral base so it
+    crossfades into and out of `idle` without a hitch, and it is authored as a
+    ONE-SHOT (loop=False) for the same reason `open` is: a fidget that replays
+    itself is a tic.
+
+    Kept small on purpose.  The hero breathes at 1-3 degrees; a fidget at 30
+    would look like a different clip barging in.  Everything here is under 15
+    except the elbow, and the elbow is the one thing a viewer expects to move.
+    """
+    n = _neutral(weapon)
+    shift = {
+        # weight onto the left leg: hips slide and tilt, the right leg goes
+        # loose (more flexion, toe down), the left goes straighter
+        "hips": (-1.0, 0.0, 3.0), "spine": (1.5, -3.0, -1.5),
+        "chest": (-1.0, -4.0, -1.0),
+        "thigh.L": (2.0, 0.0, 3.0), "shin.L": (-4.0, 0.0, 0.0),
+        "thigh.R": (10.0, 0.0, -1.0), "shin.R": (-18.0, 0.0, 0.0),
+        "foot.R": (10.0, 0.0, 0.0),
+    }
+    return gesture(rig, "idle2", weapon=weapon, loop=False, keys=[
+        (0, None, (0.0, -0.008, 0.0)),
+        (14, {**shift,
+              "neck": (1.0, -6.0, 0.0), "head": (2.0, -14.0, 3.0)},
+         (0.016, -0.014, 0.0)),
+        (30, {**shift,
+              # the free hand comes up across the chest to the satchel strap
+              # (-Z is ACROSS on the left arm; see the module docstring)
+              "shoulder.L": (2.0, 0.0, -2.0),
+              "upperarm.L": (34.0, 12.0, -26.0), "forearm.L": (98.0, 0.0, 0.0),
+              "hand.L": (-22.0, 0.0, 22.0),
+              "neck": (1.0, -8.0, 0.0), "head": (3.0, -18.0, 4.0)},
+         (0.018, -0.014, 0.0)),
+        (44, {**shift,
+              "shoulder.L": (1.0, 0.0, -2.0),
+              "upperarm.L": (30.0, 8.0, -20.0), "forearm.L": (90.0, 0.0, 0.0),
+              "hand.L": (-16.0, 0.0, 14.0),
+              "neck": (1.0, -4.0, 0.0), "head": (2.0, -8.0, 2.0)},
+         (0.016, -0.014, 0.0)),
+        (58, {"hips": (-1.0, 0.0, 1.0), "spine": (1.5, -1.0, -0.5),
+              "chest": (-1.0, -1.0, 0.0),
+              "thigh.R": (7.0, 0.0, -2.0), "shin.R": (-12.0, 0.0, 0.0),
+              "foot.R": (6.0, 0.0, 0.0),
+              "upperarm.L": (10.0, 0.0, -5.0), "forearm.L": (28.0, 0.0, 0.0)},
+         (0.006, -0.010, 0.0)),
+        (72, None, (0.0, -0.008, 0.0)),
+    ])
+
+
 def anim_run(rig, weapon=True):
     """A four-key run cycle: contact, passing, contact, passing.  Amplitudes are
     pushed well past life -- a toon ramp eats subtlety, and a JRPG run should

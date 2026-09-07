@@ -658,7 +658,8 @@ function buildCharacter(def, gltf) {
     clips[clip.name] = a;
     if (clip.name === 'attack' || clip.name === 'jump' || clip.name === 'land'
         || clip.name === 'sheathe' || clip.name === 'draw'
-        || clip.name === 'open' || clip.name === 'cast_fire') {
+        || clip.name === 'open' || clip.name === 'cast_fire'
+        || clip.name === 'idle2') {
       a.setLoop(THREE.LoopOnce, 1);
       a.clampWhenFinished = true;        // `jump` HOLDS its airborne pose
     }
@@ -683,6 +684,7 @@ function buildCharacter(def, gltf) {
       landing = false;
       play(moving() ? 'run' : 'idle', 0.14);
     }
+    if (e.action === clips.idle2) play(moving() ? 'run' : 'idle', 0.3);
     // `jump` deliberately does NOT resolve here: it clamps on the airborne pose
     // and is held until physics says we touched down.
   });
@@ -1622,6 +1624,8 @@ let lastHitEvent = 0;
 let trail = null;
 let trailLive = false;
 let landing = false;
+let still = 0;               // seconds the hero has stood without input
+let fidgetAt = 9;            // when the next idle2 fires, re-rolled each time
 
 const groundRay = new THREE.Raycaster();
 const DOWN = new THREE.Vector3(0, -1, 0);
@@ -2551,7 +2555,27 @@ const LOCK_POLAR = 1.06;
   // clip that was no longer running.
   if (cur && !attacking && !carry && grounded && !landing && slip.t <= 0
       && !staggered && !(interact && interact.busy) && !cine) {
-    play(isMoving ? 'run' : 'idle');
+    // THE FIDGET. A hero who stands perfectly still for a minute, breathing
+    // on a 2 s loop, is a hero on a loop -- the eye finds the period in about
+    // four cycles. So every 7-14 s of standing, one `idle2` one-shot (a weight
+    // shift, a hand to the collar, a glance off right) breaks it. It is
+    // withheld in combat, where a glance away from the thing about to bite
+    // you reads as a bug, and it is not restarted while it is playing:
+    // `play('idle')` would crossfade straight back over it.
+    const fidgeting = cur.clips.idle2 && cur.current === cur.clips.idle2
+                      && cur.clips.idle2.isRunning();
+    const calm = !isMoving && !(combat && combat.lockTarget)
+                 && !document.body.classList.contains('title');
+    still = calm ? still + dt : 0;
+    if (!fidgeting) {
+      if (calm && still > fidgetAt && cur.clips.idle2) {
+        playOnce('idle2', 0.3);
+        still = 0;
+        fidgetAt = 7 + Math.random() * 7;
+      } else {
+        play(isMoving ? 'run' : 'idle');
+      }
+    }
   }
 
   // camera
@@ -3662,6 +3686,11 @@ globalThis.__carry = () => ({
   handoff: HANDOFF, attacking, locked: uiLocked(),
 });
 
+globalThis.__fidget = (at) => {
+  if (at !== undefined) { fidgetAt = at; still = 0; }
+  return { still, at: fidgetAt, clip: cur && cur.current ? cur.current.getClip().name : null,
+           running: !!(cur && cur.clips.idle2 && cur.clips.idle2.isRunning()) };
+};
 globalThis.__clipNames = (n) => (chars[n] ? Object.keys(chars[n].clips).sort() : null);
 Object.defineProperty(globalThis, '__terrainProbes', {
   get: () => terrainProbes, configurable: true,
@@ -3687,6 +3716,7 @@ const _lc = [new THREE.Color(), new THREE.Color()];
 // painted lit: the pane's colour slides to a warm yellow a shade over white,
 // which bloom then lifts. Stars in the dome come with it.
 let GLASS_BASE = null;
+let CLOUD_BASE = null;
 function setEvening(k) {
   if (GLASS_BASE === null) {
     GLASS_BASE = SURFACES.filter((s) => s.flat && s.mesh.userData.matName === 'glass')
@@ -3694,6 +3724,16 @@ function setEvening(k) {
   }
   const warm = _lc[1].set(0xffd27a).multiplyScalar(1.35);
   for (const g of GLASS_BASE) g.m.color.copy(g.c).lerp(warm, k);
+  // THE CLOUDS TOO. They are flat, unlit and unfogged so they read as clouds
+  // and not as pale rocks, which also means nothing in the light rig can
+  // touch them: a dusk with every window amber still had a noon-white puff
+  // over the ridge. Half-light, with the last of the sun's warmth in it.
+  if (CLOUD_BASE === null) {
+    CLOUD_BASE = SURFACES.filter((s) => s.flat && s.mesh.userData.matName === 'cloud')
+      .map((s) => ({ m: s.mesh.material, c: s.mesh.material.color.clone() }));
+  }
+  const dusky = _lc[0].set(0x9c8aa6);
+  for (const g of CLOUD_BASE) g.m.color.copy(g.c).lerp(dusky, k * 0.85);
   if (sky) sky.material.uniforms.uNight.value = k * 0.9;
 }
 

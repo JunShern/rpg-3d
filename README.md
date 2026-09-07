@@ -52,7 +52,13 @@ they stand in were built here.
   behind it, snow on the far two, and mist lying on the low ground.
 - **People**: nine townsfolk, each with a portrait, a gesture that is theirs,
   and a dialogue ladder that changes with the state of the world. Three of them
-  run errands round the square and stop when you are near.
+  run errands round the square and stop when you are near. The hero, left
+  standing, fidgets every so often -- a weight shift, a hand to the strap, a
+  glance off to the right -- and never in combat.
+- **An evening**: once the beacon takes, the light goes warm, the windows
+  come on amber, the clouds go dusky, the stars come out over the ridge and
+  a melody sits under the pad. When the town has said its piece, an ending
+  card; the title then offers to continue or start again.
 - **Things you use, not hit**: a beacon that wants fuel, a chest with a lid,
   a bell rope -- timed to the frame of the clip that does them.
 - **Combat**: a three-swing combo, a falling cut, lock-on, a dodge, hit-stop,
