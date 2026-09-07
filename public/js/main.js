@@ -2683,24 +2683,6 @@ const LOCK_POLAR = 1.06;
                            : camBoom + (want - camBoom) * Math.min(1, dt * 3.2);
   const d = camBoom;
   camera.position.copy(camTarget).addScaledVector(camWant, d);
-  if (cine) {
-    cine.t += dt;
-    const u = Math.min(1, cine.t / cine.dur);
-    const k = u * u * (3 - 2 * u);
-    // orbit from beside the coals to above and behind them, looking south
-    const a = -0.6 + k * 2.2;
-    const r = 4.0 + k * 6.0;
-    camera.position.set(cine.from.x + Math.sin(a) * r, cine.from.y + 1.6 + k * 5.5, cine.from.z + Math.cos(a) * r);
-    _o.set(cine.from.x, cine.from.y + 2.4, cine.from.z);
-    const townward = _o2.set(2.0, 6.0, -20.0);      // the valley, then the town
-    _o.lerp(townward, Math.max(0, (k - 0.35) / 0.65));
-    camera.lookAt(_o);
-    if (u >= 1) {
-      cine = null;
-      document.body.classList.remove('cine');
-      cam.az = Math.PI; cam.autoDelay = 2.0; camBoom = cam.dist; camPrevOk = false;
-    }
-  }
 
   // A STAIRWELL IS THE ONE SHAPE THIS SOLVE CANNOT DO.
   //
@@ -2776,6 +2758,26 @@ const LOCK_POLAR = 1.06;
     camera.position.y = camGround + 0.35;
   }
   camera.lookAt(camTarget);
+  // THE SWEEP OVERRIDES EVERYTHING ABOVE, position and aim both -- placed
+  // after the solver's own lookAt or the aim snapped back to the player.
+  if (cine) {
+    cine.t += dt;
+    const u = Math.min(1, cine.t / cine.dur);
+    const k = u * u * (3 - 2 * u);
+    // orbit from beside the coals to above and behind them, looking south
+    const a = -0.6 + k * 2.2;
+    const r = 4.0 + k * 6.0;
+    camera.position.set(cine.from.x + Math.sin(a) * r, cine.from.y + 1.6 + k * 5.5, cine.from.z + Math.cos(a) * r);
+    _o.set(cine.from.x, cine.from.y + 2.4, cine.from.z);
+    const townward = _o2.set(2.0, 6.0, -20.0);      // the valley, then the town
+    _o.lerp(townward, Math.max(0, (k - 0.35) / 0.65));
+    camera.lookAt(_o);
+    if (u >= 1) {
+      cine = null;
+      document.body.classList.remove('cine');
+      cam.az = Math.PI; cam.autoDelay = 2.0; camBoom = cam.dist; camPrevOk = false;
+    }
+  }
   applyShake();
 
   // SNAP THE SHADOW CAMERA TO ITS OWN TEXEL GRID.
