@@ -264,7 +264,13 @@ Two tricks carry more than their weight:
 ## Where the last session left it
 
 Ten hours of a cloud session with no display and a software GL stack, so
-everything below was checked by Playwright probes and captures, not by hand:
+everything below was checked by Playwright probes and captures, not by hand.
+In order: the fidget (`2251399`), townsfolk fidgets, dusk ridges and the
+Warden's rush (`ab5071f`), the boss fights alone and the checkpoint
+(`13007be`), opening card and handoff (`d4f3867`), Pip's hat and the autosave
+(`744fd9e`), the errand line and resume-in-place (`cfd9fc9`), the rush retune
+(`21efa2a`), four smoke checks (`83b981a`), the sheet (`b562431`), the
+errands stopping at dusk (`d8ca5fd`).
 
 - **Verified by probe and capture**: the Warden (entrance, slam ring, rush,
   fights alone, checkpoint respawn), the beacon cinematic and the dusk

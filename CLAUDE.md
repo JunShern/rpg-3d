@@ -122,6 +122,22 @@ Every one of these was paid for. They are in rough order of how often they recur
   and Z swapped — through the floor, at right angles to the hand. Two renders
   failed to explain it; comparing the two meshes' coordinate ranges settled it
   in one step. **Compare the numbers of the thing that works.**
+- **(v) A SYSTEM THAT NOBODY CALLS IS NOT A SYSTEM.** `GS.save()` existed,
+  was tested, and was called from exactly one place: the menu's Save
+  command. Every flag, every coin and the lit beacon lived as long as the
+  tab. Nothing errored, the title said "continue", and the file it promised
+  was almost never written. When a thing persists, find the line that
+  writes it and the event that triggers that line -- both, not either.
+- **(w) THE COLLIDER IS NOT THE SURFACE.** The lead's collision top sits
+  0.4 m under its drawn slates; the hero's feet sink the same amount and
+  the foot IK hides it. A hat placed on the collider was a hat inside the
+  roof, invisible, with its prompt showing. Raycast the DRAWN scene for
+  anything that has to be seen sitting on something.
+- **(x) MEASURE THE FIRST MOVE.** The Warden's rush was written to punish
+  standing off, with a 1.4 s grace on the approach -- and at 1.4 s the walk
+  had only closed to 4.85 m, so the rush was the opener on a player standing
+  still and the slam never came. Every gate on a behaviour is a number about
+  where something IS at that moment; find out where.
 - **(t) A convention is only true where it was measured.** The module docstring
   says +Z opens the LEFT arm and closes the RIGHT. True at rest. Rotations are
   XYZ euler, so by X=-170 the sign has flipped, and a cast written at -150 using
