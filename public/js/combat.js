@@ -1539,6 +1539,9 @@ export function createCombat(ctx) {
     load, spawn, update, attack, respawn,
     toggleLock, cycleLock,
     get shocks() { return shockList(); },
+    /** for probes: a ring from a point, no boss required */
+    testShock(x, z) { const y = ctx.groundAt(x, z, 20) ?? 0; shocks.push({ x, z, y, r: 0.6, t: 0, hit: false, mesh: shockRing(new THREE.Vector3(x, y, z)) }); },
+    get invuln() { return player.invuln; },
     /** For probes: end an enemy the way a hit would, so the kill pays out. */
     slay(e) { if (e && !e.dead) hurtEnemy(e, e.hp + 1, e.pos.clone().add(new THREE.Vector3(0, 0, 1)), 0, 0, 0, 0, 0, false); },
     get lockTarget() { return lockTarget; },
