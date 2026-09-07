@@ -1728,6 +1728,21 @@
      "to": "pip.axle"
     },
     {
+     "text": "Your hat.",
+     "to": "pip.hatback",
+     "if": {
+      "flag": "hat.taken",
+      "notFlag": "hat.home"
+     }
+    },
+    {
+     "text": "Lost something?",
+     "to": "pip.hat",
+     "if": {
+      "notFlag": "quest.hat"
+     }
+    },
+    {
      "text": "Take care of the cart.",
      "to": null
     }
@@ -2213,6 +2228,46 @@
     "gold": 60
    },
    "next": "mara.ask"
+  },
+  "pip.hat": {
+   "speaker": "pip",
+   "lines": [
+    {
+     "text": "My hat. The wind had it off the cart by the smithy and it went UP, which hats don't, and it's on the east range now, in the slates, by that lead where the roofs join.",
+     "expr": "happy"
+    },
+    {
+     "text": "I'm not going up there. The cart needs me on the ground and the ground needs the cart."
+    },
+    {
+     "text": "If you're the climbing sort. It's a good hat."
+    }
+   ],
+   "effects": {
+    "setFlags": {
+     "quest.hat": true
+    }
+   },
+   "next": "pip.ask"
+  },
+  "pip.hatback": {
+   "speaker": "pip",
+   "lines": [
+    {
+     "text": "That's it. That's the hat. Look at it — not a mark on it. The slates were kinder than the cart ever is.",
+     "expr": "happy"
+    },
+    {
+     "text": "Here. For the climb. Don't tell Hobb I had the money."
+    }
+   ],
+   "effects": {
+    "setFlags": {
+     "hat.home": true
+    },
+    "gold": 40
+   },
+   "next": "pip.ask"
   }
  }
 }

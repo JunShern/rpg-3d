@@ -832,6 +832,16 @@ Promise.all(ROSTER.concat(NPC_RIGS).map((def) =>
       combat.player.hp = Math.min(combat.player.hp, combat.player.maxHP);
     };
     GS.on('change', () => { syncHP(); purse(); syncWeapon(); });
+    // AUTOSAVE. Nothing in the runtime ever called save() except the menu's
+    // Save command, so every flag, every coin and the lit beacon lived only
+    // as long as the tab did -- the title's "continue" was a promise about
+    // a file that was almost never written. Rule (p), one level down: a
+    // save nobody can see happen is a save that does not happen. Throttled
+    // to one write a second, and once more on the way out.
+    let saveT = null;
+    const autosave = () => { saveT = null; try { GS.autosave(); } catch (e) { console.warn('[save]', e); } };
+    GS.on('change', () => { if (!saveT) saveT = setTimeout(autosave, 1000); });
+    window.addEventListener('pagehide', () => { if (saveT) { clearTimeout(saveT); autosave(); } });
     // A LEVEL IS THE LOUDEST THING THE ECONOMY DOES, so it gets its own line
     // and its own colour. `grantXp` emits one event per member who levelled.
     // AN ARRAY of {char, level}, one per member who levelled -- `grantXp`
@@ -3076,6 +3086,64 @@ function setupWorld() {
       },
     });
   }
+
+  // PIP'S HAT. The second errand, and the one that sends you up on the roofs
+  // for a reason a carter would have: the wind took it off the cart and put
+  // it in the slates of the east range, near the lead the chest is on. It is
+  // there whether or not you have asked -- a thing on a roof is a thing on a
+  // roof -- but only Pip makes it worth 40 g. Sited by raycast onto whichever
+  // of a few candidate spots is actually roof (y well above the street), so
+  // a regraded range cannot leave it hanging in the air (rule (e)).
+  const HAT_SPOTS = [[-6.6, -14.4], [-8.0, -15.6], [-5.0, -15.2]];   // along the lead, east of the chest
+  let hatAt = null;
+  for (const [hx, hz] of HAT_SPOTS) {
+    const y = groundAt(hx, hz, 30);
+    if (y !== null && y > 6.0) { hatAt = { x: hx, y, z: hz }; break; }
+  }
+  if (hatAt) {
+    hat = new THREE.Group();
+    // straw, not felt: a carter's hat, and the one colour that reads on red
+    // tiles from the player's camera four metres up the slope
+    const felt = surfaceMaterial(LOOK, new THREE.Color(0xd2b06a), { key: 'hat', rimStrength: 0.35 });
+    const band = surfaceMaterial(LOOK, new THREE.Color(0x7a2a1c), { key: 'hat:band', rimStrength: 0.35 });
+    const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.30, 0.31, 0.025, 20), felt);
+    const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.18, 0.15, 16), felt);
+    crown.position.y = 0.085;
+    const ribbon = new THREE.Mesh(new THREE.CylinderGeometry(0.183, 0.183, 0.04, 16), band);
+    ribbon.position.y = 0.035;
+    hat.add(brim, crown, ribbon);
+    hat.traverse((o) => { if (o.isMesh) { o.castShadow = true; } });
+    // ON THE TILES, NOT THE COLLIDER. The lead's collision top sits 0.4 m
+    // under its drawn slates (the hero's feet sink the same amount and the
+    // foot IK hides it); a hat placed on the collider is a hat inside the
+    // roof. Measured 8.46 vs 8.87 -- so ask the drawn scene where the
+    // surface is, and take the highest static hit within a metre above.
+    let top = hatAt.y;
+    try {
+      const rc = new THREE.Raycaster(new THREE.Vector3(hatAt.x, hatAt.y + 1.2, hatAt.z), new THREE.Vector3(0, -1, 0), 0, 1.4);
+      for (const h of rc.intersectObjects(scene.children, true)) {
+        if (h.object.isSkinnedMesh || h.object.userData.isOutline || !h.object.visible) continue;
+        top = Math.max(top, h.point.y); break;
+      }
+    } catch (e) { /* the collider height is still a height */ }
+    hat.position.set(hatAt.x, top + 0.02, hatAt.z);
+    hat.rotation.set(0.35, 0.8, 0.18);         // wedged, not placed
+    scene.add(hat);
+    interact.add({
+      id: 'hat', x: hatAt.x, y: hatAt.y, z: hatAt.z, r: 1.6,
+      clip: 'open', at: 30,
+      label: 'take the hat',
+      use: () => {
+        hat.visible = false;
+        gain('Pip\'s hat', 'item');
+        flags.once('hat.taken', flags.get('quest.hat') ? 'Pip\'s hat' : 'A hat, from the slates');
+        interact.at('hat').done = true;
+      },
+    });
+    // a save that already has it: restoreWorld may have run before this
+    // existed, so the hat catches up with the flags itself
+    if (flags && flags.get('hat.taken')) { hat.visible = false; interact.at('hat').done = true; }
+  }
 }
 
 // THE HERO LOOKS AT THINGS: the lock target in a fight, otherwise the
@@ -3182,6 +3250,10 @@ function restoreWorld() {
     const c = MOVERS.find((m) => m.name === 'chest');
     if (c && c.obj) { c.t = 10; c.hold = true; c.obj.rotation.x = -1.85; c.obj.updateMatrix && c.obj.updateMatrix(); }
     const it = interact.at('chest'); if (it) it.done = true;
+  }
+  if (flags.get('hat.taken') && hat) {
+    hat.visible = false;
+    const it = interact.at('hat'); if (it) it.done = true;
   }
   updateTask();
 }
@@ -3311,9 +3383,17 @@ const SIDE_TASKS = [
     text: () => (stray && stray.following ? 'Walk the stray down to Mara\'s fold.'
                                           : 'Mara\'s stray is up past the ruin. Get close and she will follow.'),
     at: () => (stray && stray.following ? FOLD : (stray ? [stray.pos.x, stray.pos.z] : null)) },
+  { when: 'quest.hat', done: 'hat.home',
+    text: () => (flags.get('hat.taken') ? 'Take the hat back to Pip.'
+                                        : 'Pip\'s hat is in the slates of the east range, by the lead.'),
+    at: () => {
+      if (flags.get('hat.taken')) { const n = npcs && npcs.at('pip'); return n ? [n.x, n.z] : null; }
+      return hat ? [hat.position.x, hat.position.z] : null;
+    } },
 ];
 const FOLD = [25.5, -6.5];
 let stray = null;
+let hat = null;
 let taskEl = null, taskText = '';
 function updateTask() {
   if (!taskEl) taskEl = document.getElementById('task');
@@ -3760,6 +3840,7 @@ globalThis.__npcAt = (id) => {
            poke: () => { n.fidgetT = 0; } };
 };
 globalThis.__checkpoint = () => checkpoint;
+globalThis.__hat = () => (hat ? { x: hat.position.x, y: hat.position.y, z: hat.position.z, visible: hat.visible } : null);
 globalThis.__fidget = (at) => {
   if (at !== undefined) { fidgetAt = at; still = 0; }
   return { still, at: fidgetAt, clip: cur && cur.current ? cur.current.getClip().name : null,
