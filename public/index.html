@@ -93,19 +93,19 @@
     25%  { opacity: 1; }
     100% { transform: none; letter-spacing: .18em; }
   }
-  #endcard {
+  #endcard, #opencard {
     position: fixed; inset: 0; pointer-events: none; z-index: 21;
     display: flex; flex-direction: column; justify-content: center; align-items: center;
     text-align: center; padding: 0 8vw; color: #f6efe2;
     background: radial-gradient(ellipse at center, rgba(8,10,16,.35) 0%, rgba(8,10,16,.8) 100%);
     opacity: 0; transition: opacity 1200ms ease;
   }
-  #endcard.on { opacity: 1; }
-  #endcard .kicker { font: 500 12px/1 system-ui, sans-serif; letter-spacing: .42em; text-transform: uppercase; color: #ffd27a; margin-bottom: 14px; }
-  #endcard h1 { font: 700 clamp(36px, 6vw, 72px)/1.05 "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif; margin: 0 0 16px; text-shadow: 0 2px 0 rgba(0,0,0,.35), 0 12px 40px rgba(0,0,0,.45); }
-  #endcard h1 em { font-style: normal; color: #ffd27a; }
-  #endcard .sub { font: 400 15px/1.6 system-ui, sans-serif; color: #d9d2c4; max-width: 52ch; }
-  #endcard .press { margin-top: 30px; font: 600 12px/1 system-ui, sans-serif; letter-spacing: .34em; text-transform: uppercase; color: #fff6e6; animation: press 2.2s ease-in-out infinite; }
+  #endcard.on, #opencard.on { opacity: 1; }
+  #endcard .kicker, #opencard .kicker { font: 500 12px/1 system-ui, sans-serif; letter-spacing: .42em; text-transform: uppercase; color: #ffd27a; margin-bottom: 14px; }
+  #endcard h1, #opencard h1 { font: 700 clamp(36px, 6vw, 72px)/1.05 "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif; margin: 0 0 16px; text-shadow: 0 2px 0 rgba(0,0,0,.35), 0 12px 40px rgba(0,0,0,.45); }
+  #endcard h1 em, #opencard h1 em { font-style: normal; color: #ffd27a; }
+  #endcard .sub, #opencard .sub { font: 400 15px/1.6 system-ui, sans-serif; color: #d9d2c4; max-width: 52ch; }
+  #endcard .press, #opencard .press { margin-top: 30px; font: 600 12px/1 system-ui, sans-serif; letter-spacing: .34em; text-transform: uppercase; color: #fff6e6; animation: press 2.2s ease-in-out infinite; }
   #letterbox { position: fixed; inset: 0; pointer-events: none; }
   #letterbox .bar { position: absolute; left: 0; right: 0; height: 0; background: #06070b; transition: height 700ms cubic-bezier(.4,0,.2,1); }
   #letterbox .top { top: 0; } #letterbox .bottom { bottom: 0; }
@@ -308,6 +308,11 @@
     <h1>The valley <em>knows</em>.</h1>
     <div class="sub">The beacon is lit, the bell has answered it, and the thing at the end of the east lead is yours. Thank you for playing. The valley stays open: walk it at dusk.</div>
     <div class="press">Press any key</div>
+  </div>
+  <div id="opencard" style="display:none">
+    <div class="kicker">Beacon Vale</div>
+    <h1>The beacon has been dark <em>three nights</em>.</h1>
+    <div class="sub">Ask around the square. The road north will tell you the rest.</div>
   </div>
   <div id="letterbox"><div class="bar top"></div><div class="bar bottom"></div></div>
 

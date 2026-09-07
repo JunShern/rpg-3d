@@ -13,6 +13,8 @@ it, a valley to cross, and one thing to do.**
 | ![dusk](docs/shots/dusk-valley.png) | ![ivy](docs/shots/ivy.png) |
 | ![combat](docs/shots/combat.png) | ![warden](docs/shots/warden.png) |
 | ![sweep](docs/shots/beacon-sweep.png) | ![beacon](docs/shots/beacon-lit.png) |
+| ![rush](docs/shots/warden-rush.png) | ![fidget](docs/shots/fidget.png) |
+| ![evening plaza](docs/shots/evening-plaza.png) | ![evening valley](docs/shots/evening-valley.png) |
 
 The beacon on the north road has been dark three nights. Ask around the square
 and the town will tell you what it wants: five embercaps, gathered from the
@@ -257,6 +259,27 @@ Two tricks carry more than their weight:
   realistic proportions sit oddly beside his five-head build. That clash is a
   casting decision nobody has made yet.
 - Buildings are solid blocks: no interiors, no enterable doors.
+
+## Where the last session left it
+
+Ten hours of a cloud session with no display and a software GL stack, so
+everything below was checked by Playwright probes and captures, not by hand:
+
+- **Verified by probe and capture**: the Warden (entrance, slam ring, rush,
+  fights alone, checkpoint respawn), the beacon cinematic and the dusk
+  (windows, clouds, ridges, stars, melody), the ending and opening cards,
+  the objective marker, Mara's stray, the hero's and townsfolk's fidget,
+  head look-at, title continue. Console probes for all of it live at the
+  bottom of `main.js` (`__slay`, `__flags_set`, `__dusk`, `__fidget`,
+  `__npcAt`, `__checkpoint`, `__openCard`, `__shafts`, `__cloud`).
+- **Not run to completion here**: the 64-check suite. The container restarts
+  under it, and the `World` and `Lock-on` groups stall on their long
+  single-evaluate walks in this headless GL. Run `node tools/smoke.mjs` on
+  a laptop before trusting a merge; the groups that did finish (`World`'s
+  clip and species checks, `people`, `budget`, `Stakes`, `Console`,
+  `conversation`, `camera`) passed.
+- **Not listened to**: every sound was written blind. The rush grunt (`roar`
+  at 0.55) and the dusk phrase are the two most recent and least judged.
 
 ## Traps worth remembering
 

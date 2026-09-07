@@ -3135,6 +3135,38 @@ function showEndCard() {
   globalThis.__dismissEnd = dismiss;
 }
 
+// THE OPENING CARD. One line of premise over the first frame of a new game,
+// four seconds, then the valley. The title says the name; this says why you
+// are here, and it is the only text in the game that tells you anything
+// before a townsperson does. Not on a continue -- you know.
+let openShown = false;
+function showOpenCard(hold = 5200) {
+  if (openShown) return;
+  openShown = true;
+  const el = document.getElementById('opencard');
+  if (!el) return;
+  el.style.display = '';
+  requestAnimationFrame(() => el.classList.add('on'));
+  document.body.classList.add('cine');
+  let done = false;
+  const dismiss = () => {
+    if (done) return;
+    done = true;
+    el.classList.remove('on');
+    document.body.classList.remove('cine');
+    setTimeout(() => { el.style.display = 'none'; }, 1200);
+    window.removeEventListener('keydown', dismiss, true);
+    window.removeEventListener('pointerdown', dismiss, true);
+  };
+  setTimeout(() => {
+    window.addEventListener('keydown', dismiss, true);
+    window.addEventListener('pointerdown', dismiss, true);
+  }, 1200);
+  setTimeout(dismiss, hold);
+  globalThis.__dismissOpen = dismiss;
+}
+globalThis.__openCard = (hold) => { openShown = false; showOpenCard(hold); };   // probe: force it
+
 function restoreWorld() {
   if (!flags || !interact) return;
   if (flags.get('beacon.lit')) {
@@ -3663,6 +3695,7 @@ function showTitle() {
     el.classList.remove('on');
     el.classList.add('off');
     document.body.classList.remove('title');
+    if (!started) setTimeout(showOpenCard, 600);
     setTimeout(() => { el.style.display = 'none'; }, 800);
     window.removeEventListener('keydown', dismiss, true);
     window.removeEventListener('pointerdown', dismiss, true);
