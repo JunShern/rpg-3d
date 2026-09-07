@@ -229,6 +229,45 @@ const SHOTS = [
            ['woolt', 3.0, -6], ['flitter', 5.2, -5.4]],
     steps: 24,
   },
+
+  // THE SECOND HALF OF THE DEMO. Each `setup` drives the page to the moment
+  // and leaves it there; the capture then takes whatever is on screen. The
+  // flags these set persist for the rest of the run, so they come LAST and
+  // the dusk ones last of all -- `__dusk(1)` does not come back on its own.
+  // THE HAT, on the lead of the east range, from the side so the hero's own
+  // body does not hide a thing that sits at her feet (it did, twice).
+  { name: '30-hat', warp: [-5.2, 9.4, -14.2], az: 2.18, polar: 1.12, dist: 3.4,
+    setup: () => { __flags_set('quest.hat'); } },
+  // the fidget, 1.3 s in: hand to the chin, head turned
+  { name: '31-fidget', warp: [8.0, 10, -80.0], az: 0.4, polar: 1.36, dist: 4.2,
+    setup: () => { __freezeEncounters(true); __fidget(0.1); __sim({ steps: 30, dt: 1 / 20 }); } },
+  // Mara's, from her front-left, with the hero beside her rather than in front
+  { name: '32-townsfolk-fidget', warp: [25.7, 1.2, -3.4], az: 0.90, polar: 1.36, dist: 3.4,
+    setup: () => { __npcAt('mara').poke(); __sim({ steps: 28, dt: 1 / 20 }); } },
+  // THE RUSH: back off half a second, stand, and the Warden comes head-down.
+  // Captured on the first attack frame; the camera looks north at it.
+  { name: '33-warden-rush', warp: [13.4, 0, -91.5], az: 0, polar: 1.38, dist: 7.5,
+    setup: () => {
+      __freezeEncounters(false); __flags_set('warden.down', false); combat.respawn();
+      for (const e of combat.enemies) if (!e.dead && e.spec.hostile && !e.spec.boss) combat.slay(e);
+      const boss = () => combat.enemies.find((e) => e.spec.boss && !e.dead);
+      for (let i = 0; i < 200; i++) {
+        const b = boss(); if (!b) break;
+        __sim({ steps: 1, dt: 1 / 20, held: i < 12 ? ['KeyS'] : [] });   // az 0 looks north: S backs away
+        if (b.rushing && b.state === 'attack') break;
+      }
+    } },
+  // the opening card, held open for the capture; a real one lasts four seconds
+  { name: '34-opening-card', warp: [0.5, 0, 6.0], az: 0.2, polar: 1.30, dist: 6.0,
+    setup: () => { __freezeEncounters(true); __openCard(120000); __sim({ steps: 2 }); }, wait: 1600 },
+  // the evening: windows, lamps, dusky clouds, alpenglow, stars
+  { name: '35-evening-plaza', warp: [0.6, 0, 5.6], az: 0.6, polar: 1.40, dist: 7.0,
+    setup: () => { __dismissOpen && __dismissOpen(); __dusk(1); __sim({ steps: 20 }); } },
+  { name: '36-evening-valley', warp: [8.0, 10, -80.0], az: 3.0, polar: 1.46, dist: 9.0,
+    setup: () => { __dusk(1); __sim({ steps: 20 }); } },
+  // and the ending card over the evening plaza
+  { name: '37-ending-card', warp: [0.6, 0, 5.6], az: 0.6, polar: 1.32, dist: 6.0,
+    setup: () => { __dusk(1); __flags_set('chest.opened'); __flags_set('said.tally.chest'); __sim({ steps: 5 }); }, wait: 1600 },
 ];
 
 const want = process.argv.slice(2);
@@ -246,9 +285,9 @@ const errors = [];
 page.on('pageerror', (e) => errors.push(String(e.message).slice(0, 200)));
 
 await page.goto(URL, { waitUntil: 'load' });
-await page.waitForFunction('typeof window.__sim === "function"', null, { timeout: 60000 });
+await page.waitForFunction('typeof window.__sim === "function"', null, { timeout: 300000 });
 await page.waitForFunction(
-  'window.combat && combat.enemies.length > 0 && __sim({steps:1}).who', null, { timeout: 60000 });
+  'window.combat && combat.enemies.length > 0 && __sim({steps:1}).who', null, { timeout: 300000 });
 
 // Freeze the roaming encounters so a shot framed on empty meadow stays empty
 // and a shot framed on a pinned enemy does not collect three of its friends.

@@ -13,7 +13,7 @@ npx playwright install chromium     # NOT in node_modules -- it lives in a
 npm run serve                       # symlinks three into public/vendor, serves :3100
 ```
 
-Then `node tools/smoke.mjs`. If it prints `64/64 passed`, the checkout is good.
+Then `node tools/smoke.mjs`. If it prints `68/68 passed`, the checkout is good.
 
 ## What you can and cannot do without Blender
 

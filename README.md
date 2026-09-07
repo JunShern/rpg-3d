@@ -289,6 +289,11 @@ everything below was checked by Playwright probes and captures, not by hand:
 - **The objective line** carries a side errand on a second line whenever the
   main line has something to say; the errand takes the line and the marker
   only between steps of the arc.
+- **The capture sheet** (`tools/shots.mjs`) has eight new entries for the
+  second half -- hat, fidgets, rush, both cards, the evening -- authored from
+  the probes' vantages. Its screenshot step times out on this box for old
+  entries and new alike, so they have not been run; the PNGs in `docs/shots`
+  for those scenes are the probes' own captures.
 - **Not listened to**: every sound was written blind. The rush grunt (`roar`
   at 0.55) and the dusk phrase are the two most recent and least judged.
 
