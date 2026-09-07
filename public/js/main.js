@@ -839,7 +839,13 @@ Promise.all(ROSTER.concat(NPC_RIGS).map((def) =>
     // save nobody can see happen is a save that does not happen. Throttled
     // to one write a second, and once more on the way out.
     let saveT = null;
-    const autosave = () => { saveT = null; try { GS.autosave(); } catch (e) { console.warn('[save]', e); } };
+    const autosave = () => {
+      saveT = null;
+      // WHERE YOU WERE goes in with it. A continue that always woke on the
+      // plaza cost the whole road back every time the tab closed.
+      try { if (GS.state && !cine) GS.state.pos = [+pos.x.toFixed(2), +pos.y.toFixed(2), +pos.z.toFixed(2)]; } catch (e) { /* no state */ }
+      try { GS.autosave(); } catch (e) { console.warn('[save]', e); }
+    };
     GS.on('change', () => { if (!saveT) saveT = setTimeout(autosave, 1000); });
     window.addEventListener('pagehide', () => { if (saveT) { clearTimeout(saveT); autosave(); } });
     // A LEVEL IS THE LOUDEST THING THE ECONOMY DOES, so it gets its own line
@@ -3255,8 +3261,21 @@ function restoreWorld() {
     hat.visible = false;
     const it = interact.at('hat'); if (it) it.done = true;
   }
+  // ...and the hero, back where the save left her. Only a game that has
+  // begun: a fresh state has no `pos`, and the plaza is where it begins.
+  const G = window.GS;
+  const saved = G && G.state && Array.isArray(G.state.pos) ? G.state.pos : null;
+  if (saved && flags.get('quest.beacon') && !resumed) {
+    resumed = true;
+    pos.set(saved[0], saved[1], saved[2]);
+    pos.y = groundAt(pos.x, pos.z, pos.y + 2) ?? saved[1];
+    vy = 0; grounded = true;
+    if (cur) cur.group.position.copy(pos);
+    camPrevOk = false;
+  }
   updateTask();
 }
+let resumed = false;
 
 function lightBeacon(m, quiet = false) {
   if (m.lit) return;
@@ -3408,15 +3427,25 @@ function updateTask() {
     }
     return null;
   };
-  // a side errand only takes the line while the arc is between steps
+  // a side errand only takes the line -- and the marker -- while the arc is
+  // between steps; the rest of the time it is still SAID, on a second,
+  // smaller line, so an errand you took on at the fountain does not vanish
+  // from the screen the moment the main line has something to say
   const main = pick(TASKS);
   const side = pick(SIDE_TASKS);
   const t = (side && (!main || main.done === 'caps.5' || main.done === 'done.epilogue')) ? side : main;
+  let sub = '';
   if (t) {
     text = typeof t.text === 'function' ? t.text() : t.text;
     at = typeof t.at === 'function' ? t.at() : t.at;
+    if (t !== side && side) sub = typeof side.text === 'function' ? side.text() : side.text;
   }
-  if (text !== taskText) { taskText = text; taskEl.textContent = text; }
+  const key = text + '\n' + sub;
+  if (key !== taskText) {
+    taskText = key;
+    taskEl.textContent = text;
+    if (sub) { const el = document.createElement('span'); el.className = 'side'; el.textContent = sub; taskEl.appendChild(el); }
+  }
   if (marker) {
     const cur = marker.target;
     if (!at) { if (cur) marker.set(null); }

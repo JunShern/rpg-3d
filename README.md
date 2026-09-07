@@ -281,7 +281,12 @@ everything below was checked by Playwright probes and captures, not by hand:
   `conversation`, `camera`) passed.
 - **The save**: nothing in the runtime ever wrote one except the menu's Save
   command, so a closed tab lost everything. `main.js` now autosaves a second
-  after any state change and on `pagehide`; the vendored files are untouched.
+  after any state change and on `pagehide`, with the hero's position in it,
+  and a continue puts her back where she was; the vendored files are
+  untouched.
+- **The objective line** carries a side errand on a second line whenever the
+  main line has something to say; the errand takes the line and the marker
+  only between steps of the arc.
 - **Not listened to**: every sound was written blind. The rush grunt (`roar`
   at 0.55) and the dusk phrase are the two most recent and least judged.
 
