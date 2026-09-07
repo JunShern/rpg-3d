@@ -2030,11 +2030,37 @@ globalThis.__respawnEncounters = () => {
   return combat.enemies.filter((e) => !e.dead).length;
 };
 
+// THE CHECKPOINT. Going down used to put you back on the plaza, which from
+// the pass is a hundred metres of road you have already walked and every
+// group on it refilled -- the price of losing to the Warden was the whole
+// hill. Now it is the road nine metres short of the encounter that took you,
+// on the path's own centreline so it cannot be inside a wall or a stone.
+let checkpoint = null;
+
 function updateEncounters() {
   if (encountersFrozen) return;
   for (const enc of ENCOUNTERS) {
     const d = Math.hypot(pos.x - enc.x, pos.z - enc.z);
-    if (!enc.armed && d < enc.trigger && !(enc.boss && flags && flags.get('warden.down'))) armEncounter(enc);
+    if (!enc.armed && d < enc.trigger && !(enc.boss && flags && flags.get('warden.down'))) {
+      armEncounter(enc);
+      if (enc.armed && terrain && terrain.pathAt) {
+        // ...and clear of every OTHER group's trigger, or you wake up inside
+        // the flank fight below the Warden: measured, hit 3 s after coming
+        // back at the first version's nine metres
+        let z = pos.z + 9;
+        for (let guard = 0; guard < 30; guard++) {
+          const x = terrain.pathAt(-z);
+          // a group you have already wiped is not a group; one you ran past
+          // is, and so is one that has not woken yet
+          const inside = ENCOUNTERS.some((o) => o !== enc
+            && !(o.armed && o.spawned.every((e) => e.dead))
+            && Math.hypot(x - o.x, z - o.z) < o.trigger + 2);
+          if (!inside) break;
+          z += 2;
+        }
+        checkpoint = { x: terrain.pathAt(-z), z };
+      }
+    }
     else if (enc.armed && enc.refill !== false && enc.refill && d < enc.trigger
              && enc.spawned.every((e) => e.dead)) {
       armEncounter(enc);
@@ -2072,7 +2098,8 @@ function updateCombat(dt, raw) {
     deadOverlay.classList.add('on');
     if (p.deadT > 2.0) {
       combat.respawn();
-      pos.set(0.5, 0, 6.0);
+      if (checkpoint) pos.set(checkpoint.x, 0, checkpoint.z); else pos.set(0.5, 0, 6.0);
+      pos.y = groundAt(pos.x, pos.z, 30) ?? 0;
       vy = 0; grounded = true;
       deadOverlay.classList.remove('on');
     }
@@ -3699,6 +3726,7 @@ globalThis.__npcAt = (id) => {
   return { id, clip: n.b.current ? n.b.current.getClip().name : null, fidgetT: n.fidgetT,
            poke: () => { n.fidgetT = 0; } };
 };
+globalThis.__checkpoint = () => checkpoint;
 globalThis.__fidget = (at) => {
   if (at !== undefined) { fidgetAt = at; still = 0; }
   return { still, at: fidgetAt, clip: cur && cur.current ? cur.current.getClip().name : null,

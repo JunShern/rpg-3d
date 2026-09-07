@@ -67,7 +67,9 @@ they stand in were built here.
   control. The Warden of the Pass, a boss with a name across the top of the
   screen, an entrance, and a slam that runs a ring along the ground which
   only the jump avoids -- and, if you hang back from it, a head-down rush on
-  a committed line that a sidestep beats and a backpedal does not.
+  a committed line that a sidestep beats and a backpedal does not. It fights
+  alone: nothing else on the hill wakes while it has you. Going down puts you
+  back on the road a few metres short of whatever did it, and it walks home.
 - **The air**: dust in the sunlight and petals on the wind, in a box that
   follows you; butterflies over the meadow; cloud shadows drifting across the
   whole world; sun shafts when the sun is low; a three-tier wind, with each

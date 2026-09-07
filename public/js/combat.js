@@ -898,6 +898,13 @@ export function createCombat(ctx) {
     player.lastStep = -1;
     player.knock.set(0, 0, 0);
     if (player.hitThisSwing) player.hitThisSwing.clear();
+    // AND THE FIELD. The player comes back at the last checkpoint, which is
+    // on the road a few metres short of whatever killed them -- so whatever
+    // killed them walks home first and heals, and the fight starts over from
+    // its own beginning rather than mid-swing with the boss on the spawn point.
+    for (const e of enemies) {
+      if (!e.dead && e.spec.hostile && e.state !== 'idle') { setState(e, 'return'); e.token = false; }
+    }
     lockTarget = null;
   }
 
@@ -1302,10 +1309,23 @@ export function createCombat(ctx) {
 
     switch (e.state) {
       case 'idle':
-        if (dist < e.spec.notice) {
+        // THE BOSS FIGHTS ALONE. The encounter table spaces its groups so you
+        // meet one at a time, but the Warden's notice radius reaches back
+        // into the flank group's, so a player who ran past the Bellow arrived
+        // at the boss with the Bellow in tow -- and the fight that is about
+        // reading one wind-up became a brawl with three. While a boss has
+        // you, nothing else wakes; and when it notices you, whatever was
+        // already awake nearby goes home.
+        if (dist < e.spec.notice && !(bossActive() && !e.spec.boss)) {
           setState(e, 'approach'); play(e, 'move');
           // a boss noticing you is an event; the rest are just enemies
-          if (e.spec.boss && ctx.onNotice) { try { ctx.onNotice(e); } catch (err) { console.error('[notice]', err); } }
+          if (e.spec.boss) {
+            for (const o of enemies) {
+              if (o !== e && !o.dead && o.spec.hostile && o.state !== 'idle'
+                  && o.pos.distanceTo(e.pos) < 40) { setState(o, 'return'); o.token = false; }
+            }
+            if (ctx.onNotice) { try { ctx.onNotice(e); } catch (err) { console.error('[notice]', err); } }
+          }
         }
         else play(e, 'idle');
         break;
@@ -1463,6 +1483,12 @@ export function createCombat(ctx) {
       if (e.state !== 'attack') e.spin = (e.spin || 0) * Math.pow(0.02, dt);
       e.group.children[0].rotation.x = e.spin || 0;
     }
+  }
+
+  /** A living boss that has noticed the player. */
+  function bossActive() {
+    for (const e of enemies) if (e.spec.boss && !e.dead && e.state !== 'idle' && e.state !== 'return') return true;
+    return false;
   }
 
   function attackTokens() {
