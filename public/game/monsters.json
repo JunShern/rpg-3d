@@ -48,6 +48,22 @@
     }
    ],
    "zone": "ridge"
+  },
+  "warden": {
+   "name": "The Warden of the Pass",
+   "hp": 420,
+   "atk": 22,
+   "def": 12,
+   "spd": 3,
+   "xp": 140,
+   "gold": 90,
+   "drops": [
+    {
+     "item": "iron-scale",
+     "chance": 1.0
+    }
+   ],
+   "zone": "pass"
   }
  }
 }

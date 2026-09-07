@@ -75,7 +75,8 @@ export function makeInteract({ playClip, clipTime, toast = () => {} }) {
     if (suppress || !near) { show(null); return; }
     const ok = near.can();
     const label = typeof near.label === 'function' ? near.label(ok) : near.label;
-    show(ok ? label : (near.refuse || label));
+    const refuse = typeof near.refuse === 'function' ? near.refuse(ok) : near.refuse;
+    show(ok ? label : (refuse || label));
   }
 
   /** Returns true if it consumed the key -- the caller must then NOT attack. */

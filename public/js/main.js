@@ -1835,6 +1835,9 @@ function startCombat() {
     onHit: (e, dmg, breaks, kill) => sfx.hit(breaks, kill),
     onHurt: () => sfx.hurt(),
     onKill: (species, e) => {
+      // the boss is a flag first and a payout second: the arc must advance
+      // even in a page with no save system, which is how the probes run
+      if (e && e.spec && e.spec.boss && flags) flags.once('warden.down', 'The pass is clear');
       const G = window.GS;
       if (!G || !G.ok || !G.data || !G.data.monsters) return;
       const m = G.data.monsters.monsters[species];
@@ -1844,7 +1847,6 @@ function startCombat() {
       if (m.xp) { G.grantXp(m.xp); gain(`+${m.xp} XP`, 'xp'); }
       // the town hears about it: "you're the one who killed a bellow"
       if (flags) { flags.once('kill.first'); flags.once('kill.' + species); }
-      if (e && e.spec && e.spec.boss && flags) flags.once('warden.down', 'The pass is clear');
       // GOLD AND ITEMS ARE OBJECTS, and they come out of the body. The whole
       // point is that something visibly LEAVES the creature: the numbers used
       // to move silently inside the save and the player reported, correctly,
