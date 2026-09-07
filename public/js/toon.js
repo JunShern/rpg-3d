@@ -524,6 +524,7 @@ export function skyDome(top, horizon, radius = 220, mid = null, sun = 0x000000) 
       uHorizon: { value: new THREE.Color(horizon) },
       uSun: { value: new THREE.Vector3(0.3, 0.8, 0.5).normalize() },
       uSunColor: { value: new THREE.Color(sun) },
+      uNight: { value: 0.0 },              // stars come out with it
     },
     vertexShader: /* glsl */`
       varying vec3 vWorld;
@@ -539,6 +540,8 @@ export function skyDome(top, horizon, radius = 220, mid = null, sun = 0x000000) 
       uniform vec3 uHorizon;
       uniform vec3 uSun;
       uniform vec3 uSunColor;
+      uniform float uNight;
+      float hash13(vec3 p) { p = fract(p * 0.1031); p += dot(p, p.yzx + 33.33); return fract((p.x + p.y) * p.z); }
       varying vec3 vWorld;
       void main() {
         vec3 dir = normalize(vWorld);
@@ -551,6 +554,16 @@ export function skyDome(top, horizon, radius = 220, mid = null, sun = 0x000000) 
         float s = max(dot(dir, uSun), 0.0);
         col += uSunColor * (pow(s, 260.0) * 1.4 + pow(s, 10.0) * 0.16
                             + pow(s, 3.0) * 0.05);
+        // STARS: a hash on the view direction, thresholded to a few thousand
+        // points, faded in with uNight and out toward the horizon where the
+        // dusk band still glows. Twinkle is the hash itself drifting.
+        if (uNight > 0.0) {
+          vec3 q = floor(dir * 140.0);
+          float st = hash13(q);
+          float twinkle = 0.7 + 0.3 * hash13(q + 3.7);
+          float star = smoothstep(0.985, 0.998, st) * twinkle;
+          col += vec3(0.95, 0.97, 1.0) * star * uNight * smoothstep(0.08, 0.35, h);
+        }
         gl_FragColor = vec4(col, 1.0);
         #include <colorspace_fragment>
       }

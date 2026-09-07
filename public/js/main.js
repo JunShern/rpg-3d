@@ -3054,6 +3054,29 @@ function heroLook(dt) {
   rotateWorld(head, _lax, -pitch);
 }
 
+let endShown = false;
+function showEndCard() {
+  if (endShown) return;
+  endShown = true;
+  const el = document.getElementById('endcard');
+  if (!el) return;
+  el.style.display = '';
+  requestAnimationFrame(() => el.classList.add('on'));
+  document.body.classList.add('cine');
+  const dismiss = () => {
+    el.classList.remove('on');
+    document.body.classList.remove('cine');
+    setTimeout(() => { el.style.display = 'none'; }, 800);
+    window.removeEventListener('keydown', dismiss, true);
+    window.removeEventListener('pointerdown', dismiss, true);
+  };
+  setTimeout(() => {
+    window.addEventListener('keydown', dismiss, true);
+    window.addEventListener('pointerdown', dismiss, true);
+  }, 1500);
+  globalThis.__dismissEnd = dismiss;
+}
+
 function restoreWorld() {
   if (!flags || !interact) return;
   if (flags.get('beacon.lit')) {
@@ -3062,6 +3085,7 @@ function restoreWorld() {
     const it = interact.at('beacon'); if (it) it.done = true;
     duskDone = true;
     applyLighting(LOOKS.dusk);
+    setEvening(1);
     if (post) post.set({ bloom: 0.36 });
   }
   if (flags.get('chest.opened')) {
@@ -3309,6 +3333,13 @@ function stepWorld(dt) {
   for (const e of EMBERS) e.update(dt);
   updateBossBar();
   updateStray();
+  // THE ENDING: once the town has reacted to the chest, the arc is told.
+  // A card, once, and then the world is yours to keep walking.
+  if (!flags.get('done.epilogue') && (flags.get('said.tally.chest') || flags.get('said.nell.chest'))
+      && !(npcs && npcs.talking())) {
+    flags.set('done.epilogue', true);
+    showEndCard();
+  }
   // THE CLIMAX IS A CHANGE OF LIGHT. When the coals take, the world slides
   // to dusk over six seconds: sun low and orange, sky banded, lanterns up.
   if (flags.get('beacon.lit') && !dusk && !duskDone) startDusk();
@@ -3316,6 +3347,7 @@ function stepWorld(dt) {
     dusk.t = Math.min(1, dusk.t + dt / dusk.dur);
     const k = dusk.t * dusk.t * (3 - 2 * dusk.t);
     applyLighting(mixLook(LOOK, LOOKS.dusk, k));
+    setEvening(k);
     if (post) post.set({ bloom: 0.20 + 0.16 * k });
     duskLevel = k;
     if (dusk.t >= 1) { dusk = null; duskDone = true; duskLevel = 1; }
@@ -3651,6 +3683,20 @@ globalThis.__ik = IK_ENABLED;   // __ik.value = false to A/B it
 // looks was comparing two light rigs under one sky -- which is the sky's
 // fault being blamed on the ramp, every time.
 const _lc = [new THREE.Color(), new THREE.Color()];
+// THE WINDOWS COME ON. Glass is a flat pane in this look, so at dusk it is
+// painted lit: the pane's colour slides to a warm yellow a shade over white,
+// which bloom then lifts. Stars in the dome come with it.
+let GLASS_BASE = null;
+function setEvening(k) {
+  if (GLASS_BASE === null) {
+    GLASS_BASE = SURFACES.filter((s) => s.flat && s.mesh.userData.matName === 'glass')
+      .map((s) => ({ m: s.mesh.material, c: s.mesh.material.color.clone() }));
+  }
+  const warm = _lc[1].set(0xffd27a).multiplyScalar(1.35);
+  for (const g of GLASS_BASE) g.m.color.copy(g.c).lerp(warm, k);
+  if (sky) sky.material.uniforms.uNight.value = k * 0.9;
+}
+
 function applyLighting(L) {
   key.color.set(L.key.color);
   key.intensity = L.key.intensity;
@@ -3713,6 +3759,7 @@ globalThis.__dusk = (t) => {
   // a probe: jump to any point of the slide, or start it
   if (t === undefined) { startDusk(); return 'dusk started'; }
   applyLighting(mixLook(LOOK, LOOKS.dusk, t));
+  setEvening(t);
   if (post) post.set({ bloom: 0.20 + 0.16 * t });
   return `dusk ${t}`;
 };
