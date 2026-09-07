@@ -223,9 +223,13 @@ export const SPECIES = {
     // width, like the Curler's, that a sidestep beats and a backpedal does
     // not -- and a rush that misses costs it the same long recovery. It is
     // withheld inside slam range (that is the slam's job) and for `after`
-    // seconds of any approach, so the first thing it does is still the walk.
+    // seconds of any approach. AFTER IS THE WHOLE DESIGN: at 1.4 s the walk
+    // had only closed to 4.85 m, so every approach ended in a rush and the
+    // slam never came -- measured, the rush was the opener on a player
+    // standing still. At 2.6 s a standing player is inside `min` and gets
+    // the slam; only a player still backing off is far enough to be rushed.
     rush: { min: 4.6, max: 12.0, charge: 13.0, telegraph: 0.95, time: 0.8,
-            damage: 28, cooldown: 7.0, after: 1.4 },
+            damage: 28, cooldown: 7.0, after: 2.6 },
   },
 
   // GRAZER, and the only thing out here that does not want to fight. It exists
