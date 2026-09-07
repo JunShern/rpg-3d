@@ -57,14 +57,18 @@ they stand in were built here.
   a bell rope -- timed to the frame of the clip that does them.
 - **Combat**: a three-swing combo, a falling cut, lock-on, a dodge, hit-stop,
   damage numbers, drops, an economy, a menu and a shop, with a sheathe you
-  control.
+  control. The Warden of the Pass, a boss with a name across the top of the
+  screen, an entrance, and a slam that runs a ring along the ground which
+  only the jump avoids.
 - **The air**: dust in the sunlight and petals on the wind, in a box that
   follows you; butterflies over the meadow; cloud shadows drifting across the
   whole world; sun shafts when the sun is low; a three-tier wind, with each
   leaf card carrying its own weight in its UVs so a crown's rim and top move
   more than its heart.
 - **Sound, with no sound files**: footsteps by surface, swings, hits, the
-  bell's partials, the beacon catching, a chest's hinge, wind, birds, water
+  bell's partials, the beacon catching, a chest's hinge, the Warden's roar
+  and a pulse under the pad while it has you, a four-note phrase once the
+  light goes warm, wind, birds, water
   and fire by distance, and a quiet pad that warms at dusk -- all synthesised
   in WebAudio the moment they are needed.
 
