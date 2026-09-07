@@ -18,6 +18,7 @@ import { makeFlags } from './flags.js';
 import { makeInteract } from './interact.js';
 import { makeAmbient } from './ambient.js';
 import { CLOUD } from './toon.js';
+import { makeMarker } from './marker.js';
 import { makeAudio } from './audio.js';
 import { makeGroundFog } from './groundfog.js';
 import { makeGrass } from './grass.js';
@@ -46,6 +47,8 @@ let post = null;
 // cast are in, since both refer to things by name.
 let flags = null;
 let interact = null;
+let marker = null;      // the objective's place in the world
+let cine = null;        // the beacon's camera sweep, while it runs
 let air = null;   // dust and petals in the air round the player
 // EVERY SOUND, synthesised. Built at load, unlocked by the first key or
 // click because no browser will start audio on its own.
@@ -852,6 +855,7 @@ Promise.all(ROSTER.concat(NPC_RIGS).map((def) =>
   const n = npcs.load(NPC_ROSTER);
   setupWorld();
   air = makeAmbient({ scene, groundAt });
+  marker = makeMarker({ scene, camera });
   // CLOUD SHADOWS: one 256px noise image the toon materials scroll across
   // the world. Built here from the same fbm the textures use, on a canvas,
   // so no file is fetched and no build is needed to change it.
@@ -1781,6 +1785,11 @@ const ENCOUNTERS = [
   // for winning rather than the arena for it.
   { x: 10.0, z: -88,  r: 5.0, trigger: 18,
     mix: ['bellow', 'nettle', 'nettle'] },
+  // THE WARDEN, on the road at the top, between you and the beacon. Alone:
+  // a boss with a retinue is a brawl, and this fight is about reading one
+  // wind-up. It does not refill -- a warden that comes back is a wall.
+  { x: 13.4, z: -101, r: 1.0, trigger: 16, boss: true, refill: false,
+    mix: ['warden'] },
 ];
 
 function startCombat() {
@@ -1835,6 +1844,7 @@ function startCombat() {
       if (m.xp) { G.grantXp(m.xp); gain(`+${m.xp} XP`, 'xp'); }
       // the town hears about it: "you're the one who killed a bellow"
       if (flags) { flags.once('kill.first'); flags.once('kill.' + species); }
+      if (e && e.spec && e.spec.boss && flags) flags.once('warden.down', 'The pass is clear');
       // GOLD AND ITEMS ARE OBJECTS, and they come out of the body. The whole
       // point is that something visibly LEAVES the creature: the numbers used
       // to move silently inside the save and the player reported, correctly,
@@ -1873,7 +1883,7 @@ function startCombat() {
     playerPos: () => pos,
     playerFacing: () => facing,
   });
-  Promise.all(['nettle', 'curler', 'bellow', 'woolt', 'flitter'].map((n) => combat.load(n)))
+  Promise.all(['nettle', 'curler', 'bellow', 'woolt', 'flitter', 'warden'].map((n) => combat.load(n)))
     .then(() => {
       // NOTHING IS ARMED AT LOAD. This used to arm ENCOUNTERS[0] so the demo
       // had something to fight the moment it opened -- and ENCOUNTERS[0] was
@@ -2525,7 +2535,7 @@ const LOCK_POLAR = 1.06;
   // stayed in her hand. Nothing errored: the state machine sat there holding a
   // clip that was no longer running.
   if (cur && !attacking && !carry && grounded && !landing && slip.t <= 0
-      && !staggered && !(interact && interact.busy)) {
+      && !staggered && !(interact && interact.busy) && !cine) {
     play(isMoving ? 'run' : 'idle');
   }
 
@@ -2671,6 +2681,24 @@ const LOCK_POLAR = 1.06;
                            : camBoom + (want - camBoom) * Math.min(1, dt * 3.2);
   const d = camBoom;
   camera.position.copy(camTarget).addScaledVector(camWant, d);
+  if (cine) {
+    cine.t += dt;
+    const u = Math.min(1, cine.t / cine.dur);
+    const k = u * u * (3 - 2 * u);
+    // orbit from beside the coals to above and behind them, looking south
+    const a = -0.6 + k * 2.2;
+    const r = 4.0 + k * 6.0;
+    camera.position.set(cine.from.x + Math.sin(a) * r, cine.from.y + 1.6 + k * 5.5, cine.from.z + Math.cos(a) * r);
+    _o.set(cine.from.x, cine.from.y + 2.4, cine.from.z);
+    const townward = _o2.set(2.0, 6.0, -20.0);      // the valley, then the town
+    _o.lerp(townward, Math.max(0, (k - 0.35) / 0.65));
+    camera.lookAt(_o);
+    if (u >= 1) {
+      cine = null;
+      document.body.classList.remove('cine');
+      cam.az = Math.PI; cam.autoDelay = 2.0; camBoom = cam.dist; camPrevOk = false;
+    }
+  }
 
   // A STAIRWELL IS THE ONE SHAPE THIS SOLVE CANNOT DO.
   //
@@ -2944,8 +2972,9 @@ function setupWorld() {
       id: 'beacon', x: beacon.hx, y: beacon.hy, z: beacon.hz, r: 2.4,
       clip: 'cast_fire', at: 9,
       label: 'light the beacon',
-      refuse: 'the beacon wants embercaps — five of them',
-      can: () => !!(breakables && breakables.found >= 5),
+      refuse: () => (flags.get('warden.down') ? 'the beacon wants embercaps — five of them'
+                                              : 'the Warden holds the pass'),
+      can: () => !!(breakables && breakables.found >= 5 && flags.get('warden.down')),
       use: () => lightBeacon(beacon),
     });
   }
@@ -2977,6 +3006,12 @@ function setupWorld() {
 function lightBeacon(m) {
   if (m.lit) return;
   m.lit = true;
+  // THE SWEEP: five and a half seconds in which the camera is not yours. It
+  // rises off the coals, turns down the valley and holds on the town as the
+  // light goes -- the one moment the demo has been building to, shown from
+  // the one place that can see all of it.
+  cine = { t: 0, dur: 5.5, from: new THREE.Vector3(m.x, m.y, m.z) };
+  document.body.classList.add('cine');
   m.obj.traverse((o) => {
     if (!o.isMesh || !o.userData.litMat) return;
     // UNLIT ON PURPOSE. A toon material would put a shadow band on the coals;
@@ -3065,33 +3100,65 @@ function makeEmbers(x, y, z, light) {
 // WHAT YOU ARE DOING, in one line. The first row whose `when` is met and
 // whose `done` is not. Written as flags rather than as a quest object, so the
 // world -- not a script -- decides when you have moved on.
+// `at` is where the marker goes: a point, or a function of the moment.
 const TASKS = [
-  { done: 'quest.beacon',  text: 'Something has the square on edge. Ask around.' },
+  { done: 'quest.beacon',  text: 'Something has the square on edge. Ask around.', at: [-6.2, 2.4] },
   { when: 'quest.beacon', done: 'caps.5',
     // the count is live: a task you can watch move is one you keep doing
     text: () => `Gather embercaps — ${breakables ? breakables.found : 0} of 5. `
       + 'Along the walls, down the ravine, up on the roofs.' },
-  { when: 'caps.5', done: 'beacon.lit',
-    text: 'Light the beacon at the top of the north road.' },
+  { when: 'caps.5', done: 'warden.down',
+    text: 'Something holds the top of the north road. Clear the pass.', at: [13.4, -101] },
+  { when: 'warden.down', done: 'beacon.lit',
+    text: 'Light the beacon at the top of the north road.', at: [13.6, -106] },
   { when: 'beacon.lit', done: 'bell.rung',
-    text: 'Ring the bell. The rope hangs in the tower\'s ground room.' },
+    text: 'Ring the bell. The rope hangs in the tower\'s ground room.', at: [-2.1, 16.6] },
   { when: 'bell.rung', done: 'chest.opened',
-    text: 'Nell says the east lead ends in something worth having.' },
+    text: 'Nell says the east lead ends in something worth having.', at: [-11.4, -15.0] },
   { when: 'chest.opened', done: 'done.epilogue',
-    text: 'The valley knows. See who noticed.' },
+    text: 'The valley knows. See who noticed.', at: [-6.2, 2.4] },
 ];
+// A SIDE ERRAND runs beside the arc: it shows in the task line only while
+// the arc has nothing more urgent, and its marker follows the animal.
+const SIDE_TASKS = [
+  { when: 'quest.sheep', done: 'sheep.home',
+    text: () => (stray && stray.following ? 'Walk the stray down to Mara\'s fold.'
+                                          : 'Mara\'s stray is up past the ruin. Get close and she will follow.'),
+    at: () => (stray && stray.following ? FOLD : (stray ? [stray.pos.x, stray.pos.z] : null)) },
+];
+const FOLD = [25.5, -6.5];
+let stray = null;
 let taskEl = null, taskText = '';
 function updateTask() {
   if (!taskEl) taskEl = document.getElementById('task');
   if (!taskEl || !flags) return;
   let text = '';
-  for (const t of TASKS) {
-    if (t.when && !flags.get(t.when)) continue;
-    if (flags.get(t.done)) continue;
+  let at = null;
+  const pick = (list) => {
+    for (const t of list) {
+      if (t.when && !flags.get(t.when)) continue;
+      if (flags.get(t.done)) continue;
+      return t;
+    }
+    return null;
+  };
+  // a side errand only takes the line while the arc is between steps
+  const main = pick(TASKS);
+  const side = pick(SIDE_TASKS);
+  const t = (side && (!main || main.done === 'caps.5' || main.done === 'done.epilogue')) ? side : main;
+  if (t) {
     text = typeof t.text === 'function' ? t.text() : t.text;
-    break;
+    at = typeof t.at === 'function' ? t.at() : t.at;
   }
   if (text !== taskText) { taskText = text; taskEl.textContent = text; }
+  if (marker) {
+    const cur = marker.target;
+    if (!at) { if (cur) marker.set(null); }
+    else if (!cur || Math.abs(cur.x - at[0]) > 0.5 || Math.abs(cur.z - at[1]) > 0.5) {
+      const y = groundAt(at[0], at[1], 30) ?? 0;
+      marker.set({ x: at[0], y, z: at[1] });
+    }
+  }
 }
 
 // What is underfoot, for the ear: the town is stone, the road is dirt, the
@@ -3115,6 +3182,45 @@ function ambienceAt(p) {
   };
 }
 
+// THE BOSS BAR: the one enemy with a title, once it has noticed you.
+const bossEl = document.getElementById('boss');
+let bossShown = null;
+function updateBossBar() {
+  if (!bossEl || !combat) return;
+  const b = combat.enemies.find((e) => e.spec && e.spec.boss && !e.dead
+    && e.state !== 'idle' && e.state !== 'wander' && e.state !== 'graze'
+    && e.pos.distanceTo(pos) < 40);
+  if (b !== bossShown) {
+    bossShown = b || null;
+    bossEl.classList.toggle('on', !!b);
+    if (b) bossEl.querySelector('.name').textContent = b.spec.title || b.name;
+  }
+  if (b) {
+    const pct = Math.max(0, Math.min(100, (b.hp / b.spec.hp) * 100));
+    bossEl.querySelector('.fill').style.width = `${pct}%`;
+    bossEl.querySelector('.lag').style.width = `${pct}%`;
+  }
+}
+
+// THE STRAY: one grazer up past the ruin that follows once you reach it.
+// Spawned late because the species loads late; home when it is at the fold.
+function updateStray() {
+  if (!combat) return;
+  if (!stray) {
+    const e = combat.spawn('woolt', -12.5, -52.5);
+    if (e) { e.stray = true; stray = e; e.home = e.pos.clone(); }
+    return;
+  }
+  if (stray.following && !flags.get('sheep.home')) {
+    if (Math.hypot(stray.pos.x - FOLD[0], stray.pos.z - FOLD[1]) < 7) {
+      flags.once('sheep.home', 'The stray is home');
+      stray.following = false;
+      stray.state = 'graze'; stray.t = 0;
+      stray.home.set(FOLD[0], stray.pos.y, FOLD[1]);
+    }
+  }
+}
+
 function stepWorld(dt) {
   if (!flags || !interact) return;
   updateTask();
@@ -3126,6 +3232,8 @@ function stepWorld(dt) {
     suppress: !!(npcs && (npcs.near || npcs.talking())) || attacking || !!carry,
   });
   for (const e of EMBERS) e.update(dt);
+  updateBossBar();
+  updateStray();
   // THE CLIMAX IS A CHANGE OF LIGHT. When the coals take, the world slides
   // to dusk over six seconds: sun low and orange, sky banded, lanterns up.
   if (flags.get('beacon.lit') && !dusk && !duskDone) startDusk();
@@ -3239,6 +3347,7 @@ function frame(dt) {
   if (cur) { cur.mixer.update(sdt); stepCarry(); applyFootIK(cur, sdt); }
   stepWorld(sdt);
   if (air) air.update(sdt, pos);
+  if (marker) marker.update(dt, pos);
   if (grass && grass.update) grass.update(pos);
   // the clouds drift with the prevailing wind, a metre or so a second
   CLOUD.offset.value.x += sdt * 0.9 * CLOUD.scale.value;
@@ -3588,6 +3697,10 @@ let SHAFTS_ON = true;
 globalThis.__shaftsOn = (v) => { SHAFTS_ON = !!v; return SHAFTS_ON; };
 globalThis.__sun = () => ({ x: +(_sunP.x * 0.5 + 0.5).toFixed(2), y: +(_sunP.y * 0.5 + 0.5).toFixed(2), z: +_sunP.z.toFixed(2), post: !!post });
 globalThis.__shafts = (strength, threshold) => post && post.setShafts(strength, threshold);
+globalThis.__slay = (name) => { const e = combat && combat.enemies.find((x) => !x.dead && (x.name === name || (x.spec && x.spec.boss && name === 'warden'))); if (!e) return 'none'; combat.slay(e); return `slew ${e.name}`; };
+globalThis.__flags_set = (k, v = true) => { if (flags) flags.set(k, v); return flags ? flags.get(k) : null; };
+Object.defineProperty(globalThis, '__marker', { get: () => marker, configurable: true });
+Object.defineProperty(globalThis, '__stray', { get: () => stray, configurable: true });
 globalThis.__cloud = (k) => { if (k !== undefined) CLOUD.strength.value = k; return CLOUD.strength.value; };
 globalThis.__movers = () => MOVERS.map((m) => `${m.name}${m.obj ? '' : '(unresolved)'} t=${m.t}`);
 globalThis.__wind = WIND;  // set .value directly to A/B the sway

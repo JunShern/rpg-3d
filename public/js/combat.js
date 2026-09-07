@@ -201,6 +201,24 @@ export const SPECIES = {
     flat: ['eye'], hostile: true,
   },
 
+  // THE WARDEN OF THE PASS. A Bellow grown half again, with the health of
+  // three and a slam that takes forty. It stands at the top of the north road
+  // where the beacon is, and the beacon cannot be lit while it does -- the arc
+  // needed a peak before the climax, and a brute you have already learned to
+  // read, scaled until reading it is the whole fight, is the honest one.
+  warden: {
+    url: '/assets/bellow.glb', far: 60, scale: 1.45,
+    hp: 420, radius: 1.10, height: 1.95, speed: 1.25,
+    notice: 22.0, strikeRange: 3.4, telegraph: 1.15, attackTime: 0.45,
+    recoverTime: 1.7, damage: 40,
+    impact: 0.62, hitArc: 2.7, poise: 999,
+    look: { hide: { rimStrength: 0.55, rimColor: 0xffc090 },
+            sack: { rimStrength: 1.0, rimColor: 0xff7040 },
+            horn: { rimStrength: 1.0, rimColor: 0xfff0c0 } },
+    tell: ['sack'],
+    flat: ['eye'], hostile: true, boss: true, title: 'The Warden of the Pass',
+  },
+
   // GRAZER, and the only thing out here that does not want to fight. It exists
   // so the meadow is inhabited before it is dangerous -- and as the palette
   // control: it is the one pale creature, so "dark shape" reliably means threat.
@@ -411,6 +429,7 @@ export function createCombat(ctx) {
     const e = instantiate(name);
     const g = ctx.groundAt(x, z, y) ?? 0;
     e.pos = new THREE.Vector3(x, g, z);
+    if (e.spec.scale) e.group.scale.setScalar(e.spec.scale);
     e.vel = new THREE.Vector3();
     e.facing = Math.random() * Math.PI * 2;
     e.hp = e.spec.hp;
@@ -997,6 +1016,26 @@ export function createCombat(ctx) {
 
   function updateAmbient(e, dt, p, dist) {
     switch (e.state) {
+      // THE STRAY. One grazer flagged `stray` is a quest: once you have
+      // come close it follows you at a lamb's distance and never spooks
+      // again, so it can be walked home. Nothing about the fold is scripted;
+      // main.js only asks where it is.
+      case 'follow': {
+        e.fly = false;
+        _v.subVectors(p, e.pos).setY(0);
+        const d = _v.length();
+        if (d > 2.2) {
+          play(e, 'move');
+          faceToward(e, p, dt, 4);
+          const want = Math.min(e.spec.speed * 1.7, e.spec.speed * (d - 1.6));
+          e.vel.addScaledVector(_v.divideScalar(d), want * 6 * dt);
+        } else {
+          e.vel.multiplyScalar(0.80);
+          play(e, e.clips.graze ? 'graze' : 'idle');
+        }
+        break;
+      }
+
       case 'idle':
       case 'graze':
         e.vel.multiplyScalar(0.80);
@@ -1072,8 +1111,11 @@ export function createCombat(ctx) {
         e.state = 'graze'; e.t = 0;
     }
 
+    // a stray that has been reached follows instead of spooking
+    if (e.stray && !e.following && dist < 3.2) { e.following = true; e.state = 'follow'; e.t = 0; }
+    if (e.following && e.state !== 'follow') { e.state = 'follow'; e.t = 0; }
     // being startled overrides everything except already running
-    if (dist < e.spec.spook && e.state !== 'flee' && e.state !== 'startle') {
+    if (!e.following && dist < e.spec.spook && e.state !== 'flee' && e.state !== 'startle') {
       spook(e);
       // PANIC IS CONTAGIOUS, and that is the entire point of the bird. One
       // going up is a detail; the flock going up together is the field
@@ -1449,6 +1491,8 @@ export function createCombat(ctx) {
 
     load, spawn, update, attack, respawn,
     toggleLock, cycleLock,
+    /** For probes: end an enemy the way a hit would, so the kill pays out. */
+    slay(e) { if (e && !e.dead) hurtEnemy(e, e.hp + 1, e.pos.clone().add(new THREE.Vector3(0, 0, 1)), 0, 0, 0, 0, 0, false); },
     get lockTarget() { return lockTarget; },
     get enemies() { return enemies; },
     player,

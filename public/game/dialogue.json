@@ -893,6 +893,18 @@
      "text": "Top of the north road, where the rock closes in. Hobb made the basket; it wants five caps to take, and it's been wanting them for three nights."
     },
     {
+     "text": "The thing at the top is dealt with, I hear. Then it's only the caps.",
+     "if": {
+      "flag": "warden.down"
+     }
+    },
+    {
+     "text": "And I'll say this once, because it's not a thing this square likes to say: something has taken to standing at the top. Big. It doesn't come down. You'll want the caps before you want to meet it.",
+     "if": {
+      "notFlag": "warden.down"
+     }
+    },
+    {
      "text": "Light it, and come back and tell me, and I'll let you tell the valley yourself."
     }
    ],
@@ -1520,6 +1532,21 @@
     {
      "text": "Are they safe out there?",
      "to": "mara.safe"
+    },
+    {
+     "text": "Your stray's at the fold.",
+     "to": "mara.home",
+     "if": {
+      "flag": "sheep.home",
+      "notFlag": "said.mara.home"
+     }
+    },
+    {
+     "text": "You're one short.",
+     "to": "mara.stray",
+     "if": {
+      "notFlag": "quest.sheep"
+     }
     },
     {
      "text": "Why does the fold care about a beacon?",
@@ -2151,6 +2178,41 @@
     }
    ],
    "next": "maren.ask"
+  },
+  "mara.stray": {
+   "speaker": "mara",
+   "lines": [
+    {
+     "text": "I am. The fourth went up past the ruin three days back and won't come to me — she's never liked me, that one."
+    },
+    {
+     "text": "Get close enough and she'll follow anybody. Walk her back down to the fold and I'll stand you the price of her, which is more than she's worth."
+    }
+   ],
+   "effects": {
+    "setFlags": {
+     "quest.sheep": true
+    }
+   },
+   "next": "mara.ask"
+  },
+  "mara.home": {
+   "speaker": "mara",
+   "lines": [
+    {
+     "text": "She is. Walked in behind you like she'd meant to all along."
+    },
+    {
+     "text": "Sixty. Don't spend it on her."
+    }
+   ],
+   "effects": {
+    "setFlags": {
+     "said.mara.home": true
+    },
+    "gold": 60
+   },
+   "next": "mara.ask"
   }
  }
 }
