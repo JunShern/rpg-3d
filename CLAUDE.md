@@ -13,7 +13,7 @@ npx playwright install chromium     # NOT in node_modules -- it lives in a
 npm run serve                       # symlinks three into public/vendor, serves :3100
 ```
 
-Then `node tools/smoke.mjs`. If it prints `64/64 passed`, the checkout is good.
+Then `node tools/smoke.mjs`. If it prints `69/69 passed`, the checkout is good.
 
 ## What you can and cannot do without Blender
 
@@ -98,14 +98,55 @@ Every one of these was paid for. They are in rough order of how often they recur
 ## Where things live
 
 ```
-public/js/          the runtime: main, combat, npc, drops, breakables, toon, terrain
-public/js/vendor/   Emberbrook's dialogue/menu/shop/game_state, byte-for-byte
-public/game/*.json  dialogue, items, shops, monsters, growth  -- all data, no code
+public/js/          the runtime
+  main.js             the spine: world load, input, camera, frame loop
+  combat.js           the fight. `onKill` and `sfx` are handed in, not imported
+  atmos.js            sky, sun, bloom, grade, and the story clock (setHour)
+  audio.js            all sound, synthesised. Three busses, a music scheduler
+  party.js            Lake and Maren: follow, target, swing
+  quest.js            the twenty minutes. Flags -> stage -> hour -> objective
+  cine.js             the cutscene camera + the shot lists
+  npc.js drops.js breakables.js toon.js terrain.js trail.js
+public/js/vendor/   Emberbrook's dialogue/menu/shop/game_state, near byte-for-byte
+public/game/*.json  dialogue, items, shops, monsters, growth -- all data, no code
 public/assets/      built glb + the manifests the runtime reads
 tools/*_build.py    Blender: geometry, characters, creatures
-tools/smoke.mjs     64 checks
+tools/smoke.mjs     the checks
 tools/shots.mjs     the capture sheet
+tools/frame.mjs     put the camera at x,y,z and look at the picture
+tools/film.mjs      record the demo to docs/film/emberbrook.mp4
 ```
+
+## The demo
+
+Twenty minutes, one thread: the town rings a bell at dusk, tonight the clapper
+pin has sheared, and somebody is still out past the ford who comes home on that
+sound. Talk to the Sexton -> take Lake off his step -> find Maren at the ruin ->
+kill a bellow for its iron -> Hobb forges the pin -> climb the tower and pull.
+
+**The deadline is the lighting.** No timer, no fail state: `quest.js` walks
+`atmos.setHour()` from 0 to 1 as the flags advance, which takes the sun from 37
+degrees to 6, warms the key light, closes the fog and brings the street lamps
+up on a curve. Skip to any beat with `quest.skipTo('q.pin')`.
+
+## Things that will bite you again
+
+- **`window.__ready` does not exist.** Wait on
+  `typeof window.__sim === "function"` and then on `combat.enemies.length > 0`,
+  the way `smoke.mjs` does. An invented flag plus `.catch(() => {})` hid this
+  for an entire session.
+- **`frame()` already advances the cutscene.** Stepping `cine` yourself as well
+  runs every sequence at double speed; it finishes halfway through its shot list
+  and the gameplay camera takes over mid-take, which looks plausible.
+- **Audio is rendered, never heard.** Measure it: `OfflineAudioContext`, sounds
+  scheduled on the AUDIO clock (a `setTimeout` lands after an offline render has
+  already finished, and everything measures as silence).
+- **Tone map once.** The scene renders with `NoToneMapping`; ACES and the sRGB
+  encode happen at the end of the grade shader. Adding an `OutputPass` curves
+  the image twice.
+- **Place cameras by looking.** `node tools/frame.mjs "x,y,z  lx,ly,lz  fov"`.
+  The first cinematic in this project was placed by reasoning and pointed the
+  hero shot at a blank wall.
 
 Adding a character is a row in `char_build.CHARACTERS`. Adding an item, a shop
 or a monster is a JSON entry. Adding a townsperson is a row in `NPC_ROSTER` plus

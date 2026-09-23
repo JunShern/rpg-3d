@@ -1854,10 +1854,18 @@ async function run() {
   // the trigger is not the bell, which hangs 2.1 m over the belfry floor
   // against a 1.55 m swing. It is the sally on the rope, in the GROUND ROOM,
   // twenty metres under the thing it moves.
-  await check('swinging at the rope rings the bell', () => {
+  await check('swinging at the rope rings the bell', async () => {
     let bell = null;
     scene.traverse((o) => { if (o.name === 'MOVE_bell') bell = o; });
     if (!bell) return { ok: false, detail: 'MOVE_bell is not in the scene' };
+    // THE PIN HAS TO BE MENDED FIRST -- which is the demo, not a workaround.
+    // This check predates the story and asserted that a rope always rings a
+    // bell; it now does not, on purpose, and the check reporting 0.00 mm of
+    // movement was the new behaviour working exactly as written. Rule (q)
+    // wearing a different hat: a check that does not pin its preconditions is
+    // measuring whatever the game last decided they were.
+    await GS.ready;
+    quest.skipTo('q.pin');
     __sim({ warp: [-1.5, 0.5, 16.2], az: 0, steps: 20 });
     __face(-2.1, 16.6);
     const before = bell.matrix.elements.slice();
@@ -2155,6 +2163,138 @@ async function run() {
                      + (ok ? '' : ` | heaviest in frame: ${big.slice(0, 8).join(' ')}`) };
     }, { x, z, az, maxMeshes, maxTris });
   }
+
+  group('Presentation');
+
+  // THE GAME MAKES A SOUND, AND THE MIX IS RIGHT.
+  //
+  // Audio is the one subsystem here with no visual trace at all, so "it did
+  // not throw" is exactly what a silent bug looks like. This renders each
+  // sound offline at full resolution and reads its actual peak -- which is how
+  // the first mix was caught putting a full combo 13 dB below a menu fanfare.
+  //
+  // Scheduled on the AUDIO clock, not with setTimeout: an offline render
+  // outruns wall clock, so a setTimeout lands after the render has finished
+  // and every sound measures as silence.
+  await check('every sound is audible, balanced and does not clip', async () => {
+    const r = await page.evaluate(async () => {
+      const { makeAudio } = await import('/js/audio.js');
+      const out = {};
+      for (const n of ['step_stone', 'swing', 'hit_hard', 'crit', 'hurt',
+                       'bell', 'pod', 'coin', 'levelup', 'ui_ok']) {
+        const oac = new OfflineAudioContext(2, 44100 * 3, 44100);
+        const real = window.AudioContext;
+        window.AudioContext = function () { return oac; };
+        const a = makeAudio(); a.boot();
+        window.AudioContext = real;
+        a.play(n, null, 1.0);
+        const buf = await oac.startRendering();
+        const L = buf.getChannelData(0);
+        let peak = 0;
+        for (let i = 0; i < L.length; i++) { const v = Math.abs(L[i]); if (v > peak) peak = v; }
+        out[n] = +(20 * Math.log10(peak || 1e-6)).toFixed(1);
+      }
+      return out;
+    });
+    const silent = Object.entries(r).filter(([, db]) => db < -30).map(([k]) => k);
+    const clipped = Object.entries(r).filter(([, db]) => db > -0.5).map(([k]) => k);
+    // THE FIGHT SITS AT THE TOP OF THE MIX. A finisher quieter than a UI blip
+    // is the specific failure this exists to catch.
+    const ordered = r.crit > r.ui_ok + 6 && r.hit_hard > r.ui_ok + 4;
+    return { ok: !silent.length && !clipped.length && ordered,
+             detail: `finisher ${r.crit} dBFS · hit ${r.hit_hard} · hurt ${r.hurt} · `
+                   + `bell ${r.bell} · UI ${r.ui_ok}`
+                   + `${silent.length ? ' | SILENT: ' + silent.join(',') : ''}`
+                   + `${clipped.length ? ' | CLIPPED: ' + clipped.join(',') : ''}`
+                   + `${ordered ? '' : ' | the fight is not above the UI'}` };
+  });
+
+  // THE AFTERNOON ACTUALLY GOES DOWN.
+  //
+  // The story's deadline IS the lighting, so if the clock stops moving the
+  // demo loses its only sense of time and nothing whatsoever reports it. That
+  // is not hypothetical: the `evening` preset failed to get written once, and
+  // `blend()` returned quietly, and the sun stayed at half past three for an
+  // entire play-through while every probe said the lighting was fine.
+  await check('the story clock brings the sun down', () => {
+    const read = (h) => { __atmos.setHour(h); return __atmos._debug(); };
+    const a = read(0), b = read(0.5), c = read(1.0);
+    const fell = a.sunEl > b.sunEl + 4 && b.sunEl > c.sunEl + 2;
+    const bloomed = c.bloom > a.bloom;
+    const closed = c.fogFar < a.fogFar;
+    __atmos.setHour(0);
+    return { ok: fell && bloomed && closed,
+             detail: `sun ${a.sunEl}° -> ${b.sunEl}° -> ${c.sunEl}° · `
+                   + `bloom ${a.bloom} -> ${c.bloom} · fog ${a.fogFar}m -> ${c.fogFar}m`
+                   + `${fell ? '' : ' | THE SUN DID NOT MOVE'}` };
+  });
+
+  // THE PARTY WALKS WITH YOU AND FIGHTS.
+  await check('the party follows and lands hits', async () => {
+    await GS.ready;
+    GS.reset();
+    quest.skipTo('q.maren');
+    __sim({ warp: [0.5, 2, 6.2], az: 0, steps: 20 });
+    party.warp(0.5, 6.2, 0);
+    const joined = party.size;
+
+    // walk, and see whether they keep up
+    for (let i = 0; i < 150; i++) __sim({ steps: 1, az: 0.4, held: ['KeyW'] });
+    __sim({ steps: 4 });
+    const p = __sim({ steps: 0 }).heroPos;
+    const gaps = party.members.map((m) => Math.hypot(m.pos.x - p[0], m.pos.z - p[2]));
+    const kept = Math.max(...gaps);
+
+    // and whether they hit something
+    const t = window.__t.faceOff('curler', p[0] + 2.2, p[2], 1.6);
+    const before = party.members.reduce((a, m) => a + m.hits, 0);
+    for (let i = 0; i < 260; i++) __sim({ steps: 1 });
+    const landed = party.members.reduce((a, m) => a + m.hits, 0) - before;
+    GS.reset();
+    return { ok: joined === 2 && kept < 7 && landed > 0,
+             detail: `${joined} joined · furthest behind after 150 frames of running `
+                   + `${kept.toFixed(1)} m · they landed ${landed} hit(s) in 260 frames` };
+  });
+
+  // THE BELL ONLY RINGS WHEN IT HAS A CLAPPER.
+  //
+  // The whole demo turns on this: pulling the rope before the pin is mended
+  // has to give you rope and no bell, and it has to be legible as the story
+  // rather than as a broken trigger.
+  await check('the bell is silent until the pin is mended', async () => {
+    await GS.ready;
+    GS.reset();
+    quest.skipTo('q.accepted');
+    const early = quest.onBellRung();
+    quest.skipTo('q.pin');
+    const real = quest.onBellRung();
+    const twice = quest.onBellRung();
+    const rung = quest.rung;
+    GS.reset();
+    return { ok: early === false && real === true && twice === false && rung,
+             detail: `before the pin: ${early} (must be false) · with it: ${real} · `
+                   + `a second pull: ${twice} (must be false, it is already rung)` };
+  });
+
+  // A CUTSCENE RUNS AND GIVES THE CAMERA BACK.
+  //
+  // A sequence that ends without releasing the camera is unrecoverable -- the
+  // player is left looking at a fixed view of a wall with no way out.
+  await check('a cutscene plays and hands the camera back', () => {
+    const before = camera.position.clone();
+    __cine.play(__scenes.open);
+    const total = __cine.duration(__scenes.open);
+    for (let i = 0; i < Math.ceil(total * 30) + 4; i++) __sim({ steps: 1, dt: 1 / 30 });
+    const stillOn = __cine.active;
+    const bars = document.getElementById('cinebars');
+    const barsOff = !bars || !bars.classList.contains('on');
+    __sim({ warp: [0.5, 2, 6.2], az: 0, steps: 20 });
+    const moved = camera.position.distanceTo(before);
+    return { ok: !stillOn && barsOff && camera.fov === 52,
+             detail: `${__scenes.open.length} shots, ${total.toFixed(1)} s · `
+                   + `released: ${!stillOn} · letterbox cleared: ${barsOff} · `
+                   + `fov back to ${camera.fov} · camera moved ${moved.toFixed(1)} m after` };
+  });
 
   group('Console');
   record('no page errors', errors.length === 0,
