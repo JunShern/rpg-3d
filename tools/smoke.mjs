@@ -2142,6 +2142,13 @@ async function run() {
       // how many of them there are, not by a triangle ceiling.
       for (const n of (window.npcs && window.npcs.bodies) || [])
         n.traverse((o) => living.add(o));
+      // AND THE PARTY, for exactly the same reason, one release later. Lake and
+      // Maren wear the FULL rigs -- 44k and 42k triangles -- and the day they
+      // started following you the plaza, the path and the ridge all went over
+      // budget and reported it as the WORLD having grown. The heaviest-in-frame
+      // list named them (`tripo_mesh_...`), which is the whole reason it exists.
+      for (const m of (window.party && window.party.members) || [])
+        m.group.traverse((o) => living.add(o));
       let tris = 0, meshes = 0;
       const big = [];
       scene.traverse((o) => {
@@ -2176,8 +2183,11 @@ async function run() {
   // Scheduled on the AUDIO clock, not with setTimeout: an offline render
   // outruns wall clock, so a setTimeout lands after the render has finished
   // and every sound measures as silence.
+  // NOTE: the body of a `check` is serialised and run INSIDE THE PAGE, so it
+  // cannot reach `page` -- that is a node-side handle. The first version of
+  // this nested a `page.evaluate` inside and threw `page is not defined`.
   await check('every sound is audible, balanced and does not clip', async () => {
-    const r = await page.evaluate(async () => {
+    const r = await (async () => {
       const { makeAudio } = await import('/js/audio.js');
       const out = {};
       for (const n of ['step_stone', 'swing', 'hit_hard', 'crit', 'hurt',
@@ -2195,7 +2205,7 @@ async function run() {
         out[n] = +(20 * Math.log10(peak || 1e-6)).toFixed(1);
       }
       return out;
-    });
+    })();
     const silent = Object.entries(r).filter(([, db]) => db < -30).map(([k]) => k);
     const clipped = Object.entries(r).filter(([, db]) => db > -0.5).map(([k]) => k);
     // THE FIGHT SITS AT THE TOP OF THE MIX. A finisher quieter than a UI blip
@@ -2294,6 +2304,131 @@ async function run() {
              detail: `${__scenes.open.length} shots, ${total.toFixed(1)} s · `
                    + `released: ${!stillOn} · letterbox cleared: ${barsOff} · `
                    + `fov back to ${camera.fov} · camera moved ${moved.toFixed(1)} m after` };
+  });
+
+  // ---------------------------------------------------------------------
+  // CAN A PERSON ACTUALLY FINISH IT.
+  //
+  // Everything above tests a system. This tests the DEMO: it walks the whole
+  // twenty minutes the way a player does -- find the Sexton and talk, take
+  // Lake off his step, walk out to the ruin for Maren, kill a bellow, carry
+  // the iron back to Hobb, climb the tower, pull the rope -- touching nothing
+  // but the inputs a player has.
+  //
+  // It is deliberately the last check and deliberately the slowest. Every
+  // system in this file can pass while the thing they add up to is impossible:
+  // an NPC 30 cm inside a wall, a flag that never gets set, a quest stage whose
+  // objective points at somewhere you cannot reach. None of those are visible
+  // from a unit test and all of them end the demo.
+  await check('a player can finish the demo', async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    await GS.ready;
+    GS.reset();
+    if (window.drops) drops.clear();
+    const log = [];
+
+    /** Walk to a point using only WASD, the way a player would. */
+    const walkTo = (x, z, cap = 900) => {
+      for (let i = 0; i < cap; i++) {
+        const h = __sim({ steps: 0 }).heroPos;
+        if (Math.hypot(x - h[0], z - h[2]) < 1.6) return true;
+        __sim({ steps: 1, az: Math.atan2(h[0] - x, h[2] - z), held: ['KeyW'] });
+      }
+      return false;
+    };
+
+    /** Open whoever is in reach and run their conversation to the end. */
+    const talk = async (pick = []) => {
+      if (!npcs.tryTalk()) return false;
+      for (let i = 0; i < 60 && !Dialogue.isOpen; i++) await wait(25);
+      let guard = 0;
+      while (Dialogue.isOpen && guard++ < 60) {
+        const d = Dialogue.debug();
+        if (d.mode === 'choice') {
+          const want = pick.shift();
+          const idx = want === undefined ? 0
+            : (d.choices || []).findIndex((c) => c.toLowerCase().includes(want));
+          for (let k = 0; k < Math.max(0, idx); k++) Dialogue.key('down');
+          Dialogue.key('confirm');
+        } else {
+          Dialogue.finishLine();
+          Dialogue.key('confirm');
+        }
+        await wait(45);
+      }
+      if (Dialogue.isOpen) Dialogue.close();
+      await wait(120);
+      __sim({ steps: 2 });
+      return true;
+    };
+
+    const flag = (f) => !!(GS.state.flags && GS.state.flags[f]);
+
+    // ---- 1. the Sexton, at the tower --------------------------------
+    const sx = npcs.at('sexton');
+    __sim({ warp: [sx.x + 3.5, 2, sx.z - 4.0], az: 0, steps: 24 });
+    walkTo(sx.x, sx.z + 1.4);
+    __sim({ steps: 3 });
+    await talk(['mended', "i'll go"]);
+    log.push(`sexton:${flag('q.accepted') ? 'ok' : 'FAILED'}`);
+
+    // ---- 2. Lake, on his step ---------------------------------------
+    const lk = npcs.at('lake');
+    walkTo(lk.x + 1.2, lk.z + 1.2);
+    __sim({ steps: 3 });
+    await talk(['bell', 'come with me']);
+    log.push(`lake:${flag('q.lake') ? 'joined' : 'FAILED'}`);
+
+    // ---- 3. Maren, out at the ruin ----------------------------------
+    // Warped rather than walked: it is 60 m of meadow with encounters in it,
+    // and "can you cross the meadow" is already three checks above this one.
+    const mr = npcs.at('maren');
+    __sim({ warp: [mr.x + 2.5, 3, mr.z - 2.5], az: 0, steps: 24 });
+    walkTo(mr.x, mr.z + 1.3);
+    __sim({ steps: 3 });
+    await talk(['dusk', 'help me']);
+    log.push(`maren:${flag('q.maren') ? 'joined' : 'FAILED'}`);
+
+    // ---- 4. the iron -------------------------------------------------
+    const rng = Math.random;
+    Math.random = () => 0;                 // make the 45% drop land
+    const t = window.__t.faceOff('bellow', mr.x + 4, mr.z + 2, 1.6);
+    const kill = window.__t.killPinned(t, 40);
+    __sim({ steps: 60 });
+    for (let i = 0; i < 260 && drops.count; i++) {
+      const h = __sim({ steps: 0 }).heroPos;
+      __sim({ steps: 1, az: Math.atan2(h[0] - (mr.x + 4), h[2] - (mr.z + 2)), held: ['KeyW'] });
+    }
+    Math.random = rng;
+    __sim({ steps: 6 });
+    log.push(`bellow:${kill.dead ? 'down' : 'ALIVE'} iron:${GS.count('iron-scale')}`);
+
+    // ---- 5. Hobb ------------------------------------------------------
+    const hb = npcs.at('hobb');
+    __sim({ warp: [hb.x + 3.0, 2, hb.z - 3.0], az: 0, steps: 24 });
+    walkTo(hb.x, hb.z + 1.4);
+    __sim({ steps: 3 });
+    await talk(['pin']);
+    log.push(`hobb:${flag('q.pin') ? 'forged' : 'FAILED'}`);
+
+    // ---- 6. back to the Sexton, then the rope -------------------------
+    __sim({ warp: [sx.x + 2.5, 2, sx.z - 3.0], az: 0, steps: 24 });
+    walkTo(sx.x, sx.z + 1.4);
+    __sim({ steps: 3 });
+    await talk();
+    __sim({ warp: [-1.5, 0.5, 16.2], az: 0, steps: 20 });
+    __face(-2.1, 16.6);
+    __sim({ attack: true, steps: 18 });
+    __sim({ steps: 6 });
+    log.push(`rung:${flag('q.rung') ? 'YES' : 'no'}`);
+
+    const done = flag('q.rung');
+    const stage = quest._debug();
+    GS.reset();
+    if (window.drops) drops.clear();
+    return { ok: done && flag('q.lake') && flag('q.maren'),
+             detail: `${log.join(' · ')} · ended on stage ${stage.stage}/${stage.of} `
+                   + `at hour ${stage.hour}` };
   });
 
   group('Console');

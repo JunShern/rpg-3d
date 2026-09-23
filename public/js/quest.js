@@ -24,7 +24,11 @@
 // permission to have Lake join you.
 
 export const STAGES = [
-  { flag: null,          hour: 0.00, text: 'Emberbrook. The light is going.' },
+  // THE FIRST LINE HAS TO POINT SOMEWHERE. "Emberbrook. The light is going."
+  // is atmosphere, and atmosphere is not an objective: a player dropped into a
+  // square with nine people in it and twenty minutes on the clock needs to
+  // know which one to walk at.
+  { flag: null,          hour: 0.00, text: 'The bell did not ring. Find the Sexton, under the tower.' },
   { flag: 'q.start',     hour: 0.08, text: 'The Sexton is at the tower.' },
   { flag: 'q.accepted',  hour: 0.16, text: 'Find iron. A bellow, out past the ford.' },
   { flag: 'q.lake',      hour: 0.22, text: 'Out past the ford. Find the bellow.' },

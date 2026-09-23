@@ -691,8 +691,21 @@ const NPC_ROSTER = [
   // Maren is at the ruin, thirty metres off the road, which is the point of
   // the ruin. Finding somebody you know out in the meadow is worth more than
   // one more person in the square.
+  // ON THE BOTTOM STEP, not up on the gallery deck where he used to sit.
+  //
+  // The deck is 1.1 m above the square and `STEP_MAX` is 0.45, so it can only
+  // be reached by the stair round the far side -- and Lake is a REQUIRED party
+  // member in a twenty-minute demo. The end-to-end check walked at him for
+  // seven hundred frames, stopped 7.5 m short against the deck edge, and
+  // reported `lake:FAILED`; a player would have done the same thing and
+  // concluded the game was broken.
+  //
+  // He keeps the character. "It's a good step. You can see everyone arrive and
+  // nobody sees you" is still true at the foot of a flight facing the square --
+  // and a man who has been leaving for twenty-two days sitting on the bottom
+  // step rather than the top one is arguably better.
   { id: 'lake',   name: 'Lake',       rig: 'lake.npc',
-    x: 11.4, z: -7.6,  facing: 250, dialogue: 'lake.hail' },
+    x: 5.6,  z: -4.4,  facing: 250, dialogue: 'lake.hail' },
   { id: 'maren',  name: 'Maren',      rig: 'maren.npc',
     x: -13.4, z: -49.6, facing: 30, dialogue: 'maren.hail' },
 ];
