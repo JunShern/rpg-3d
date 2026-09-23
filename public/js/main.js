@@ -16,6 +16,7 @@ import { makeAudio } from './audio.js';
 import { makeAtmos } from './atmos.js';
 import { makeParty } from './party.js';
 import { makeQuest } from './quest.js';
+import { makeCine, SCENES } from './cine.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import {
   toonMaterial, flatMaterial, outlineMaterial, outlineGeometry, skyDome,
@@ -666,12 +667,18 @@ const NPC_ROSTER = [
   // rigs those portraits were drawn for. The other four borrow a rig and are
   // tinted, which is exactly how Emberbrook dresses thirty-nine people in six
   // bodies: a toon ramp reads silhouette and value long before it reads a face.
-  { id: 'tally',  name: 'Tally',      rig: 'maren.npc', tint: '#cfc6b4', scale: 0.95,
+  // CAST AGAINST THE PORTRAIT, and this pair has now been swapped TWICE --
+  // which is the cost of casting from a name instead of from the art. The
+  // `tally` plate is a bald man in glasses and a sashed robe; `elder-woman` is
+  // an old woman with a shawl and her knitting. The Sexton's own writing says
+  // she rang the bell the night her husband died, so she is the elder woman,
+  // and the market trader is the man in the robe.
+  { id: 'tally',  name: 'Tally',      rig: 'finn.npc',  tint: '#d8c7a4',
     x: -6.2, z: 2.4,   facing: 150, dialogue: 'tally.hail' },
   { id: 'hobb',   name: 'Hobb',       rig: 'lake.npc',  tint: '#c9a184',
     x: 15.6, z: -1.4,  facing: 210, dialogue: 'hobb.hail' },
-  { id: 'sexton', name: 'The Sexton', rig: 'finn.npc',  tint: '#a9a4b4', scale: 0.97,
-    x: -2.6, z: 11.2,  facing: 200, dialogue: 'sexton.hail' },
+  { id: 'sexton', name: 'The Sexton', rig: 'maren.npc', tint: '#b3aec0', scale: 0.93,
+    x: -2.6, z: 11.2,  facing: 196, dialogue: 'sexton.hail' },
   { id: 'nell',   name: 'Nell',       rig: 'pip.npc',   tint: '#f0d79a', scale: 0.74,
     x: 3.4,  z: 1.2,   facing: 40,  dialogue: 'nell.hail' },
   { id: 'finn',   name: 'Finn',       rig: 'finn.npc',
@@ -694,6 +701,7 @@ let npcs = null;
 let drops = null;
 let party = null;
 let quest = null;
+const cine = makeCine({ camera, scene });
 
 // ------------------------------------------------------- what you just got
 //
@@ -2786,6 +2794,11 @@ function frame(dt) {
   // while a conversation is frozen over the top of it.
   if (drops) drops.update(sdt);
   updateSoundscape(dt);
+  // A CUTSCENE OWNS THE CAMERA. `updateCamera` has already run this frame and
+  // put the rig where gameplay wants it; the cine step overwrites that, which
+  // is the correct order -- trying to suppress the gameplay camera instead
+  // means every future change to it has to remember this feature exists.
+  if (cine.active) cine.step(dt);
   atmos.render();
   hud.textContent =
     `${fps} fps  ·  ${cur ? cur.name : '—'}  ·  ${combat && combat.isStaggered() ? 'hurt' : slip.t > 0 ? 'slip' : attacking ? 'attack' : !grounded ? 'air'
@@ -2827,6 +2840,7 @@ Object.defineProperty(globalThis, 'npcs', { get: () => npcs, configurable: true 
 Object.defineProperty(globalThis, 'drops', { get: () => drops, configurable: true });
 Object.defineProperty(globalThis, 'party', { get: () => party, configurable: true });
 Object.defineProperty(globalThis, 'quest', { get: () => quest, configurable: true });
+Object.assign(globalThis, { __cine: cine, __scenes: SCENES });
 Object.assign(globalThis, { __audio: audio, __atmos: atmos });
 globalThis.__preset = (n) => { atmos.apply(n); return atmos._debug(); };
 Object.defineProperty(globalThis, '__actx', { get: () => audio.ctx, configurable: true });

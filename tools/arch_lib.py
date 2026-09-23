@@ -1794,6 +1794,26 @@ def belltower(t, cx, cy, base=2.35, storeys=4, yaw=0.0, hollow=True):
                                    (inner, th, 0.25), M["stone"], bevel=0.04, seg=2))
                     t.solid(cx, cy + (inner + w) / 2, inner, th, yaw,
                             top=z0 + 3.90, base=z0 + 3.40)
+                    # A SILL UNDER EACH OPENING, and it is the difference
+                    # between an arcade and a missing wall.
+                    #
+                    # The opening itself is load-bearing for the CAMERA -- the
+                    # boom has to be able to leave the building on the stair,
+                    # which is why this face is open at all and why closing it
+                    # is not on the table. But floor-to-header voids stacked
+                    # four high read as scaffolding: from the square the tower
+                    # looked like a building somebody had stopped working on,
+                    # which is a poor showing for the thing the whole demo is
+                    # about.
+                    #
+                    # 0.52 m is below the camera's lowest useful height on the
+                    # stair and above the eye of anybody standing in the square,
+                    # so it costs nothing and closes the bottom of every void.
+                    # A loggia has one; that is what makes a loggia read.
+                    out.append(box(f"tower_sill{i}", (cx, cy + (inner + w) / 2, z0 + 0.26),
+                                   (inner, th * 1.06, 0.26), M["stone"], bevel=0.05, seg=2))
+                    t.solid(cx, cy + (inner + w) / 2, inner, th, yaw,
+                            top=z0 + 0.52, base=z0)
                     continue
                 out.append(box(f"tower_wy{i}", (cx, cy + sy * (inner + w) / 2, z0 + 1.95),
                                (inner, th, 1.95), M["stone"], bevel=0.05, seg=2))
