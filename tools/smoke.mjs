@@ -2428,11 +2428,18 @@ async function run() {
     __sim({ steps: 6 });
     log.push(`rung:${flag('q.rung') ? 'YES' : 'no'}`);
 
+    // READ EVERYTHING BEFORE THE RESET. `done` was captured and the other two
+    // were not, so they were evaluated against a freshly wiped save and came
+    // back false -- the check reported a failure whose own detail line read
+    // `lake:joined · maren:joined · rung:YES`. A verdict that disagrees with
+    // the evidence printed next to it is the verdict that is wrong.
     const done = flag('q.rung');
+    const hadLake = flag('q.lake');
+    const hadMaren = flag('q.maren');
     const stage = quest._debug();
     GS.reset();
     if (window.drops) drops.clear();
-    return { ok: done && flag('q.lake') && flag('q.maren'),
+    return { ok: done && hadLake && hadMaren,
              detail: `${log.join(' · ')} · ended on stage ${stage.stage}/${stage.of} `
                    + `at hour ${stage.hour}` };
   });
