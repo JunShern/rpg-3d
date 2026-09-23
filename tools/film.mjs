@@ -49,12 +49,16 @@ const TMP = '/tmp/rpg-film';
 // `kind: 'cine'`  -- run a sequence from cine.js
 // `kind: 'play'`  -- drive the actual game: walk, fight, talk
 const CUT = [
-  { kind: 'cine', scene: 'open', hour: 0.10,
+  { kind: 'cine', scene: 'open', hour: 0.10, zone: 'town',
     setup: `quest.skipTo('q.start');` },
 
   // GAMEPLAY. The party walking the square at late afternoon -- this is the
   // shot that says the thing the whole session was for: three people, moving.
-  { kind: 'play', secs: 7.0, hour: 0.30,
+  { kind: 'play', secs: 7.0, hour: 0.30, zone: 'town',
+    // footfalls, so the walk has a floor under it
+    cue: [[0.4, 'step_stone', 0.5], [1.0, 'step_stone', 0.5], [1.6, 'step_stone', 0.5],
+          [2.2, 'step_stone', 0.5], [2.8, 'step_stone', 0.5], [3.4, 'step_stone', 0.5],
+          [4.0, 'step_stone', 0.5], [4.6, 'step_stone', 0.5], [5.2, 'step_stone', 0.5]],
     setup: `
       quest.skipTo('q.maren');
       __sim({ warp: [2.0, 0, 9.5], az: 0.30, polar: 1.20, dist: 6.4, steps: 20 });
@@ -62,7 +66,14 @@ const CUT = [
     drive: `(f) => __sim({ steps: 1, az: 0.30 + f * 0.0016, held: ['KeyW'] })` },
 
   // A FIGHT, with the party in it.
-  { kind: 'play', secs: 8.5, hour: 0.42,
+  { kind: 'play', secs: 8.5, hour: 0.42, zone: 'battle',
+    // a combo, then the party joining in
+    cue: [[1.1, 'swing', 0.9], [1.28, 'hit_hard', 0.9],
+          [1.7, 'swing2', 0.9], [1.88, 'hit_hard', 0.9],
+          [2.4, 'swing3', 1.0], [2.62, 'crit', 1.0],
+                    [4.2, 'swing3', 0.9], [4.45, 'crit', 1.0], [4.9, 'die', 0.9],
+          [5.7, 'coin', 0.7],
+          [6.9, 'swing', 0.9], [7.1, 'hit_hard', 0.9]],
     setup: `
       quest.skipTo('q.maren');
       __sim({ warp: [6, 0, -46], az: 0.7, polar: 1.18, dist: 7.0, steps: 20 });
@@ -77,7 +88,10 @@ const CUT = [
     }` },
 
   // A CONVERSATION, so the writing and the portraits are in the film.
-  { kind: 'play', secs: 9.0, hour: 0.55, wait: 900,
+  { kind: 'play', secs: 9.0, hour: 0.55, wait: 900, zone: 'hush',
+    // the voice blips under the typewriter, pitched for the Sexton
+    cue: Array.from({ length: 46 }, (_, i) => [0.7 + i * 0.085, 'blip', 0.8])
+           .concat([[5.2, 'ui_ok', 0.7]]),
     setup: `
       quest.skipTo('q.accepted');
       const n = npcs.at('sexton');
@@ -89,13 +103,17 @@ const CUT = [
       __sim({ steps: 1 });
     }` },
 
-  { kind: 'cine', scene: 'ring', hour: 0.97,
+  { kind: 'cine', scene: 'ring', hour: 0.97, zone: 'hush',
+    // THE BELL, three times, at the top of the second shot. Everything the
+    // demo is for lands on these three strikes -- and they are spaced 3.1 s
+    // apart because the Sexton says to count to three after, and a bell whose
+    // partials have not finished before the next strike is a bell in a hurry.
+    cue: [[2.2, 'bell', 1.0], [5.3, 'bell', 1.0], [8.4, 'bell', 0.95]],
     setup: `
       quest.skipTo('q.cleared');
       GS.state.flags['q.rung'] = true;
       __sim({ warp: [-1, 0, 13.5], az: 0, steps: 20 });`,
-    // the bell is struck at the top of the shaft climb, 6 s in
-    at: [[6.4, `__audio.play('bell', { x: -1, y: 22.4, z: 15.5 }, 1.0);`]] },
+    at: [[2.2, `__audio.play('bell', { x: -1, y: 22.4, z: 15.5 }, 1.0);`]] },
 ];
 
 // ------------------------------------------------------------------- video
@@ -140,11 +158,78 @@ async function frames(pg, shot, dir, index) {
   return count;
 }
 
-// AUDIO IS MUXED IN A SECOND PASS -- see `tools/score.mjs`. It is not captured
-// from the page: there is no way to pull a WebAudio graph out of headless
-// Chromium, and the music is synthesised from a score this project owns, so it
-// is cheaper and more exact to render the same events offline and hand ffmpeg a
-// WAV than to try to record a speaker that does not exist.
+// ------------------------------------------------------------------- audio
+//
+// RENDERED, NOT RECORDED. There is no way to pull a WebAudio graph out of
+// headless Chromium -- there is no speaker and no capture device. But the
+// music is synthesised from a score this project owns, so the soundtrack is
+// produced by running the same engine against an OfflineAudioContext with the
+// same events at the same timestamps. It is the same music arrived at the
+// other way round, and it is sample-exact rather than a recording of a
+// browser trying to keep up.
+//
+// EVERYTHING IS SCHEDULED ON THE AUDIO CLOCK. `setTimeout` runs on wall clock
+// and an offline render outruns wall clock, so a timer-driven note lands after
+// the render has already finished. That mistake once had me believing the
+// entire engine was silent.
+async function renderAudio(pg, cues, seconds) {
+  const pcm = await pg.evaluate(async ([cues, secs]) => {
+    const { makeAudio } = await import('/js/audio.js');
+    const oac = new OfflineAudioContext(2, Math.ceil(44100 * secs), 44100);
+    const real = window.AudioContext;
+    window.AudioContext = function () { return oac; };
+    const a = makeAudio();
+    a.boot();
+    window.AudioContext = real;
+
+    a.ambience({ wind: 0.16, birds: 0.30, water: 0, forge: 0 });
+
+    // walk the zones, pumping the scheduler up to each change
+    let t = 0;
+    for (const [at, zone] of cues.zones) {
+      if (at > t) { a.pump(at); t = at; }
+      a.cut(zone);
+    }
+    a.pump(secs);
+
+    for (const [at, name, vol] of cues.sfx) a.playAt(at, name, vol);
+
+    const buf = await oac.startRendering();
+    const L = buf.getChannelData(0), R = buf.getChannelData(1);
+
+    // NORMALISE BEFORE QUANTISING, and this is where the clipping actually
+    // was. Clamping a float to +-32767 is hard clipping: a fight that sums
+    // fifteen one-shot graphs over a battle theme goes past 1.0, every sample
+    // above it becomes the same value, and the result is a square wave that
+    // no amount of downstream `loudnorm` can un-square -- it was still
+    // reporting a 0.0 dB peak after mastering, which is what gave it away.
+    let peak = 0;
+    for (let i = 0; i < L.length; i++) {
+      const v = Math.max(Math.abs(L[i]), Math.abs(R[i]));
+      if (v > peak) peak = v;
+    }
+    const g = peak > 0.89 ? 0.89 / peak : 1;
+    const out = new Int16Array(L.length * 2);
+    for (let i = 0; i < L.length; i++) {
+      out[i * 2]     = Math.round(L[i] * g * 32767);
+      out[i * 2 + 1] = Math.round(R[i] * g * 32767);
+    }
+    return { pcm: Array.from(new Uint8Array(out.buffer)),
+             peak: +peak.toFixed(3), gain: +g.toFixed(3) };
+  }, [cues, seconds]);
+  console.log(`  score peak ${pcm.peak} -> scaled by ${pcm.gain}`);
+  return Buffer.from(pcm.pcm);
+}
+
+function wav(pcm, rate = 44100, ch = 2) {
+  const h = Buffer.alloc(44);
+  h.write('RIFF', 0); h.writeUInt32LE(36 + pcm.length, 4); h.write('WAVE', 8);
+  h.write('fmt ', 12); h.writeUInt32LE(16, 16); h.writeUInt16LE(1, 20);
+  h.writeUInt16LE(ch, 22); h.writeUInt32LE(rate, 24);
+  h.writeUInt32LE(rate * ch * 2, 28); h.writeUInt16LE(ch * 2, 32);
+  h.writeUInt16LE(16, 34); h.write('data', 36); h.writeUInt32LE(pcm.length, 40);
+  return Buffer.concat([h, pcm]);
+}
 
 // -------------------------------------------------------------------- main
 async function main() {
@@ -173,8 +258,14 @@ async function main() {
   await pg.evaluate(async () => { await window.GS.ready; });
 
   let index = 0;
+  const cues = { zones: [], sfx: [] };
   const list = ONLY ? CUT.filter((c) => c.scene === ONLY || c.kind === ONLY) : CUT;
   for (const [i, shot] of list.entries()) {
+    // THE SOUNDTRACK IS BUILT FROM THE SAME SHOT LIST, at the timestamps the
+    // frames actually land on -- so it cannot drift out of sync with the cut.
+    const t0 = index / FPS;
+    if (shot.zone) cues.zones.push([t0, shot.zone]);
+    for (const [at, name, vol] of shot.cue || []) cues.sfx.push([t0 + at, name, vol]);
     await pg.evaluate(([code, h]) => {
       __cine.stop();
       if (h !== undefined) { __atmos.setHour(h); }
@@ -191,13 +282,26 @@ async function main() {
   const secs = index / FPS;
   console.log(`\n${index} frames = ${secs.toFixed(1)} s`);
 
-  await browser.close();
+  const browserClose = () => browser.close();
 
   // ---- encode ----
   const mp4 = `${OUT}/emberbrook.mp4`;
+  const wavPath = `${TMP}/score.wav`;
+  await writeFile(wavPath, wav(await renderAudio(pg, cues, secs + 1.2)));
+  console.log(`rendered ${(secs + 1.2).toFixed(1)} s of score`);
+  await browserClose();
+
+  // MASTERED, because this is going to be watched on a phone. The raw mix runs
+  // from -36 dB (a music bed alone) to 0.0 dB (a three-hit combo landing on
+  // top of the battle theme) -- which clips at the top and is inaudible at the
+  // bottom on any speaker smaller than a laptop. `loudnorm` brings the whole
+  // thing to -16 LUFS with a true-peak ceiling of -1.5 dB, which is the
+  // streaming standard and exactly the problem it was built for.
   await run(ffmpeg, [
-    '-y', '-framerate', String(FPS), '-i', `${TMP}/%05d.jpg`,
+    '-y', '-framerate', String(FPS), '-i', `${TMP}/%05d.jpg`, '-i', wavPath,
     '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '19',
+    '-af', 'loudnorm=I=-16:TP=-1.5:LRA=9',
+    '-c:a', 'aac', '-b:a', '160k', '-shortest',
     '-movflags', '+faststart', mp4,
   ]);
   console.log(`wrote ${mp4}`);

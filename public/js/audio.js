@@ -116,7 +116,12 @@ export function makeAudio() {
   // pooling them is the kind of optimisation that trades a real bug for an
   // imaginary saving.
 
-  const now = () => (ctx ? ctx.currentTime : 0);
+  // FORCED TIME, for offline rendering. Every voice below takes its default
+  // `t0` from `now()`, so overriding this one function is enough to schedule
+  // the entire SFX table at an arbitrary moment instead of "as soon as
+  // possible" -- which is what a film needs and a game never does.
+  let forcedT = null;
+  const now = () => (forcedT !== null ? forcedT : (ctx ? ctx.currentTime : 0));
 
   /** An ADSR-ish gain envelope. `peak` at `t0+a`, down to 0 by `t0+a+d`. */
   function env(t0, a, d, peak, dest) {
@@ -683,19 +688,30 @@ export function makeAudio() {
   }
 
   // ---- the scheduler ------------------------------------------------
-  function tick() {
+  /**
+   * @param until  schedule every bar that starts before this time. Defaults to
+   *   a 200 ms lookahead on the live clock; an OFFLINE render passes the whole
+   *   length of the piece, because `setInterval` does not fire during one and
+   *   the scheduler would otherwise place exactly nothing.
+   */
+  function tick(until) {
     if (!ctx || !music || muted) return;
-    const AHEAD = 0.20;
+    const target = until !== undefined ? until : ctx.currentTime + 0.20;
     if (!music.song) { applyPending(); if (!music.song) return; }
-    if (music.next === 0) music.next = ctx.currentTime + 0.12;
+    if (music.next === 0) music.next = (until !== undefined ? 0 : ctx.currentTime) + 0.12;
 
-    while (music.next < ctx.currentTime + AHEAD) {
+    while (music.next < target) {
       const song = music.song;
       const spb = 60 / song.bpm;           // seconds per beat
       const barT = spb * 4;
 
       // a bar line is the only place a zone change is allowed to land
-      if (music.pending) { applyPending(); music.next = ctx.currentTime + 0.05; continue; }
+      if (music.pending) {
+        const at = music.next;
+        applyPending();
+        music.next = until !== undefined ? at : ctx.currentTime + 0.05;
+        continue;
+      }
 
       const chart = song.chart;
       // which chart entry is this bar?
@@ -777,6 +793,30 @@ export function makeAudio() {
      * what it reads is what the mix is doing, not what the limiter left. */
     get ctx() { return ctx; },
     tap(node) { if (master) master.connect(node); },
+
+    // ---- offline rendering, for tools/film.mjs -------------------------
+    //
+    // There is no way to capture a WebAudio graph out of headless Chromium, so
+    // the film's soundtrack is rendered rather than recorded: the same engine,
+    // the same score, driven against an OfflineAudioContext at the same
+    // timestamps. It is the same music arrived at the other way round.
+
+    /** Schedule every music bar that begins before `until` seconds. */
+    pump(until) { tick(until); },
+
+    /** Fire a one-shot at an absolute time on the audio clock. */
+    playAt(t, name, vol = 1, at = null) {
+      forcedT = t;
+      try { play(name, at, vol); } finally { forcedT = null; }
+    },
+
+    /** Switch the music at a bar line, without a crossfade. */
+    cut(zone) {
+      if (!music) return;
+      const song = SONGS[zone];
+      if (!song) return;
+      music.pending = { zone, song, fade: 0 };
+    },
     get ready() { return !!ctx; },
     get muted() { return muted; },
     get zone() { return music ? (music.zone || wantZone) : wantZone; },

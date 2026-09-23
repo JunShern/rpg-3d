@@ -2373,8 +2373,14 @@ async function run() {
     log.push(`sexton:${flag('q.accepted') ? 'ok' : 'FAILED'}`);
 
     // ---- 2. Lake, on his step ---------------------------------------
+    // APPROACH FROM THE SQUARE SIDE. `lake.x + 1.2, lake.z + 1.2` is a point up
+    // on the gallery deck -- 1.1 m above the paving, which the player cannot
+    // step onto -- so the check walked into the deck edge and reported Lake
+    // unreachable a second time after he had already been moved. The first
+    // failure was the game; this one was the check, and the symptom was
+    // identical.
     const lk = npcs.at('lake');
-    walkTo(lk.x + 1.2, lk.z + 1.2);
+    walkTo(lk.x - 0.7, lk.z - 1.5);
     __sim({ steps: 3 });
     await talk(['bell', 'come with me']);
     log.push(`lake:${flag('q.lake') ? 'joined' : 'FAILED'}`);
