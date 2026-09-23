@@ -13,6 +13,7 @@ import * as THREE from 'three';
 import { makeNpcs } from './npc.js';
 import { makeDrops } from './drops.js';
 import { makeAudio } from './audio.js';
+import { makeAtmos } from './atmos.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import {
   toonMaterial, flatMaterial, outlineMaterial, outlineGeometry, skyDome,
@@ -38,7 +39,9 @@ const camera = new THREE.PerspectiveCamera(52, 1, 0.1, 400);
 const world = new THREE.Group();
 scene.add(world);
 
-scene.add(skyDome(0x5fa8e8, 0xd6ebf7));
+// THE SKY AND THE SUN BELONG TO atmos.js NOW. What was here was a two-colour
+// dome and a fixed noon; the fog object stays because the presets mutate it
+// rather than replacing it, which keeps every material's `fog` flag valid.
 scene.fog = new THREE.Fog(0xd2e6f3, 42, 130);
 
 // ------------------------------------------------------------------- lights
@@ -80,6 +83,12 @@ scene.add(key, key.target);
 const hemi = new THREE.HemisphereLight(0xd2e2ee, 0x8f7f6a, 0.88);
 const ambient = new THREE.AmbientLight(0x9d9aa4, 0.26);
 scene.add(hemi, ambient);
+
+// EVERY VALUE ABOVE IS NOW A DEFAULT THAT GETS OVERWRITTEN, on purpose: the
+// lights are created here because the scene graph wants them here, and what
+// they are SET to is a preset, so the look of the game is one word rather than
+// a dozen numbers spread across a file.
+const atmos = makeAtmos({ renderer, scene, camera, key, hemi, ambient });
 
 // ------------------------------------------------------------------ outlines
 
@@ -2457,16 +2466,10 @@ const LOCK_POLAR = 1.06;
   // tolerance along grazing surfaces -- a herringbone speckle across the gate
   // pillars that crawls as you walk, and reads exactly like a broken renderer.
   //
-  // Moving in whole-texel steps makes the sampling stable: the shadow map is
-  // the same map shifted by an integer, not a slightly different projection.
-  const SPAN = 32;                       // left..right of the shadow frustum
-  const texel = SPAN / key.shadow.mapSize.x;
-  const sx = Math.round(pos.x / texel) * texel;
-  const sz = Math.round(pos.z / texel) * texel;
-  const sy = Math.round(pos.y / texel) * texel;
-  key.position.set(sx + 7, sy + 24, sz + 9);
-  key.target.position.set(sx, sy, sz);
-  key.target.updateMatrixWorld();
+  // THE SUN FOLLOWS THE PLAYER, at whatever angle the preset says. It used to
+  // be pinned to a hard-coded (+7, +24, +9) offset, which is a noon the game
+  // could never leave.
+  atmos.follow(pos);
 
   return isMoving;
 }
@@ -2527,6 +2530,7 @@ function resize() {
   renderer.setSize(innerWidth, innerHeight, false);
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
+  atmos.resize();
 }
 addEventListener('resize', resize);
 resize();
@@ -2735,7 +2739,7 @@ function frame(dt) {
   // while a conversation is frozen over the top of it.
   if (drops) drops.update(sdt);
   updateSoundscape(dt);
-  renderer.render(scene, camera);
+  atmos.render();
   hud.textContent =
     `${fps} fps  ·  ${cur ? cur.name : '—'}  ·  ${combat && combat.isStaggered() ? 'hurt' : slip.t > 0 ? 'slip' : attacking ? 'attack' : !grounded ? 'air'
         : landing ? 'land' : isMoving ? 'run' : 'idle'}`
@@ -2748,8 +2752,12 @@ function frame(dt) {
     // a count of the things you went out of your way to find.
     + `${breakables && breakables.pods ? `  ·  ${breakables.found}/${breakables.pods} embercaps` : ''}`
     + `${combat && combat.lockTarget ? '  ·  LOCK' : ''}`
-    + `  ·  ${renderer.info.render.calls} draws / `
-    + `${renderer.info.render.triangles.toLocaleString()} tris`;
+    // THE SCENE'S COUNTS, NOT THE COMPOSER'S. `renderer.info` is reset by every
+    // pass, so once post-processing landed this read "1 draws / 1 tris" -- the
+    // final full-screen quad. Sampled in `atmos.render()` before the post
+    // passes run, which is the only moment it means the world.
+    + `  ·  ${atmos.stats.calls} draws / `
+    + `${atmos.stats.triangles.toLocaleString()} tris`;
   return isMoving;
 }
 
@@ -2770,7 +2778,8 @@ live();
 Object.defineProperty(globalThis, 'cur', { get: () => cur, configurable: true });
 Object.defineProperty(globalThis, 'npcs', { get: () => npcs, configurable: true });
 Object.defineProperty(globalThis, 'drops', { get: () => drops, configurable: true });
-Object.assign(globalThis, { __audio: audio });
+Object.assign(globalThis, { __audio: audio, __atmos: atmos });
+globalThis.__preset = (n) => { atmos.apply(n); return atmos._debug(); };
 Object.defineProperty(globalThis, '__actx', { get: () => audio.ctx, configurable: true });
 globalThis.__tap = (n) => audio.tap(n);
 Object.assign(globalThis, { scene, camera, renderer, chars, OUTLINES, THREE,
