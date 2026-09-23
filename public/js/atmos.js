@@ -201,16 +201,33 @@ export const PRESETS = {
     sky: { horizon: 0xff9a68, mid: 0x7d6f9e, zenith: 0x1b2450, sun: 0xffb27a,
            sunSize: 0.016, sunGlow: 20, haze: 0.55 },
     fog: { color: 0x6e6f92, near: 22, far: 110 },
-    hemi: { sky: 0x5c6690, ground: 0x4a4048, power: 0.58 },
-    ambient: { color: 0x5b5f80, power: 0.40 },
+    hemi: { sky: 0x6b78a4, ground: 0x554a54, power: 0.74 },
+    ambient: { color: 0x6b7098, power: 0.56 },
     bloom: { strength: 1.15, radius: 0.72, threshold: 0.52 },
-    grade: { contrast: 1.16, saturation: 1.10, vignette: 0.44, lift: 0.11,
+    grade: { contrast: 1.10, saturation: 1.08, vignette: 0.34, lift: 0.15,
              exposure: 1.10, shadowTint: 0x6c7cb4, highTint: 0xffd8a8 },
     exposure: 1.12,
   },
 
   // Flat white light, no shadows to speak of. Useful as a control and honestly
   // rather beautiful on the meadow.
+  // Between gold and dusk. The demo's clock runs down through this, and it is
+  // where the lamps first start to read against the sky rather than sitting on
+  // it. The story needs a middle or the afternoon jumps straight to night.
+  evening: {
+    label: 'the light going',
+    sun: { az: 2.70, el: 0.26, color: 0xffb679, power: 2.2 },
+    sky: { horizon: 0xffbc84, mid: 0x8f9ec4, zenith: 0x27407e, sun: 0xffc894,
+           sunSize: 0.014, sunGlow: 24, haze: 0.52 },
+    fog: { color: 0xa8aec8, near: 30, far: 135 },
+    hemi: { sky: 0x9aa8c8, ground: 0x7d6a58, power: 0.66 },
+    ambient: { color: 0x74799c, power: 0.36 },
+    bloom: { strength: 0.95, radius: 0.66, threshold: 0.60 },
+    grade: { contrast: 1.12, saturation: 1.08, vignette: 0.36, lift: 0.085,
+             exposure: 1.06, shadowTint: 0xa9b4d2, highTint: 0xffe4bc },
+    exposure: 1.08,
+  },
+
   overcast: {
     label: 'overcast',
     sun: { az: 1.6, el: 0.80, color: 0xe8eef6, power: 1.15 },
@@ -349,6 +366,71 @@ export function makeAtmos({ renderer, scene, camera, key, hemi, ambient }) {
     bloom.setSize(innerWidth, innerHeight);
   }
 
+  // BLEND BETWEEN TWO PRESETS.
+  //
+  // The demo has a deadline -- the bell must ring before the light goes -- and
+  // the only honest way to express a deadline in a game with no clock on screen
+  // is to put it in the light itself. Stepping between presets reads as the sun
+  // jumping; this walks every value, so the hour comes down continuously while
+  // you play and you feel late before anyone tells you that you are.
+  const _c = new THREE.Color(), _d = new THREE.Color();
+  const lerpHex = (a, b, t) => _c.setHex(a).lerp(_d.setHex(b), t).getHex();
+  function blend(aName, bName, t) {
+    const A = PRESETS[aName], B = PRESETS[bName];
+    if (!A || !B) {
+      // LOUDLY. The first version returned quietly, so when `evening` failed
+      // to get written the story clock ran the whole demo, moved nothing, and
+      // reported no error -- the sun simply never went down and every probe
+      // said "late afternoon" while I looked for the bug in the quest.
+      console.error('[atmos] blend: no such preset',
+                    !A ? aName : bName, '-- have', Object.keys(PRESETS).join(','));
+      return;
+    }
+    t = Math.max(0, Math.min(1, t));
+    const L = (x, y) => x + (y - x) * t;
+    PRESETS.__blend = {
+      label: t < 0.5 ? A.label : B.label,
+      sun: { az: L(A.sun.az, B.sun.az), el: L(A.sun.el, B.sun.el),
+             color: lerpHex(A.sun.color, B.sun.color, t), power: L(A.sun.power, B.sun.power) },
+      sky: { horizon: lerpHex(A.sky.horizon, B.sky.horizon, t),
+             mid: lerpHex(A.sky.mid, B.sky.mid, t),
+             zenith: lerpHex(A.sky.zenith, B.sky.zenith, t),
+             sun: lerpHex(A.sky.sun, B.sky.sun, t),
+             sunSize: L(A.sky.sunSize, B.sky.sunSize),
+             sunGlow: L(A.sky.sunGlow, B.sky.sunGlow), haze: L(A.sky.haze, B.sky.haze) },
+      fog: { color: lerpHex(A.fog.color, B.fog.color, t),
+             near: L(A.fog.near, B.fog.near), far: L(A.fog.far, B.fog.far) },
+      hemi: { sky: lerpHex(A.hemi.sky, B.hemi.sky, t),
+              ground: lerpHex(A.hemi.ground, B.hemi.ground, t),
+              power: L(A.hemi.power, B.hemi.power) },
+      ambient: { color: lerpHex(A.ambient.color, B.ambient.color, t),
+                 power: L(A.ambient.power, B.ambient.power) },
+      bloom: { strength: L(A.bloom.strength, B.bloom.strength),
+               radius: L(A.bloom.radius, B.bloom.radius),
+               threshold: L(A.bloom.threshold, B.bloom.threshold) },
+      grade: { contrast: L(A.grade.contrast, B.grade.contrast),
+               saturation: L(A.grade.saturation, B.grade.saturation),
+               vignette: L(A.grade.vignette, B.grade.vignette),
+               lift: L(A.grade.lift, B.grade.lift),
+               exposure: L(A.grade.exposure, B.grade.exposure),
+               shadowTint: lerpHex(A.grade.shadowTint, B.grade.shadowTint, t),
+               highTint: lerpHex(A.grade.highTint, B.grade.highTint, t) },
+      exposure: L(A.exposure, B.exposure),
+    };
+    apply('__blend');
+    name = `${aName}->${bName} ${t.toFixed(2)}`;
+  }
+
+  // THE CLOCK. `hour` runs 0..1 across the demo's afternoon; the presets it
+  // walks are the story's three acts.
+  const STOPS = ['gold', 'evening', 'dusk'];
+  function setHour(h) {
+    h = Math.max(0, Math.min(0.9999, h));
+    const seg = h * (STOPS.length - 1);
+    const i = Math.min(STOPS.length - 2, Math.floor(seg));
+    blend(STOPS[i], STOPS[i + 1], seg - i);
+  }
+
   apply(name);
 
   // Sampled after the scene pass and before the post passes, because
@@ -356,7 +438,7 @@ export function makeAtmos({ renderer, scene, camera, key, hemi, ambient }) {
   const stats = { calls: 0, triangles: 0 };
 
   return {
-    apply, follow, resize, stats,
+    apply, blend, setHour, follow, resize, stats,
     render: () => {
       // ACCUMULATE ACROSS THE WHOLE FRAME. `renderer.info` resets on every
       // render call, so reading it after `composer.render()` gives you the
@@ -373,8 +455,13 @@ export function makeAtmos({ renderer, scene, camera, key, hemi, ambient }) {
     get sunDir() { return sunDir; },
     names: () => Object.keys(PRESETS),
     /** For probes and for the shot sheet. */
-    _debug: () => ({ preset: name, label: PRESETS[name].label,
-                     sunEl: +(PRESETS[name].sun.el * 180 / Math.PI).toFixed(1),
-                     bloom: bloom.strength }),
+    // READ THE LIVE STATE, not a preset lookup. `name` becomes a description
+    // like "evening->dusk 0.60" once blending starts, which is not a key in
+    // PRESETS -- so the old version threw the moment the story clock moved.
+    _debug: () => ({ preset: name,
+                     sunEl: +(Math.asin(sunDir.y) * 180 / Math.PI).toFixed(1),
+                     bloom: +bloom.strength.toFixed(2),
+                     keyLight: '#' + key.color.getHexString(),
+                     fogFar: scene.fog ? Math.round(scene.fog.far) : null }),
   };
 }

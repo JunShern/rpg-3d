@@ -1459,6 +1459,26 @@ export function createCombat(ctx) {
     get enemies() { return enemies; },
     player,
     swingSpec, attackClipFor,
+    /** An ALLY landed a hit. Same path the player's swing takes, so a
+     *  companion's blow stops time, shoves the body and throws a number
+     *  exactly like yours -- an ally whose hits do not read is a decoration
+     *  that happens to reduce a health bar. */
+    allyHit(e, dmg, fromPos) {
+      if (!e || e.dead) return false;
+      hurtEnemy(e, dmg, fromPos, 1.6, 0, 0.03, 0.05, 0.22, false);
+      return true;
+    },
+    /** The nearest live hostile to a point, for ally targeting. */
+    nearestHostile(x, z, maxD = 14) {
+      let best = null, bd = maxD * maxD;
+      for (const e of enemies) {
+        if (e.dead || !e.spec.hostile) continue;
+        const dx = e.pos.x - x, dz = e.pos.z - z;
+        const d2 = dx * dx + dz * dz;
+        if (d2 < bd) { bd = d2; best = e; }
+      }
+      return best;
+    },
     get shake() { return shake; },
     fx,
     dodge,

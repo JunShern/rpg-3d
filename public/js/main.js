@@ -14,6 +14,8 @@ import { makeNpcs } from './npc.js';
 import { makeDrops } from './drops.js';
 import { makeAudio } from './audio.js';
 import { makeAtmos } from './atmos.js';
+import { makeParty } from './party.js';
+import { makeQuest } from './quest.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import {
   toonMaterial, flatMaterial, outlineMaterial, outlineGeometry, skyDome,
@@ -291,6 +293,7 @@ const SHAFTS = [];
 // far: the bell. Kept out of the town's big join, because you cannot rotate one
 // bell inside a mesh that contains the whole town.
 const MOVERS = [];
+const LAMPS = [];   // street lamps, raised at dusk -- see the lamp loop below
 const RING_T = 7.0;             // how long a ring takes to die away
 const _mm = new THREE.Matrix4();
 const _mr = new THREE.Matrix4();
@@ -445,6 +448,14 @@ Promise.all([
                                       inside ? 9.0 : 3.2, 2);
     lamp.position.set(L.x, L.y, L.z);
     world.add(lamp);
+    // THE STREET LAMPS COME UP AS THE SUN GOES DOWN.
+    //
+    // A lamp at 0.45 is a decoration in daylight and should be, but leaving it
+    // there at dusk means the square goes dark with forty unlit lamp-posts
+    // standing in it. Interiors are excluded: a room lit by a lamp is lit by
+    // that lamp at every hour, and brightening it at night would make the shop
+    // glow like a furnace.
+    if (!inside) LAMPS.push({ light: lamp, day: 0.45, night: 5.2 });
   }
 
   townReady = true;
@@ -681,6 +692,8 @@ const NPC_ROSTER = [
 
 let npcs = null;
 let drops = null;
+let party = null;
+let quest = null;
 
 // ------------------------------------------------------- what you just got
 //
@@ -763,6 +776,16 @@ Promise.all(ROSTER.concat(NPC_RIGS).map((def) =>
       gain(label, kind === 'gold' ? null : 'item');
     },
   });
+
+  // THE PARTY. They use the FULL rigs -- the same ones the playable roster
+  // loads -- because those already carry a sword and all ten clips, and
+  // SkeletonUtils shares the geometry so a second Lake costs draw calls rather
+  // than a second parse. They join through the story rather than at boot.
+  party = makeParty({ scene, chars, groundAt, getCombat: () => combat,
+                      sfx: (n, at, v) => audio.play(n, at, v) });
+
+  quest = makeQuest({ getGS: () => window.GS, atmos, party, chars, audio,
+                      playerPos: () => pos });
 
   npcs = makeNpcs({ scene, chars, groundAt, hud });
   const n = npcs.load(NPC_ROSTER);
@@ -2654,7 +2677,16 @@ function hitMovers(spec) {
     // from overhead, which is exactly what ringing a tower sounds like from
     // inside it. Positioning it at the rope would have been easier, marginally
     // louder, and wrong in a way you would feel without being able to name.
-    audio.play('bell', { x: m.hx, y: m.hy + 19.5, z: m.hz }, 1.0);
+    // THE PAYOFF GOES THROUGH THE QUEST. Without the mended pin the rope gives
+    // and nothing sounds, which is the story rather than a bug -- so the bell
+    // only actually rings when it has a clapper.
+    const real = quest ? quest.onBellRung() : true;
+    if (real || (quest && quest.rung)) {
+      audio.play('bell', { x: m.hx, y: m.hy + 19.5, z: m.hz }, 1.0);
+    } else if (quest) {
+      audio.play('break_wood', null, 0.25);      // rope, and nothing else
+      m.t = -1;                                   // do not swing a dead bell
+    }
     // NO FLOCK SCATTER, and this is a decision I measured my way out of.
     //
     // The obvious flourish is to send the belfry's roosting flock up when the
@@ -2734,6 +2766,21 @@ function frame(dt) {
   // person you are mid-conversation with is the one thing worse than not
   // having them at all.
   if (npcs) npcs.update(dt, pos);
+  // ON SCALED TIME, with the fight: a companion who keeps swinging through
+  // hit-stop is a companion in a different game from the one you are in.
+  if (party) party.update(sdt, pos, facing);
+  // ON UNSCALED TIME. The light has to keep coming down through a conversation
+  // -- the deadline does not pause because somebody is talking, and a sun that
+  // freezes while you read is a sun you stop believing in.
+  if (quest) quest.update(dt, facing);
+  // LAMPS FOLLOW THE HOUR. One multiply over about forty lights, once a frame:
+  // the cost is nothing and it is the difference between evening and a power
+  // cut. Curved, so they come up late rather than tracking the sun linearly --
+  // nobody lights a lamp at four in the afternoon.
+  if (quest && LAMPS.length) {
+    const t = Math.pow(Math.max(0, Math.min(1, quest.hour)), 1.8);
+    for (const l of LAMPS) l.light.intensity = l.day + (l.night - l.day) * t;
+  }
   // ON SCALED TIME. A drop is part of the fight -- it should hang in the air
   // through hit-stop with everything else, and it must not be collectable
   // while a conversation is frozen over the top of it.
@@ -2778,6 +2825,8 @@ live();
 Object.defineProperty(globalThis, 'cur', { get: () => cur, configurable: true });
 Object.defineProperty(globalThis, 'npcs', { get: () => npcs, configurable: true });
 Object.defineProperty(globalThis, 'drops', { get: () => drops, configurable: true });
+Object.defineProperty(globalThis, 'party', { get: () => party, configurable: true });
+Object.defineProperty(globalThis, 'quest', { get: () => quest, configurable: true });
 Object.assign(globalThis, { __audio: audio, __atmos: atmos });
 globalThis.__preset = (n) => { atmos.apply(n); return atmos._debug(); };
 Object.defineProperty(globalThis, '__actx', { get: () => audio.ctx, configurable: true });

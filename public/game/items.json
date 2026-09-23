@@ -107,6 +107,12 @@
    "type": "keepsake",
    "noSell": true,
    "desc": "Brass, worn smooth. Given to anyone who has rung the tower and admitted it."
+  },
+  "clapper-pin": {
+   "name": "Clapper Pin",
+   "type": "keepsake",
+   "noSell": true,
+   "desc": "Hobb's second. Cut, set and cooled in a quarter of an hour, twenty-one years after the first."
   }
  }
 }
