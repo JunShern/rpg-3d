@@ -12,6 +12,7 @@
 import * as THREE from 'three';
 import { makeNpcs } from './npc.js';
 import { makeDrops } from './drops.js';
+import { makeAudio } from './audio.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import {
   toonMaterial, flatMaterial, outlineMaterial, outlineGeometry, skyDome,
@@ -736,6 +737,8 @@ Promise.all(ROSTER.concat(NPC_RIGS).map((def) =>
     GS.on('levelup', (events) => {
       syncHP();
       purse();
+      if ((events || []).length) audio.play('levelup', null, 1.0);
+      if ((events || []).length) audio.play('levelup', null, 1.0);
       for (const ev of events || []) {
         const name = (GS.charDef(ev.char) || {}).name || ev.char;
         gain(`${String(name).toUpperCase()}  LEVEL ${ev.level}`, 'lvl');
@@ -746,13 +749,43 @@ Promise.all(ROSTER.concat(NPC_RIGS).map((def) =>
 
   drops = makeDrops({
     scene, groundAt, playerPos: () => pos,
-    toast: (label, kind) => gain(kind === 'gold' ? label : label, kind === 'gold' ? null : 'item'),
+    toast: (label, kind) => {
+      audio.play(kind === 'gold' ? 'coin' : 'item', null, 0.8);
+      gain(label, kind === 'gold' ? null : 'item');
+    },
   });
 
   npcs = makeNpcs({ scene, chars, groundAt, hud });
   const n = npcs.load(NPC_ROSTER);
   console.log('[npc]', n + ' placed:', npcs.debug());
   if (window.EBUI) window.EBUI.assetBase = '/assets/';
+
+  // EVERY SPEAKER GETS A PITCH. A fixed base note per character, derived from
+  // their id rather than tabled, so adding somebody to dialogue.json gives them
+  // a voice without a second file to keep in sync. Rule (r).
+  //
+  // The range is deliberately narrow -- a fifth -- because the point is that
+  // two people sound DIFFERENT, not that anybody sounds like a cartoon animal.
+  window.__voice = (who) => {
+    const id = String(who || '');
+    let h = 0;
+    for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) & 0xffff;
+    // a child is pitched up, an elder down -- the hash alone would sometimes
+    // give Nell a baritone, and one wrong voice undoes the whole effect
+    const bias = /nell|child/.test(id) ? 1.45 : /sexton|elder|hobb/.test(id) ? 0.72 : 1;
+    audio.play('blip', null, 1, 300 * bias * (1 + (h % 100) / 240));
+  };
+
+  // UI. The vendored panels drive their own cursor, so the sound hangs off the
+  // same global key hook they use rather than being threaded through them --
+  // which keeps those files byte-identical to upstream.
+  if (window.EBUI && window.EBUI.onGlobalKey) {
+    const K = { up: 'ui_move', down: 'ui_move', left: 'ui_move', right: 'ui_move',
+                confirm: 'ui_ok', cancel: 'ui_back' };
+    for (const a of Object.keys(K)) {
+      try { window.EBUI.onGlobalKey(a, () => audio.play(K[a], null, 0.9)); } catch (e) {}
+    }
+  }
   if (window.Dialogue) window.Dialogue.load().catch((e) => console.warn('[dlg]', e));
   done();
 }).catch((err) => {
@@ -779,6 +812,15 @@ function play(name, fade = 0.22) {
 
 // -------------------------------------------------------------------- input
 
+// ------------------------------------------------------------------ sound
+//
+// Created now, silent until the first keypress: browsers refuse to start an
+// AudioContext before the user has interacted, and the headless suite never
+// interacts -- so a check can never be broken by audio, because in a check
+// there is none.
+const audio = makeAudio();
+let stepDist = 0;          // metres walked since the last footfall
+
 const keys = new Set();
 
 // THE INPUT LOCK, which is Emberbrook's contract and not an invention.
@@ -795,8 +837,11 @@ const keys = new Set();
 // first one to close unfreeze the world underneath the second.
 const LOCKS = new Set();
 window.UILOCK = {
-  lock(name) { LOCKS.add(name || 'ui'); keys.clear(); },
-  unlock(name) { LOCKS.delete(name || 'ui'); },
+  // THE MUSIC STEPS BACK FOR A CONVERSATION. Hung off the lock rather than off
+  // the dialogue window, so it is true for the shop and the menu too without
+  // three places having to remember it.
+  lock(name) { LOCKS.add(name || 'ui'); keys.clear(); audio.duck(0.4); },
+  unlock(name) { LOCKS.delete(name || 'ui'); if (!LOCKS.size) audio.unduck(); },
   get held() { return LOCKS.size > 0; },
   names: () => [...LOCKS],
 };
@@ -804,6 +849,7 @@ const uiLocked = () => LOCKS.size > 0;
 
 addEventListener('keydown', (e) => {
   if (e.repeat) return;
+  audio.boot();
   // WHILE A PANEL IS UP, THE GAME GETS NOTHING. The panel's own capture-phase
   // listener already stops propagation, so this is the belt to that braces --
   // and it is what stops a conversation's Space and E from also jumping and
@@ -844,6 +890,7 @@ function playOnce(name, fade = 0.10) {
 function jump() {
   if (!cur || !grounded) return;
   if (combat && combat.isStaggered()) return;
+  audio.play('jump', null, 0.7);
   // JUMP-CANCEL. A swing's recovery can be given up to jump -- which is what
   // turns the finisher's launch into a route rather than a thing you watch. It
   // refuses during the wind-up and the active frames, so committing to a swing
@@ -894,7 +941,20 @@ function dodge() {
 function attack() {
   if (!cur || !combat || combat.isStaggered()) return;
   // airborne presses run the falling cut instead of the ground chain
-  combat.attack(!grounded);
+  const ok = combat.attack(!grounded);
+  // THE WHOOSH BELONGS TO THE PRESS, THE IMPACT TO THE HIT. Firing both from
+  // the hitbox would mean a whiff is silent, and a whiffed swing you cannot
+  // hear is the single most common reason a fight feels unresponsive.
+  //
+  // `combat.attack` returns false when the press was refused -- mid-commitment,
+  // staggered, dead -- and a refusal must stay silent or mashing during a
+  // wind-up sounds exactly like landing hits.
+  if (ok !== false) {
+    const n = combat.player.step;
+    audio.play(!grounded ? 'swing3'
+                         : ['swing', 'swing2', 'swing3'][Math.max(0, Math.min(2, n))],
+               null, 0.8);
+  }
 }
 
 // --------------------------------------------------------------- collision
@@ -1258,6 +1318,34 @@ function groundAt(x, z, fromY) {
   return hit ? hit.point.y : null;
 }
 
+let _lastFootX = 0, _lastFootZ = 0;
+
+/**
+ * WHICH FOOTSTEP. The runtime already knows every material name -- `matName`
+ * is stamped on each mesh so the toon look table can find it -- so the surface
+ * under your feet is a raycast away and does not need a second map of the world
+ * to be kept in sync with the first. Rule (r).
+ *
+ * Terrain is the fast path: `terrain.owns()` answers without touching geometry,
+ * and out there the only question is road or grass.
+ */
+function surfaceStep() {
+  if (terrain && terrain.owns(pos.x, pos.z)) {
+    const road = Math.abs(pos.x - terrain.pathAt(-pos.z));
+    return road < 3.2 ? 'step_dirt' : 'step_grass';
+  }
+  // In the town, ask the floor mesh what it is made of. One ray, only while
+  // walking, and only once every 1.55 m -- this is not a per-frame cost.
+  if (!FLOORS.length) return 'step_stone';
+  groundRay.set(_o.set(pos.x, pos.y + 1.4, pos.z), DOWN);
+  groundRay.far = 4;
+  const hit = groundRay.intersectObjects(FLOORS, false)[0];
+  const n = (hit && hit.object && hit.object.userData.matName) || '';
+  if (/timber|plank|deck|lead|roof|bark/.test(n)) return 'step_wood';
+  if (/grass|verge|ground|dirt/.test(n)) return 'step_grass';
+  return 'step_stone';
+}
+
 /** The interior volume the point is inside, with how far in it is (0..1).
  *
  * The blend used to be VERTICAL ONLY, which suited a twenty-metre stairwell and
@@ -1314,6 +1402,7 @@ let dragging = false;
 
 let pointerDownAt = 0, pointerDrag = 0;
 canvas.addEventListener('pointerdown', (e) => {
+  audio.boot();
   dragging = true; pointerDownAt = Date.now(); pointerDrag = 0;
   canvas.setPointerCapture(e.pointerId);
 });
@@ -1429,6 +1518,8 @@ function startCombat() {
       const me = G.state.party.find((m) => m.active) || G.state.party[0];
       return me ? G.stats(me) : null;
     },
+    // THE WHOLE OF COMBAT'S ACCESS TO SOUND. One function, positioned.
+    sfx: (name, at, vol) => audio.play(name, at, vol),
     onKill: (species, e) => {
       const G = window.GS;
       if (!G || !G.ok || !G.data || !G.data.monsters) return;
@@ -1963,6 +2054,24 @@ function step(dt) {
     facing += d * Math.min(1, dt * (lt ? 10 : 14));
   }
 
+  // FOOTSTEPS, FIRED BY DISTANCE TRAVELLED, not by a frame of the run clip.
+  //
+  // Reading the clip's time would be the obvious way and is wrong twice over:
+  // the run is rate-matched to ground speed so its phase is already a distance
+  // measure by another name, and the walk-to-run blend means there is no single
+  // clip to read during the transition. A footfall every 1.55 m is the stride
+  // this rig actually has, so the sound lands with the foot at every speed
+  // including the ones between.
+  if (grounded && audio.ready) {
+    const moved = Math.hypot(pos.x - _lastFootX, pos.z - _lastFootZ);
+    stepDist += moved;
+    if (stepDist > 1.55) {
+      stepDist = 0;
+      audio.play(surfaceStep(), null, 0.55 + Math.random() * 0.2);
+    }
+  }
+  _lastFootX = pos.x; _lastFootZ = pos.z;
+
   // THE SWING CARRIES YOU, and steers onto the target.
   //
   // A three-hit chain moved the character 0.000 m, and movement is forbidden
@@ -2364,6 +2473,56 @@ const LOCK_POLAR = 1.06;
 
 // --------------------------------------------------------------------- loop
 
+// ------------------------------------------------------- the soundscape
+//
+// WHERE YOU ARE DECIDES WHAT YOU HEAR, and it is computed rather than
+// triggered: no volumes to author, no enter/exit events to get wrong, just
+// distance to the handful of things that make noise. Walk toward the ford and
+// the water comes up; walk into the smithy and the forge does.
+//
+// THE MUSIC ZONE IS THE SAME IDEA and one rule on top: combat wins. A fight
+// starting is the loudest thing that can happen to a JRPG soundtrack, and it
+// has to happen the moment something hostile is actually coming at you -- not
+// when one wanders into a radius.
+const FORD = { x: 9.5, z: -47 }, FORGE = { x: 16.6, z: -1.2 };
+let _zoneHold = 0;
+
+function updateSoundscape(dt) {
+  if (!audio.ready) return;
+  // the camera's right vector, for panning
+  const cr = Math.cos(cam.az), sr = -Math.sin(cam.az);
+  audio.setListener(pos, cr, sr);
+
+  const inTown = pos.z > -18;
+  const dFord = Math.hypot(pos.x - FORD.x, pos.z - FORD.z);
+  const dForge = Math.hypot(pos.x - FORGE.x, pos.z - FORGE.z);
+  const near = (d, r) => Math.max(0, 1 - d / r);
+
+  audio.ambience({
+    wind:   inTown ? 0.06 : 0.20 + 0.14 * Math.min(1, Math.max(0, (pos.y - 4) / 14)),
+    birds:  inTown ? 0.30 : 0.55,
+    water:  near(dFord, 26) * 0.75,
+    forge:  near(dForge, 13) * 0.85,
+  });
+
+  // WHO IS ACTUALLY COMING FOR YOU. `hostile && !dead` is not enough -- the
+  // roster holds thirty-odd creatures and most are asleep on the far side of
+  // the map. Within 16 m and awake is the honest definition of "in a fight".
+  let threat = false;
+  if (combat) {
+    for (const e of combat.enemies) {
+      if (e.dead || !e.spec.hostile) continue;
+      if (Math.hypot(e.pos.x - pos.x, e.pos.z - pos.z) < 16) { threat = true; break; }
+    }
+  }
+  // HOLD THE BATTLE THEME for a few seconds after the last threat leaves, or
+  // walking two metres the wrong way flips the soundtrack back and forth.
+  _zoneHold = threat ? 4.5 : Math.max(0, _zoneHold - dt);
+  audio.setZone(_zoneHold > 0 ? 'battle'
+                : pos.y > 15 ? 'hush'
+                : inTown ? 'town' : 'field');
+}
+
 function resize() {
   renderer.setSize(innerWidth, innerHeight, false);
   camera.aspect = innerWidth / innerHeight;
@@ -2484,6 +2643,14 @@ function hitMovers(spec) {
     }
     m.t = 0;
     rang = true;
+    // THE SOUND IS AT THE BELL, NOT AT THE ROPE.
+    //
+    // You pull a sally on the ground floor and the casting is twenty metres
+    // above you -- so the ring is positioned up there and arrives quieter and
+    // from overhead, which is exactly what ringing a tower sounds like from
+    // inside it. Positioning it at the rope would have been easier, marginally
+    // louder, and wrong in a way you would feel without being able to name.
+    audio.play('bell', { x: m.hx, y: m.hy + 19.5, z: m.hz }, 1.0);
     // NO FLOCK SCATTER, and this is a decision I measured my way out of.
     //
     // The obvious flourish is to send the belfry's roosting flock up when the
@@ -2522,12 +2689,18 @@ function updateSmash(dt) {
   }
   if (n > 0) {
     smashedThisSwing = true;
+    // A FIND SOUNDS LIKE A FIND. An embercap and a barrel both come apart, and
+    // if they make the same noise the reward the whole map teaches you to look
+    // for arrives sounding like furniture.
+    audio.play(breakables.found > _podsFound ? 'pod' : 'break_wood', null, 0.9);
+    _podsFound = breakables.found;
     // it has to FEEL like it connected, or a barrel bursting reads as scenery
     // choosing to fall over next to you
     combat.shake.mag = Math.max(combat.shake.mag, 0.13);
     combat.shake.t = 0.24;
   }
 }
+let _podsFound = 0;
 
 function frame(dt) {
   // HIT-STOP IS GLOBAL OR IT IS A DESYNC. combat.js used to scale only its own
@@ -2561,6 +2734,7 @@ function frame(dt) {
   // through hit-stop with everything else, and it must not be collectable
   // while a conversation is frozen over the top of it.
   if (drops) drops.update(sdt);
+  updateSoundscape(dt);
   renderer.render(scene, camera);
   hud.textContent =
     `${fps} fps  ·  ${cur ? cur.name : '—'}  ·  ${combat && combat.isStaggered() ? 'hurt' : slip.t > 0 ? 'slip' : attacking ? 'attack' : !grounded ? 'air'
@@ -2596,6 +2770,9 @@ live();
 Object.defineProperty(globalThis, 'cur', { get: () => cur, configurable: true });
 Object.defineProperty(globalThis, 'npcs', { get: () => npcs, configurable: true });
 Object.defineProperty(globalThis, 'drops', { get: () => drops, configurable: true });
+Object.assign(globalThis, { __audio: audio });
+Object.defineProperty(globalThis, '__actx', { get: () => audio.ctx, configurable: true });
+globalThis.__tap = (n) => audio.tap(n);
 Object.assign(globalThis, { scene, camera, renderer, chars, OUTLINES, THREE,
                             selectCharacter,
                             pos, cam, get SOLIDS() { return SOLIDS; }, FLOORS });

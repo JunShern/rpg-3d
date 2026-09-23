@@ -839,7 +839,20 @@
         if (S.mode !== 'line') return;
         var l = S.lines[S.li]; if (!l) return;
         if (S.shown >= l.text.length) return;
+        var was = Math.floor(S.shown);
         S.shown = Math.min(l.text.length, S.shown + S.cps * dt);
+        // LOCAL EDIT (rpg-3d): a voice blip per few characters, pitched per
+        // speaker. Not speech -- the Animal Crossing trick -- and it is the
+        // cheapest characterisation in games: it is why Tally sounds like a
+        // different person from Hobb without anybody recording a line. Skips
+        // spaces so the rhythm follows the words, and skips every other
+        // character so a fast line does not become a machine gun.
+        if (window.__voice) {
+          var i = Math.floor(S.shown);
+          if (i > was && i % 2 === 0 && /\S/.test(l.text.charAt(i - 1))) {
+            window.__voice(l.speaker || S.speaker);
+          }
+        }
         render();
       }, TICK_MS);
       return p;

@@ -251,6 +251,11 @@ export function createCombat(ctx) {
   // ctx: { scene, camera, world, groundAt, playerPos, playerFacing, hud, onKill,
   //        power }
   const onKill = ctx.onKill || null;
+  // SOUND. Handed in rather than imported, for the same reason `onKill` is:
+  // combat.js must run in a page with no audio at all -- which is every check
+  // in the suite -- and a `sfx` that is a no-op is the cheapest way to make
+  // that structurally true instead of remembered.
+  const sfx = ctx.sfx || (() => {});
   // WHAT THE CHARACTER SHEET IS WORTH IN THE FIGHT.
   //
   // Buying a sword that changes a number on a menu and nothing else is a menu,
@@ -716,6 +721,7 @@ export function createCombat(ctx) {
       // that is the whole of the coupling. Guarded because the fight has to
       // work in a page with no save system at all, which is how every probe in
       // the suite runs it.
+      sfx('die', e.pos, 0.9);
       if (onKill) { try { onKill(e.spec.name || e.name, e); } catch (err) { console.error('[kill]', err); } }
       return;
     }
@@ -778,6 +784,7 @@ export function createCombat(ctx) {
     if (pw && pw.def && pw.def !== DEF_BASE) {
       dmg = Math.max(1, dmg * ((DEF_SOFT + DEF_BASE) / (DEF_SOFT + pw.def)));
     }
+    sfx('hurt', null, 1.0);
     player.hp -= dmg;
     player.invuln = TUNE.playerIFrames;
     hitStop = Math.max(hitStop, 0.07);
@@ -962,6 +969,11 @@ export function createCombat(ctx) {
         if (_v.x * fx2 + _v.z * fz < Math.cos(s.arc / 2)) continue;
       }
       player.hitThisSwing.add(e);
+      // THE IMPACT, not the swing -- the whoosh is fired when the move starts,
+      // this is the moment it lands. A finisher gets its own heavier sound
+      // because it is the one the whole chain is building toward.
+      sfx(s.lift > 0 ? 'crit' : (e.spec.height > 1.0 ? 'hit_hard' : 'hit_soft'),
+          e.pos, 0.85);
       const pw = power();
       const k = pw && pw.atk ? pw.atk / ATK_BASE : 1;
       // NOT ROUNDED, and short-circuited at 1 so the arithmetic cannot even
