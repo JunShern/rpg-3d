@@ -190,10 +190,13 @@ export const SCENES = {
       from: [6.5, 9.0, -2.0], to: [1.6, 3.6, 5.0],
       look: [-1.4, 6.0, 12.5], lookTo: [-2.3, 1.7, 10.9],
       caption: 'Tonight the clapper pin has sheared.' },
-    // and the woman who cannot climb it
-    { secs: 4.4, ease: 'out', fov: 40,
-      from: [-6.8, 2.5, 6.2], to: [-6.0, 2.2, 7.4],
-      look: [-2.3, 1.5, 10.9],
+    // and the woman who cannot climb it -- small, at the foot of her tower,
+    // the stair going up behind her. (It was a close-up, which put the wall
+    // and a bush in front of her, and would have shown that the cast has no
+    // old body for her to wear: framed wide, she is a figure, not a face.)
+    { secs: 4.6, ease: 'out', fov: 40,
+      from: [-0.2, 2.3, 5.8], to: [-0.8, 2.0, 6.6],
+      look: [-2.6, 1.3, 11.2], lookTo: [-2.6, 1.6, 11.6],
       caption: 'And the woman who rings it cannot climb.' },
   ],
 
