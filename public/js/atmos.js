@@ -309,6 +309,7 @@ export function makeAtmos({ renderer, scene, camera, key, hemi, ambient }) {
   renderer.toneMapping = THREE.NoToneMapping;
   renderer.info.autoReset = false;
   let name = 'gold';
+  let hourNow = 0;
   const sunDir = new THREE.Vector3();
 
   // ---- sky -------------------------------------------------------------
@@ -460,6 +461,10 @@ export function makeAtmos({ renderer, scene, camera, key, hemi, ambient }) {
     // light it twice. HEMI_K/AMB_K are what the cast gets, in the units a
     // hemisphere light would have used.
     CHAR_FILL.uFillOn.value = 1;
+    // THE CAST STAYS READABLE AFTER DARK. By lamplight the fill that suits the
+    // stone suits the heroes badly: they sank to navy silhouettes. The genre
+    // keeps its faces lit, so their fill climbs as the sun goes down.
+    const HEMI_K = 1.0 + 0.9 * THREE.MathUtils.smoothstep(hourNow, 0.55, 1.0);
     CHAR_FILL.uFillSky.value.setHex(p.hemi.sky).multiplyScalar(p.hemi.power * HEMI_K)
       .add(_e.setHex(p.ambient.color).multiplyScalar(p.ambient.power));
     CHAR_FILL.uFillGround.value.setHex(p.hemi.ground).multiplyScalar(p.hemi.power * HEMI_K)
@@ -470,7 +475,7 @@ export function makeAtmos({ renderer, scene, camera, key, hemi, ambient }) {
     refreshEnv(false);
   }
   const _e = new THREE.Color();
-  const HEMI_K = 1.0, ENV_K = 0.45;
+  const ENV_K = 0.45;
 
   /** Put the shadow frustum where the player is, along the preset's sun. */
   function follow(target) {
@@ -552,7 +557,6 @@ export function makeAtmos({ renderer, scene, camera, key, hemi, ambient }) {
   // THE CLOCK. `hour` runs 0..1 across the demo's afternoon; the presets it
   // walks are the story's three acts.
   const STOPS = ['gold', 'evening', 'dusk'];
-  let hourNow = 0;
   function setHour(h) {
     h = Math.max(0, Math.min(0.9999, h));
     hourNow = h;

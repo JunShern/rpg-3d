@@ -312,6 +312,7 @@ const SHAFTS = [];
 const MOVERS = [];
 const LAMPS = [];   // street lamps, raised at dusk -- see the lamp loop below
 const WINDOWS = []; // glass that is lit from inside once the light goes
+const LAMP_HEADS = [];
 const _winLit = new THREE.Color(1.0, 0.62, 0.28).multiplyScalar(2.6);
 const RING_T = 7.0;             // how long a ring takes to die away
 const _mm = new THREE.Matrix4();
@@ -363,6 +364,9 @@ function applyTownLook(root) {
     // WINDOWS LIGHT UP AT DUSK -- see the hour loop. Kept by reference so a
     // look switch that rebuilds materials still finds them.
     if (name === 'glass') WINDOWS.push({ mesh: m, day: base.clone() });
+    // LAMP HEADS TOO: an unlit lantern at noon is glass and brass, not a
+    // white-hot box -- the flat material was blooming in full sun
+    if (name === 'lamp') LAMP_HEADS.push({ mesh: m, base: base.clone() });
     // NOT EVERYTHING CASTS. The shadow map is a second full pass over the
     // scene, so a 6k-triangle terrain and 500 grass tufts casting shadows
     // nobody can see is the most expensive nothing in the build. Ground
@@ -3075,6 +3079,11 @@ function frame(dt) {
       const mat = g.mesh.material;
       if (!mat || !mat.color) continue;
       mat.color.copy(g.day).lerp(_winLit, w);
+    }
+    const lk = 0.28 + 1.9 * THREE.MathUtils.smoothstep(hr, 0.35, 0.9);
+    for (const g of LAMP_HEADS) {
+      const mat = g.mesh.material;
+      if (mat && mat.color) mat.color.copy(g.base).multiplyScalar(lk);
     }
   }
   // ON SCALED TIME. A drop is part of the fight -- it should hang in the air
