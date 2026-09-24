@@ -197,7 +197,7 @@ const RECIPES = {
   // dark and reflective: what a window is from outside in daylight
   // dark, reflective and a little transparent, so the curtains and the room
   // behind read through it
-  glass:     { rough: 0.10, metal: 0.0, env: 0.9, tint: [0.10, 0.11, 0.12], opacity: 0.62 },
+  glass:     { rough: 0.10, metal: 0.0, env: 0.9, tint: [0.10, 0.11, 0.12], opacity: 0.62, lit: 1 },
   shutter_a: { hue: [0.12, 1.4], bump: [0.18, 5.0], streak: 1, grime: 0.2, rough: 0.7, env: 0.9 },
   shutter_b: { hue: [0.12, 1.4], bump: [0.18, 5.0], streak: 1, grime: 0.2, rough: 0.7, env: 0.9 },
   shutter_c: { hue: [0.12, 1.4], bump: [0.18, 5.0], streak: 1, grime: 0.2, rough: 0.7, env: 0.9 },
@@ -266,7 +266,7 @@ uniform vec3 uSunDir;
 uniform vec3 uSunCol;
 uniform vec2 uHue;
 uniform vec2 uBump;
-uniform float uMapBump, uMoss, uStreak, uGrime, uGlow, uField, uFoliage, uMapFade, uWater, uForest, uPave, uStripe, uAge;
+uniform float uMapBump, uMoss, uStreak, uGrime, uGlow, uField, uFoliage, uMapFade, uWater, uForest, uPave, uStripe, uAge, uLit;
 uniform sampler2D uFieldMap;
 uniform vec3 uRoomLo[8];
 uniform vec3 uRoomHi[8];
@@ -565,6 +565,13 @@ const FRAG_NORMAL = /* glsl */`
 // looking into it.
 const FRAG_GLOW = /* glsl */`
 #include <emissivemap_fragment>
+// NOT EVERY ROOM IS LIT: a window's worth of cell (about a metre by a storey)
+// decides whether anybody is home, and how warm their lamp is
+if (uLit > 0.5) {
+  vec3 cell = floor(vec3(vPW.x * 0.9, vPW.y / 1.6, vPW.z * 0.9));
+  float home = pHash(cell + 4.2);
+  totalEmissiveRadiance *= step(0.34, home) * (0.6 + 0.6 * pHash(cell + 9.7));
+}
 if (uGlow > 0.0) {
   vec3 V = normalize(vPW - cameraPosition);
   float back = pow(clamp(dot(V, uSunDir), 0.0, 1.0), 3.0);
@@ -618,6 +625,7 @@ export function worldMaterial(name, opts = {}) {
     uPave: { value: r.pave || 0 },
     uStripe: { value: r.stripe || 0 },
     uAge: { value: r.age || 0 },
+    uLit: { value: r.lit || 0 },
     uSway: { value: sway },
   };
   mat.userData.paint = { name, recipe: r, uniforms: u };
