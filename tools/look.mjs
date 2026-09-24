@@ -77,6 +77,10 @@ for (const [i, v] of VIEWS.entries()) {
   if (ONLY && !ONLY.includes(i)) continue;
   const t0 = Date.now();
   await pg.evaluate((v) => {
+    // THE HOUR FIRST, then step: the lamps, the windows and the cast's rim
+    // follow the hour inside frame(), so setting it only after the steps
+    // captured every dusk view with its lamps still at their noon setting
+    __atmos.setHour(v.hour ?? 0.15);
     __sim({ warp: v.warp, az: v.az ?? 0, polar: v.polar ?? 1.22, dist: v.dist ?? 6, steps: 30 });
     // the quest eases the hour toward its own stage every frame, so the hour
     // is pinned AFTER the steps and the frame re-rendered under it

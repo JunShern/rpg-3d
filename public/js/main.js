@@ -585,7 +585,7 @@ Promise.all([
     // standing in it. Interiors are excluded: a room lit by a lamp is lit by
     // that lamp at every hour, and brightening it at night would make the shop
     // glow like a furnace.
-    if (!inside) LAMPS.push({ light: lamp, day: 0.45, night: 5.2 });
+    if (!inside) LAMPS.push({ light: lamp, day: 0.45, night: 9.0 });
   }
 
   townReady = true;
@@ -3132,7 +3132,15 @@ function frame(dt) {
   {
     const hr = atmos.hour;
     const t = Math.pow(Math.max(0, Math.min(1, hr)), 1.8);
-    for (const l of LAMPS) l.light.intensity = l.day + (l.night - l.day) * t;
+    for (const l of LAMPS) {
+      l.light.intensity = l.day + (l.night - l.day) * t;
+      // and their reach: a lit lamp at night throws a pool across the paving,
+      // not a spot at the foot of its post
+      l.light.distance = 3.2 + 8.5 * t;
+    }
+    // THE CAST'S RIM COOLS OFF WITH THE LIGHT. A pale-blue edge light that
+    // suits noon made every townsperson at dusk glow like a ghost.
+    setRimScale(1 - 0.72 * THREE.MathUtils.smoothstep(hr, 0.5, 0.95));
     // WINDOWS. Somebody is home: as the square darkens the glass stops
     // reflecting a sky it can no longer see and starts showing the room
     // behind it, warm, and bright enough to bloom.

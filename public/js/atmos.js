@@ -256,12 +256,14 @@ export const PRESETS = {
   // proves the emissive materials were worth having.
   dusk: {
     label: 'lamplight',
-    sun: { az: 2.75, el: 0.07, color: 0xffa878, power: 0.8 },
-    sky: { horizon: 0xd8704a, mid: 0x5a4f7e, zenith: 0x121838, sun: 0xffa06a,
+    sun: { az: 2.75, el: 0.07, color: 0xffb88a, power: 0.55 },
+    sky: { horizon: 0xc98464, mid: 0x55567e, zenith: 0x121838, sun: 0xffa06a,
            sunSize: 0.016, sunGlow: 20, haze: 0.55 },
     fog: { color: 0x4e5074, near: 22, far: 110 },
     hemi: { sky: 0x6b78a4, ground: 0x554a54, power: 0.74 },
     ambient: { color: 0x6b7098, power: 0.56 },
+    // (the sun at dusk is low and weak: the square is lit by the sky and the
+    // lamps, so the sky's blue has to win over the sun's red on the walls)
     bloom: { strength: 0.72, radius: 0.70, threshold: 0.74 },
     grade: { contrast: 1.12, saturation: 1.0, vignette: 0.40, lift: 0.10,
              exposure: 1.0, shadowTint: 0x6c7cb4, highTint: 0xffd8a8 },

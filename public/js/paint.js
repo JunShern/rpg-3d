@@ -478,8 +478,8 @@ vec3 pPaveTilt = vec3(0.0);
     float vert = 1.0 - abs(pWN.y);
     // spalled patches, with a lighter lip where the render breaks
     float pn = pFbm(vPW * 1.25 + 13.0) + pNoise(vPW * 6.0) * 0.07 + pNoise(vPW * 17.0) * 0.035;
-    // mostly low on the wall, where the damp gets in
-    float low = 1.0 - smoothstep(1.5, 5.0, vPW.y) * 0.6;
+    // low on the wall, where the damp gets in -- and only there
+    float low = 1.0 - smoothstep(0.8, 2.6, vPW.y) * 0.85;
     // outside only: rooms have their own weather
     float outside = 1.0 - pIndoor(vPW, pWN);
     float spall = smoothstep(0.64, 0.655, pn * low + 0.04) * vert * outside;
@@ -489,13 +489,15 @@ vec3 pPaveTilt = vec3(0.0);
     vec3 rq = vec3(dot(vPW.xz, vec2(0.7071, 0.7071)) + vPW.x * 0.3, vPW.y, 0.0);
     vec2 rtoC; vec4 rv = pVor(vec2(rq.x / 0.26, rq.y / 0.17), rtoC);
     float mortar = smoothstep(0.05, 0.14, rv.y - rv.x);
-    vec3 rubble = mix(vec3(0.40, 0.36, 0.30), vec3(0.62, 0.56, 0.45), rv.z)
-                * mix(0.35, 1.0, mortar);
+    // the stones are close to the render's own tone (it is made of them),
+    // the joints only a little darker -- a strong outline read as a sticker
+    vec3 rubble = diffuseColor.rgb * mix(vec3(0.62, 0.58, 0.52), vec3(0.86, 0.80, 0.70), rv.z)
+                * mix(0.72, 1.0, mortar);
     // the broken render's edge is a shadowed step, not a line
     float edge = smoothstep(0.64, 0.66, pn * low + 0.04) - smoothstep(0.66, 0.70, pn * low + 0.04);
     diffuseColor.rgb = mix(diffuseColor.rgb, rubble, spall);
     diffuseColor.rgb *= 1.0 - edge * outside * vert * 0.35;
-    diffuseColor.rgb *= 1.0 + lip * 0.06;
+    diffuseColor.rgb *= 1.0 - lip * 0.04;
     // rain streaks: thin vertical runs, darker lower down each run
     float sx = pNoise(vec3(vPW.x * 4.5 + vPW.z * 4.5, vPW.y * 0.08, 3.0));
     float run = smoothstep(0.62, 0.9, sx) * smoothstep(0.2, 0.7, pNoise(vec3(vPW.xz * 0.7, vPW.y * 0.5)));
@@ -713,7 +715,9 @@ export function worldMaterial(name, opts = {}) {
           // without it the shaded half of the square was lit only blue.
           // Strongest on surfaces facing sideways or down, which see the most
           // of the lit world around them.
-          iblIrradiance += uSunCol * (0.46 - 0.20 * pWN.y) * (1.0 - ind);
+          // (scaled by how high the sun is: at dusk there is little direct
+          // light left to bounce, and a red bounce painted every wall red)
+          iblIrradiance += uSunCol * (0.46 - 0.20 * pWN.y) * (1.0 - ind) * smoothstep(0.05, 0.35, uSunDir.y);
           iblIrradiance *= mix(1.0, 0.10, ind);
           radiance *= mix(1.0, 0.22, ind);
           iblIrradiance += uIndoorFill * ind;
