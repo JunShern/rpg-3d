@@ -36,11 +36,13 @@ function ramp(v, a, b) {
 }
 
 /** The field map: R height, G density, B height multiplier. Runtime x,z. */
-function bakeField(terrain, solids) {
+function bakeField(terrain, solids, outer) {
   const c = terrain.cfg;
-  // runtime z = -blender y
-  const x0 = c.gridX0, x1 = -c.gridX0;
-  const z0 = -112, z1 = -c.gateY;
+  // runtime z = -blender y. With `outer`, the map also covers the fields round
+  // the town (to z = +60) so grass grows there too.
+  const x0 = outer ? Math.min(c.gridX0, -70) : c.gridX0;
+  const x1 = outer ? Math.max(-c.gridX0, 70) : -c.gridX0;
+  const z0 = -112, z1 = outer ? 60 : -c.gateY;
   const W = Math.ceil((x1 - x0) / RES) + 1;
   const H = Math.ceil((z1 - z0) / RES) + 1;
   const data = new Uint16Array(W * H * 4);
@@ -89,6 +91,17 @@ function bakeField(terrain, solids) {
         if (blocked[j * W + i]) dens = 0;
         // just inside the gate the town's paving takes over
         dens *= ramp(by, c.gateY + 0.8, c.gateY + 3.0);
+      } else if (outer) {
+        const og = outer(x, z);
+        if (og !== null && og > -5) {
+          h = og;
+          // patchy: fields, not lawn -- and nothing hard up against the
+          // town's walls, where carts turn and people walk
+          const patch = 0.55 + 0.45 * Math.sin(x * 0.19 + Math.sin(z * 0.13) * 2.0) * Math.cos(z * 0.23);
+          dens = Math.min(1, Math.max(0, patch + 0.35));
+          hmul = 0.8;
+          if (blocked[j * W + i]) dens = 0;
+        }
       }
       data[k] = f(h);
       data[k + 1] = f(dens);
@@ -339,8 +352,8 @@ function grassMaterial(layer) {
   return { mat, u };
 }
 
-export function makeGrass({ scene, terrain, solids }) {
-  const { tex, rect } = bakeField(terrain, solids);
+export function makeGrass({ scene, terrain, solids, outer }) {
+  const { tex, rect } = bakeField(terrain, solids, outer);
   SHARED.uField.value = tex;
   SHARED.uRect.value.copy(rect);
   PAINT.uField.value = tex;

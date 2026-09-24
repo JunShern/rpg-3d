@@ -174,7 +174,8 @@ const RECIPES = {
   ridge_b:   { hue: [0.10, 0.03], rough: 1.0, env: 0.5, tint: [0.30, 0.38, 0.42] },
   water:     { water: 1, rough: 0.26, env: 1.1 },
   // the land beyond the built world: fields and woods, seen through haze
-  farfield:  { hue: [0.20, 0.02], rough: 1.0, env: 0.6, forest: 1 },
+  // painted like the meadow floor (FIELD), which is what it is: more meadow
+  farfield:  { hue: [0.20, 0.02], bump: [0.10, 1.6], rough: 1.0, env: 0.6, field: 1, fieldLift: 2.3 },
   dirt:      { hue: [0.22, 0.30], bump: [0.30, 3.0], rough: 1.0, env: 0.8 },
   // the meadow floor -- see FIELD below; this is the fallback
   ground:    { hue: [0.30, 0.05], bump: [0.10, 1.6], rough: 1.0, env: 0.75, field: 1 },
@@ -268,7 +269,7 @@ uniform vec3 uSunDir;
 uniform vec3 uSunCol;
 uniform vec2 uHue;
 uniform vec2 uBump;
-uniform float uMapBump, uMoss, uStreak, uGrime, uGlow, uField, uFoliage, uMapFade, uWater, uForest, uPave, uStripe, uAge, uLit, uFlow, uLichen;
+uniform float uMapBump, uMoss, uStreak, uGrime, uGlow, uField, uFoliage, uMapFade, uWater, uForest, uPave, uStripe, uAge, uLit, uFlow, uLichen, uFieldLift;
 uniform sampler2D uFieldMap;
 uniform vec3 uRoomLo[8];
 uniform vec3 uRoomHi[8];
@@ -386,6 +387,9 @@ vec3 pPaveTilt = vec3(0.0);
     // blade-scale speckle, faded out with distance before it can alias
     float sp = pNoise(vPW * 3.1) * pNoise(vPW * 7.7 + 5.0);
     g *= mix(1.0, 0.78 + sp * 0.55, 1.0 - smoothstep(12.0, 36.0, pDist));
+    // (a field with no grass mesh on it shows its grass as the floor itself,
+    // so it is painted at the tufts' own brightness, not the shade between)
+    g *= uFieldLift;
     diffuseColor.rgb = mix(bare, g * 0.92, greenness);
     // wildflowers: tiny, bright, clustered
     float fl = pNoise(vPW * 1.3 + 17.0);
@@ -683,6 +687,7 @@ export function worldMaterial(name, opts = {}) {
     uLit: { value: r.lit || 0 },
     uFlow: { value: r.flow || 0 },
     uLichen: { value: r.lichen || 0 },
+    uFieldLift: { value: r.fieldLift || 1 },
     uSway: { value: sway },
   };
   mat.userData.paint = { name, recipe: r, uniforms: u };

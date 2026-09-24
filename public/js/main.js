@@ -405,6 +405,23 @@ function applyTownLook(root) {
   return meshes;
 }
 
+/**
+ * THE GROUND OUTSIDE BOTH BUILDS: the fields round the town and the country
+ * beyond. -9 under the meadow (whose terrain owns it), street level round the
+ * town, rolling away past 45 m. One function, so the far ground mesh and the
+ * grass grown on it cannot disagree.
+ */
+function outerGround(x, z, c) {
+  const inMeadow = x > c.x0 - 3 && x < c.x1 + 3 && -z > c.gateY - 1 && -z < c.y1 + 3;
+  if (inMeadow) return -9;
+  const d = Math.hypot(x, z);
+  const roll = Math.sin(x * 0.021) * Math.cos(z * 0.017) * 2.2 + Math.max(0, d - 70) * 0.05;
+  return -0.12 + (d > 45 ? roll : 0);
+}
+/** Where the town's paving is (three.js x/z): no grass grows here. */
+const inTownPaving = (x, z) => (x > -22.4 && x < 22.4 && z > -19.4 && z < 21.4)
+                            || (x > 21 && x < 31 && z > -8.4 && z < 1.7);
+
 /** Fold a region's floor meshes and collision boxes into the shared world.
  *  The plaza and the meadow are separate builds but ONE world at runtime --
  *  the player should never learn where the seam is. */
@@ -464,15 +481,7 @@ Promise.all([
     g.rotateX(-Math.PI / 2);
     {
       const P = g.attributes.position;
-      const c = meadowMan.terrain;
-      for (let i = 0; i < P.count; i++) {
-        const x = P.getX(i), z = P.getZ(i);
-        const inMeadow = x > c.x0 - 3 && x < c.x1 + 3 && -z > c.gateY - 1 && -z < c.y1 + 3;
-        // rolling fields beyond, rising gently away from the valley
-        const d = Math.hypot(x, z);
-        const roll = Math.sin(x * 0.021) * Math.cos(z * 0.017) * 2.2 + Math.max(0, d - 70) * 0.05;
-        P.setY(i, inMeadow ? -9 : -0.12 + (d > 45 ? roll : 0));
-      }
+      for (let i = 0; i < P.count; i++) P.setY(i, outerGround(P.getX(i), P.getZ(i), meadowMan.terrain));
       g.computeVertexNormals();
     }
     const far = new THREE.Mesh(g, surfaceMaterial(LOOK, new THREE.Color(0.26, 0.38, 0.18),
@@ -541,7 +550,9 @@ Promise.all([
   // wall, a rock or a trunk.
   if (LOOK.painted) {
     const t0 = performance.now();
-    grass = makeGrass({ scene: world, terrain, solids: SOLIDS });
+    grass = makeGrass({ scene: world, terrain, solids: SOLIDS,
+                        outer: (x, z) => (inTownPaving(x, z) ? null
+                                          : outerGround(x, z, meadowMan.terrain)) });
     console.log(`[grass] baked in ${Math.round(performance.now() - t0)} ms`,
                 JSON.stringify(grass._debug()));
   }
