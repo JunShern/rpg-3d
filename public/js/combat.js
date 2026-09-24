@@ -715,6 +715,7 @@ export function createCombat(ctx) {
       e.deadT = 0;
       e.state = 'dead';
       play(e, 'die', 0.05);
+      fx.burst(e.pos, e.spec.height || 0.8, e.name === 'bellow' ? 0xffa860 : 0xb89cff);
       if (lockTarget === e) lockTarget = nearestTarget(e);
       // THE KILL PAYS. `onKill` is handed in by main.js and is where xp, gold
       // and drops come from -- combat.js knows what died and nothing else, and
@@ -1545,20 +1546,84 @@ function makeEffects(scene, ctx = {}) {
   const layer = document.getElementById('fx');
   const numbers = [];
 
-  // sparks: one pooled Points cloud, reused
-  const MAX = 320;
+  // SPARKS: one pooled point cloud, drawn in HDR so bloom turns each one into
+  // a flare. Every particle carries its own colour, size and lifetime, which
+  // is what lets one pool do an impact (fast, hot, short) and a death (slow,
+  // rising, long) without a second system.
+  const MAX = 900;
   const pos = new Float32Array(MAX * 3);
   const vel = new Float32Array(MAX * 3);
   const life = new Float32Array(MAX);
+  const life0 = new Float32Array(MAX).fill(1);
+  const col = new Float32Array(MAX * 3);
+  const size = new Float32Array(MAX);
+  const lifeK = new Float32Array(MAX);
+  const grav = new Float32Array(MAX);
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  const pts = new THREE.Points(geo, new THREE.PointsMaterial({
-    color: 0xfff0c0, size: 0.13, sizeAttenuation: true,
+  geo.setAttribute('aCol', new THREE.BufferAttribute(col, 3));
+  geo.setAttribute('aSize', new THREE.BufferAttribute(size, 1));
+  geo.setAttribute('aLife', new THREE.BufferAttribute(lifeK, 1));
+  const pts = new THREE.Points(geo, new THREE.ShaderMaterial({
+    vertexShader: `
+      attribute vec3 aCol; attribute float aSize; attribute float aLife;
+      varying vec3 vCol; varying float vLife;
+      void main() {
+        vCol = aCol; vLife = aLife;
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        gl_Position = projectionMatrix * mv;
+        gl_PointSize = aSize * (0.35 + 0.65 * aLife) * 420.0 / max(0.5, -mv.z);
+      }`,
+    fragmentShader: `
+      varying vec3 vCol; varying float vLife;
+      void main() {
+        if (vLife <= 0.0) discard;
+        float r = length(gl_PointCoord - 0.5);
+        float a = smoothstep(0.5, 0.0, r);
+        float core = smoothstep(0.22, 0.0, r);
+        gl_FragColor = vec4((vCol * a + vec3(core)) * vLife * 2.6, 1.0);
+      }`,
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
   }));
   pts.frustumCulled = false;
+  pts.renderOrder = 6;
   scene.add(pts);
   let head = 0;
+  const _c = new THREE.Color();
+
+  function emit(at, vx, vy, vz, lf, c, sz, g) {
+    const i = head = (head + 1) % MAX;
+    pos[i * 3] = at.x; pos[i * 3 + 1] = at.y; pos[i * 3 + 2] = at.z;
+    vel[i * 3] = vx; vel[i * 3 + 1] = vy; vel[i * 3 + 2] = vz;
+    life[i] = life0[i] = lf;
+    col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
+    size[i] = sz;
+    grav[i] = g;
+  }
+
+  // RINGS: a flat flash that expands and fades -- facing the camera for an
+  // impact, lying on the ground for a death's shockwave
+  const rings = [];
+  const ringGeo = new THREE.RingGeometry(0.72, 1.0, 40);
+  for (let k = 0; k < 8; k++) {
+    const m = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({
+      color: 0xffffff, transparent: true, depthWrite: false, side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending, opacity: 0,
+    }));
+    m.visible = false;
+    m.renderOrder = 6;
+    scene.add(m);
+    rings.push({ m, t: 1, dur: 0.2, from: 0.1, to: 1, flat: false });
+  }
+  let ringHead = 0;
+  function ring(at, color, { flat = false, from = 0.1, to = 1.0, dur = 0.18 } = {}) {
+    const r = rings[ringHead = (ringHead + 1) % rings.length];
+    r.m.position.copy(at);
+    r.m.material.color.set(color).multiplyScalar(2.2);
+    r.t = 0; r.dur = dur; r.from = from; r.to = to; r.flat = flat;
+    r.m.visible = true;
+    if (flat) r.m.rotation.set(-Math.PI / 2, 0, 0);
+  }
 
   /**
    * A burst at the point of impact.
@@ -1569,16 +1634,35 @@ function makeEffects(scene, ctx = {}) {
    * fight rather than as an impact on it. The upward bias is also down: the
    * burst should go along the hit, not over it.
    */
-  function spark(at, dir, scale = 1, n = 16) {
+  function spark(at, dir, scale = 1, n = 16, color = 0xffd890) {
+    _c.set(color);
     for (let k = 0; k < n; k++) {
-      const i = head = (head + 1) % MAX;
-      pos[i * 3] = at.x; pos[i * 3 + 1] = at.y; pos[i * 3 + 2] = at.z;
       const s = (2.6 + Math.random() * 3.4) * scale;
-      vel[i * 3] = (dir.x * 1.6 + (Math.random() - 0.5) * 1.4) * s;
-      vel[i * 3 + 1] = (0.25 + Math.random() * 0.75) * s;
-      vel[i * 3 + 2] = (dir.z * 1.6 + (Math.random() - 0.5) * 1.4) * s;
-      life[i] = 0.22 + Math.random() * 0.14;
+      emit(at,
+           (dir.x * 1.6 + (Math.random() - 0.5) * 1.4) * s,
+           (0.25 + Math.random() * 0.75) * s,
+           (dir.z * 1.6 + (Math.random() - 0.5) * 1.4) * s,
+           0.22 + Math.random() * 0.16, _c, 0.05 + Math.random() * 0.05, 26);
     }
+    ring(at, color, { from: 0.08 * scale, to: 0.75 * scale, dur: 0.16 });
+  }
+
+  /**
+   * A death: the body comes apart into light. Motes rise and drift out of the
+   * place it stood, a ring rolls out across the ground, and there is one hot
+   * flash at the heart of it. `h` is the creature's height.
+   */
+  function burst(at, h = 1, color = 0xb89cff) {
+    _c.set(color);
+    const c2 = new THREE.Color(0xfff2c8);
+    for (let k = 0; k < 46; k++) {
+      const a = Math.random() * Math.PI * 2, r = Math.random() * 0.45 * h;
+      const p = { x: at.x + Math.cos(a) * r, y: at.y + Math.random() * h, z: at.z + Math.sin(a) * r };
+      emit(p, Math.cos(a) * (0.4 + Math.random()), 0.8 + Math.random() * 2.2, Math.sin(a) * (0.4 + Math.random()),
+           0.7 + Math.random() * 0.6, Math.random() < 0.3 ? c2 : _c, 0.05 + Math.random() * 0.07, -0.6);
+    }
+    ring({ x: at.x, y: at.y + 0.06, z: at.z }, color, { flat: true, from: 0.2, to: 2.4 * Math.max(0.7, h), dur: 0.45 });
+    ring({ x: at.x, y: at.y + h * 0.5, z: at.z }, 0xffffff, { from: 0.1, to: 1.1 * h, dur: 0.2 });
   }
 
   function number(at, value, color) {
@@ -1605,16 +1689,31 @@ function makeEffects(scene, ctx = {}) {
       vignette.style.opacity = String(hurt * hurt);
     }
     for (let i = 0; i < MAX; i++) {
-      if (life[i] <= 0) continue;
+      if (life[i] <= 0) { lifeK[i] = 0; continue; }
       life[i] -= dt;
-      if (life[i] <= 0) { pos[i * 3 + 1] = -999; continue; }
+      if (life[i] <= 0) { pos[i * 3 + 1] = -999; lifeK[i] = 0; continue; }
+      lifeK[i] = life[i] / life0[i];
       pos[i * 3] += vel[i * 3] * dt;
       pos[i * 3 + 1] += vel[i * 3 + 1] * dt;
       pos[i * 3 + 2] += vel[i * 3 + 2] * dt;
-      vel[i * 3 + 1] -= 26 * dt;
-      vel[i * 3] *= 0.90; vel[i * 3 + 2] *= 0.90;
+      vel[i * 3 + 1] -= grav[i] * dt;
+      const drag = grav[i] > 0 ? 0.90 : 0.97;
+      vel[i * 3] *= drag; vel[i * 3 + 2] *= drag;
     }
     geo.attributes.position.needsUpdate = true;
+    geo.attributes.aLife.needsUpdate = true;
+    geo.attributes.aCol.needsUpdate = true;
+    geo.attributes.aSize.needsUpdate = true;
+    for (const r of rings) {
+      if (!r.m.visible) continue;
+      r.t += dt;
+      const u = Math.min(1, r.t / r.dur);
+      const sc = r.from + (r.to - r.from) * (1 - (1 - u) * (1 - u));
+      r.m.scale.setScalar(sc);
+      if (!r.flat) r.m.quaternion.copy(camera.quaternion);
+      r.m.material.opacity = (1 - u) * (1 - u);
+      if (u >= 1) r.m.visible = false;
+    }
 
     for (let i = numbers.length - 1; i >= 0; i--) {
       const n = numbers[i];
@@ -1636,5 +1735,5 @@ function makeEffects(scene, ctx = {}) {
     }
   }
 
-  return { spark, number, update, hurtFlash };
+  return { spark, burst, ring, number, update, hurtFlash };
 }

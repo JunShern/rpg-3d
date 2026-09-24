@@ -382,8 +382,11 @@ float pBumpK = 1.0;
     vec3 deep = vec3(0.015, 0.07, 0.10);
     diffuseColor.rgb = mix(shallow, deep, smoothstep(0.05, 1.1, dep));
     float fn = pNoise(vec3(vPW.x * 2.2 - uTime * 0.9, vPW.z * 2.2, uTime * 0.25));
-    float foam = (1.0 - smoothstep(0.0, 0.16 + fn * 0.12, dep)) * inside;
-    foam = max(foam, step(0.82, fn) * (1.0 - smoothstep(0.0, 0.35, dep)) * inside * 0.6);
+    // a line of foam where the water meets the bank, and flecks in the fast
+    // shallows -- the band used to be sixteen centimetres of DEPTH, which on a
+    // gently shelving bank is a metre and a half of white
+    float foam = (1.0 - smoothstep(0.0, 0.035 + fn * 0.05, dep)) * inside;
+    foam = max(foam, step(0.86, fn) * (1.0 - smoothstep(0.0, 0.2, dep)) * inside * 0.45);
     diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.85, 0.90, 0.88), foam);
     diffuseColor.a = clamp(mix(0.30, 0.94, smoothstep(0.02, 0.8, dep)) + foam, 0.0, 1.0);
   }

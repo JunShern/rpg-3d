@@ -159,6 +159,13 @@ const SHARED = {
   // (xyz + radius). A nettle is 40 cm tall and the meadow grows to 55, so
   // without this the monsters fought in it were invisible.
   uPush: { value: Array.from({ length: 8 }, () => new THREE.Vector4(0, -99, 0, 0)) },
+  // THE GRASS CARRIES THE WARNING. Up to two danger shapes a frame: (x, z,
+  // facing, reach) and (arc half-angle -- or, negative, a lane's half-width;
+  // progress 0..1; unused; strength). Blades inside one glow in its colour,
+  // so the meadow itself lights up where the blow is going to land.
+  uWarnA: { value: [new THREE.Vector4(), new THREE.Vector4()] },
+  uWarnB: { value: [new THREE.Vector4(), new THREE.Vector4()] },
+  uWarnC: { value: [new THREE.Color(), new THREE.Color()] },
 };
 
 function grassMaterial(layer) {
@@ -188,6 +195,10 @@ function grassMaterial(layer) {
         uniform vec4 uRect;
         uniform vec3 uCam, uPlayer;
         uniform vec4 uPush[8];
+        uniform vec4 uWarnA[2];
+        uniform vec4 uWarnB[2];
+        uniform vec3 uWarnC[2];
+        varying vec3 vGWarn;
         varying vec3 vGW;
         varying float vGT;
         varying float vGShade;
@@ -239,6 +250,30 @@ function grassMaterial(layer) {
         }
         hy *= 1.0 - flatK * 0.55;
 
+        vGWarn = vec3(0.0);
+        for (int k = 0; k < 2; k++) {
+          vec4 A = uWarnA[k], B = uWarnB[k];
+          if (B.w <= 0.0) continue;
+          vec2 d = root - A.xy;
+          float cf = cos(A.z), sf = sin(A.z);
+          vec2 l = vec2(d.x * cf - d.y * sf, d.x * sf + d.y * cf);   // into its frame: +y along facing
+          float along = l.y;
+          float inside;
+          float dn;
+          if (B.x < 0.0) {           // lane
+            inside = step(0.0, along) * step(along, A.w) * step(abs(l.x), -B.x);
+            dn = along / A.w;
+          } else {                   // arc
+            float r = length(d);
+            float ang = abs(atan(l.x, l.y));
+            inside = step(r, A.w) * step(ang, B.x);
+            dn = r / A.w;
+          }
+          // lit as the wind-up sweeps out, brightest at the leading edge
+          float swept = 1.0 - smoothstep(B.y - 0.05, B.y, dn);
+          float edge = smoothstep(B.y - 0.25, B.y, dn) * swept;
+          vGWarn = max(vGWarn, uWarnC[k] * inside * B.w * (0.35 + 0.65 * swept + edge * 1.2));
+        }
         vec3 transformed = vec3(root.x + p.x + off.x, fld.r + hy, root.y + p.z + off.y);
         vGW = transformed;
         vGT = aT;
@@ -261,6 +296,7 @@ function grassMaterial(layer) {
         varying float vGShade;
         varying float vGFlower;
         varying float vGFlowerHue;
+        varying vec3 vGWarn;
         uniform vec3 uSunDir, uSunCol;
         ${NOISE_GLSL}
       `)
@@ -293,6 +329,7 @@ function grassMaterial(layer) {
           vec3 V = normalize(vGW - cameraPosition);
           float back = pow(clamp(dot(V, uSunDir), 0.0, 1.0), 4.0);
           totalEmissiveRadiance += diffuseColor.rgb * uSunCol * back * vGT * 1.4;
+          totalEmissiveRadiance += vGWarn * (0.3 + vGT * 1.7) * 1.6;
         }
       `);
   };
@@ -360,6 +397,20 @@ export function makeGrass({ scene, terrain, solids }) {
         const L = m.userData.layer;
         L.u.uOrigin.value.set(Math.round(camPos.x / L.spacing) * L.spacing,
                               Math.round(camPos.z / L.spacing) * L.spacing);
+      }
+    },
+    /**
+     * The danger shapes to paint into the field this frame.
+     * @param list [{ x, z, facing, reach, arc?, half?, progress, color, k }]
+     */
+    setWarnings(list) {
+      for (let i = 0; i < 2; i++) {
+        const w = list && list[i];
+        const A = SHARED.uWarnA.value[i], B = SHARED.uWarnB.value[i];
+        if (!w) { B.w = 0; continue; }
+        A.set(w.x, w.z, w.facing, w.reach);
+        B.set(w.arc !== undefined ? w.arc / 2 : -w.half, w.progress, 0, w.k ?? 1);
+        SHARED.uWarnC.value[i].set(w.color);
       }
     },
     set visible(v) { for (const m of meshes) m.visible = v; },

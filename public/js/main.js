@@ -1934,6 +1934,52 @@ const lockRing = (() => {
  * IN the world rather than over it, which is also why it can be trusted: it is
  * occluded by what occludes it.
  */
+/**
+ * THE WARNING IS LIGHT ON THE GROUND. It was a flat tinted pane -- which, in a
+ * lit and bloomed world, read as a sheet of blue plastic lying in the grass.
+ * Now it is a glowing marking: a bright rim along the edge of the danger, a
+ * fill that sweeps out from the enemy as the wind-up completes (so the shape
+ * itself is the countdown), and bands running outward along it.
+ *
+ * It keeps the MeshBasicMaterial surface the rest of this file drives --
+ * `.color.set()` and `.opacity` -- so the tuning below did not have to change.
+ */
+function warnMaterial(kind, color) {
+  const u = {
+    uColor: { value: new THREE.Color(color) },
+    uOpacity: { value: 0.5 },
+    uProgress: { value: 0 },
+    uArc: { value: Math.PI },
+    uKind: { value: kind },
+    uTime: PAINT.uTime,
+  };
+  const m = new THREE.ShaderMaterial({
+    uniforms: u, transparent: true, depthWrite: false, side: THREE.DoubleSide,
+    vertexShader: `
+      varying vec3 vL;
+      void main() { vL = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `
+      uniform vec3 uColor; uniform float uOpacity, uProgress, uArc, uKind, uTime;
+      varying vec3 vL;
+      void main() {
+        float d, side;
+        if (uKind < 0.5) { d = vL.z; side = abs(vL.x) * 2.0; }
+        else { d = length(vL.xz); side = abs(atan(vL.x, vL.z)) / (uArc * 0.5); }
+        float rim = max(smoothstep(0.80, 0.98, side), smoothstep(0.90, 0.99, d));
+        float filled = 1.0 - smoothstep(uProgress - 0.04, uProgress, d);
+        float band = 0.5 + 0.5 * sin(d * 16.0 - uTime * 7.0);
+        float a = (0.14 + 0.30 * filled * (0.75 + 0.25 * band) + 0.75 * rim);
+        a *= smoothstep(0.0, 0.08, d) * (1.0 - smoothstep(0.995, 1.0, d));
+        vec3 c = uColor * (1.1 + rim * 2.2 + filled * 0.8);
+        gl_FragColor = vec4(c, a * uOpacity);
+      }`,
+  });
+  m.color = u.uColor.value;
+  Object.defineProperty(m, 'opacity', { get: () => u.uOpacity.value, set: (v) => { u.uOpacity.value = v; },
+                                        configurable: true });
+  return m;
+}
+
 const threatLine = (() => {
   const g = new THREE.PlaneGeometry(1, 1, 1, 1);
   // IT POINTS ALONG +Z, because that is where `rotation.y = facing` sends it.
@@ -1946,13 +1992,10 @@ const threatLine = (() => {
   // aim the enemy yourself and look at where the lane went.
   g.translate(0, -0.5, 0);         // pivot at the near edge
   g.rotateX(-Math.PI / 2);
-  const m = new THREE.MeshBasicMaterial({
-    // 0x2ec8ff, not 0x63dcff: the paler cyan at 0.3 alpha was a wash you had
-    // to hunt for on a beige path, which is exactly the ground the Curler
-    // charges you across.
-    color: 0x2ec8ff, transparent: true, opacity: 0.42,
-    depthWrite: false, side: THREE.DoubleSide,
-  });
+  // 0x2ec8ff, not 0x63dcff: the paler cyan at 0.3 alpha was a wash you had
+  // to hunt for on a beige path, which is exactly the ground the Curler
+  // charges you across.
+  const m = warnMaterial(0, 0x2ec8ff);
   const mesh = new THREE.Mesh(g, m);
   mesh.renderOrder = 1;
   mesh.visible = false;
@@ -1998,10 +2041,7 @@ function sectorGeometry(arc) {
 }
 
 function sectorMesh(color) {
-  const m = new THREE.MeshBasicMaterial({
-    color, transparent: true, opacity: 0.34,
-    depthWrite: false, side: THREE.DoubleSide,
-  });
+  const m = warnMaterial(1, color);
   const mesh = new THREE.Mesh(sectorGeometry(Math.PI), m);
   mesh.renderOrder = 1;
   mesh.visible = false;
@@ -2072,6 +2112,25 @@ function updateThreatLines(dt) {
     // hue the meadow cannot show. Both accents are now saturated enough to sit
     // on grass, and the dark edge carries the shape wherever the fill does not.
     threatArc.material.color.set(arced.name === 'bellow' ? 0xff7a26 : 0xffd23f);
+    threatArc.material.uniforms.uProgress.value = k;
+    threatArc.material.uniforms.uArc.value = arc;
+  }
+
+  // and the field lights up under the same shapes (grass.js)
+  if (grass) {
+    const W = [];
+    if (arced) {
+      W.push({ x: arced.pos.x, z: arced.pos.z, facing: arced.facing,
+               reach: arced.spec.strikeRange + 0.35, arc: arced.spec.hitArc ?? 1.7,
+               progress: Math.min(1, arced.t / Math.max(0.05, arced.spec.telegraph)),
+               color: arced.name === 'bellow' ? 0xff6a1a : 0xffc21f });
+    }
+    if (shown) {
+      W.push({ x: shown.pos.x, z: shown.pos.z, facing: shown.facing,
+               reach: shown.spec.charge * shown.spec.attackTime * 0.62, half: shown.spec.radius * 1.05,
+               progress: Math.min(1, shown.t / Math.max(0.05, shown.spec.telegraph)), color: 0x2ec8ff });
+    }
+    grass.setWarnings(W);
   }
 
   if (!shown) { threatLine.visible = false; return; }
@@ -2088,6 +2147,7 @@ function updateThreatLines(dt) {
   // it has to be seen from across a field on a beige path, so it starts
   // visible and grows -- 0.16 was invisible at the moment it mattered most
   threatLine.material.opacity = 0.40 + 0.38 * k;
+  threatLine.material.uniforms.uProgress.value = k;
 }
 
 /** Four evenly spaced ring segments, merged into one buffer geometry. */
