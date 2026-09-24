@@ -428,6 +428,15 @@ vec3 pPaveTilt = vec3(0.0);
     sc = mix(sc, sc * 1.12 + 0.02, traffic * 0.5);
     float mossy = smoothstep(0.35, 0.8, pFbm(vPW * 0.6 + 4.0)) * (1.0 - traffic);
     vec3 joint = mix(vec3(0.10, 0.085, 0.07), vec3(0.16, 0.22, 0.09), mossy);
+    // BROAD VARIATION over the whole square: patches of paler dust where it
+    // dries and darker damp where water stands -- so the paving has a
+    // landscape of its own instead of one tone edge to edge
+    float big = pFbm(vPW * 0.11 + 5.0);
+    sc *= mix(0.78, 1.14, smoothstep(0.3, 0.7, big));
+    float damp = smoothstep(0.62, 0.75, pFbm(vPW * 0.23 + 9.0));
+    sc *= 1.0 - damp * 0.28;
+    // dust settles in the joints and softens them at a distance
+    joint = mix(joint, vec3(0.36, 0.31, 0.25), smoothstep(8.0, 30.0, pDist) * 0.6);
     diffuseColor.rgb = mix(joint, sc, stoneK);
     pH0 = stoneK;
     pPaveTilt = vec3(toC.x, 0.0, toC.y) / max(0.05, length(toC))
@@ -471,11 +480,18 @@ vec3 pPaveTilt = vec3(0.0);
     float outside = 1.0 - pIndoor(vPW, pWN);
     float spall = smoothstep(0.64, 0.655, pn * low + 0.04) * vert * outside;
     float lip = smoothstep(0.62, 0.64, pn * low + 0.04) * (1.0 - spall) * vert * outside;
-    float course = abs(fract(vPW.y / 0.22) - 0.5);
-    vec3 rubble = mix(vec3(0.46, 0.41, 0.34), vec3(0.62, 0.56, 0.46), pNoise(vPW * 5.0))
-                * mix(0.55, 1.0, smoothstep(0.03, 0.08, course));
+    // RUBBLE, not a brick pattern: irregular stones of mixed tone laid in
+    // rough courses, the mortar dark and deep
+    vec3 rq = vec3(dot(vPW.xz, vec2(0.7071, 0.7071)) + vPW.x * 0.3, vPW.y, 0.0);
+    vec2 rtoC; vec4 rv = pVor(vec2(rq.x / 0.26, rq.y / 0.17), rtoC);
+    float mortar = smoothstep(0.05, 0.14, rv.y - rv.x);
+    vec3 rubble = mix(vec3(0.40, 0.36, 0.30), vec3(0.62, 0.56, 0.45), rv.z)
+                * mix(0.35, 1.0, mortar);
+    // the broken render's edge is a shadowed step, not a line
+    float edge = smoothstep(0.64, 0.66, pn * low + 0.04) - smoothstep(0.66, 0.70, pn * low + 0.04);
     diffuseColor.rgb = mix(diffuseColor.rgb, rubble, spall);
-    diffuseColor.rgb *= 1.0 + lip * 0.12;
+    diffuseColor.rgb *= 1.0 - edge * outside * vert * 0.35;
+    diffuseColor.rgb *= 1.0 + lip * 0.06;
     // rain streaks: thin vertical runs, darker lower down each run
     float sx = pNoise(vec3(vPW.x * 4.5 + vPW.z * 4.5, vPW.y * 0.08, 3.0));
     float run = smoothstep(0.62, 0.9, sx) * smoothstep(0.2, 0.7, pNoise(vec3(vPW.xz * 0.7, vPW.y * 0.5)));
