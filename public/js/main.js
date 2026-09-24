@@ -18,6 +18,7 @@ import { makeParty } from './party.js';
 import { makeQuest } from './quest.js';
 import { makeCine, SCENES } from './cine.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import {
   toonMaterial, flatMaterial, outlineMaterial, outlineGeometry, skyDome,
   RAMP_3, RAMP_SOFT, setRimScale, WIND, LOOKS, surfaceMaterial,
@@ -456,14 +457,71 @@ Promise.all([
   // everything, four metres below the lowest floor, so any view past the
   // modelled world lands on distant fields and woods in the haze.
   if (LOOK.painted) {
-    const g = new THREE.PlaneGeometry(1400, 1400, 1, 1);
+    // AT STREET LEVEL round the town, so it sits in fields rather than on a
+    // plinth over a void -- and dropped well below the meadow, whose own
+    // terrain owns the ground there (and whose stream bed dips below zero).
+    const g = new THREE.PlaneGeometry(1400, 1400, 280, 280);
     g.rotateX(-Math.PI / 2);
-    const far = new THREE.Mesh(g, surfaceMaterial(LOOK, new THREE.Color(0.24, 0.36, 0.18),
+    {
+      const P = g.attributes.position;
+      const c = meadowMan.terrain;
+      for (let i = 0; i < P.count; i++) {
+        const x = P.getX(i), z = P.getZ(i);
+        const inMeadow = x > c.x0 - 3 && x < c.x1 + 3 && -z > c.gateY - 1 && -z < c.y1 + 3;
+        // rolling fields beyond, rising gently away from the valley
+        const d = Math.hypot(x, z);
+        const roll = Math.sin(x * 0.021) * Math.cos(z * 0.017) * 2.2 + Math.max(0, d - 70) * 0.05;
+        P.setY(i, inMeadow ? -9 : -0.12 + (d > 45 ? roll : 0));
+      }
+      g.computeVertexNormals();
+    }
+    const far = new THREE.Mesh(g, surfaceMaterial(LOOK, new THREE.Color(0.26, 0.38, 0.18),
                                                   { surface: 'farfield' }));
-    far.position.set(0, -4.2, 0);
+    far.position.set(0, 0, 0);
     far.receiveShadow = false;
     far.userData.matName = 'farfield';
     world.add(far);
+
+    // WOODS IN THE FAR COUNTRY: instanced trees in copses, where a noise field
+    // says there is woodland, on the farfield's own height. Too far away to
+    // walk to; near enough to make the land beyond the town a place.
+    {
+      const P = g.attributes.position;
+      const heightAt = (x, z) => {        // bilinear on the farfield grid
+        const fx = (x + 700) / 1400 * 280, fz = (z + 700) / 1400 * 280;
+        const i = Math.max(0, Math.min(279, Math.floor(fx))), j = Math.max(0, Math.min(279, Math.floor(fz)));
+        return P.getY(j * 281 + i);
+      };
+      const c = meadowMan.terrain;
+      const rng = (() => { let s = 97; return () => ((s = (s * 16807) % 2147483647) / 2147483647); })();
+      const trees = [];
+      for (let k = 0; k < 14000 && trees.length < 1500; k++) {
+        const x = (rng() - 0.5) * 560, z = (rng() - 0.5) * 560;
+        const d = Math.hypot(x, z);
+        if (d < 58) continue;                                  // the town and its fields
+        if (x > c.x0 - 8 && x < c.x1 + 8 && -z > c.gateY - 6 && -z < c.y1 + 8) continue;
+        const wood = Math.sin(x * 0.031 + 1.3) * Math.cos(z * 0.027 - 0.4) + Math.sin((x + z) * 0.013) * 0.6;
+        if (wood < 0.35 + rng() * 0.4) continue;
+        trees.push([x, heightAt(x, z), z, 0.8 + rng() * 0.7, rng()]);
+      }
+      // three lumps, not one ball: a crown is irregular
+      const lumps = [[0, 6.4, 0, 3.0], [1.9, 5.4, 0.8, 2.3], [-1.5, 5.6, -1.2, 2.4]].map(([x, y, z, r]) => {
+        const l = new THREE.IcosahedronGeometry(r, 1); l.translate(x, y, z); return l;
+      });
+      const canopyG = mergeGeometries(lumps);
+      const trunkG = new THREE.CylinderGeometry(0.28, 0.4, 5, 6);
+      trunkG.translate(0, 2.5, 0);
+      const cm = new THREE.InstancedMesh(canopyG, surfaceMaterial(LOOK, new THREE.Color(0.17, 0.30, 0.13), { surface: 'leaf' }), trees.length);
+      const tm = new THREE.InstancedMesh(trunkG, surfaceMaterial(LOOK, new THREE.Color(0.30, 0.24, 0.18), { surface: 'bark' }), trees.length);
+      const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), pv = new THREE.Vector3();
+      trees.forEach(([x, y, z, k, r], i) => {
+        q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), r * 6.28);
+        m4.compose(pv.set(x, y - 0.3, z), q, sc.set(k, k * (0.85 + r * 0.4), k));
+        cm.setMatrixAt(i, m4); tm.setMatrixAt(i, m4);
+      });
+      for (const im of [cm, tm]) { im.castShadow = false; im.receiveShadow = false; world.add(im); }
+      console.log(`[far] ${trees.length} trees in the far country`);
+    }
   }
   if (LOOK.painted) {
     const t0 = performance.now();
