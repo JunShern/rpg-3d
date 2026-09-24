@@ -688,6 +688,8 @@ def main():
     # lamp being below the paving, which described the cellar and nothing else.
     man["lights"] = [{"x": round(x, 3), "y": round(z, 3), "z": round(-y, 3), "k": k}
                      for x, y, z, k in t.lights]
+    man["smokes"] = [{"x": round(x, 3), "y": round(z + 0.3, 3), "z": round(-y, 3)}
+                     for x, y, z in getattr(t, "smokes", [])]
     # things the runtime animates: where they turn, and where you have to swing
     # to set them going -- which for a bell is at the bottom of a 20 m rope
     man["movers"] = [{"name": nm,

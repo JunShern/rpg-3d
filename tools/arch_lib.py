@@ -1593,6 +1593,14 @@ def building(t, cx, cy, w, d, storeys=2, yaw=0.0, plaster="plaster_a",
         if yaw:
             K.transform(o, rotate=(0, 0, yaw), around=(0, 0, 0))
         K.transform(o, translate=(cx, cy, 0))
+    # where this building's smoke rises (see town_build: manifest `smokes`)
+    for o in out:
+        if o is not None and o.name.startswith("chim_cap"):
+            vs = [o.matrix_world @ v.co for v in o.data.vertices]
+            if not hasattr(t, "smokes"):
+                t.smokes = []
+            t.smokes.append((sum(v.x for v in vs) / len(vs), sum(v.y for v in vs) / len(vs),
+                             max(v.z for v in vs)))
 
     t.add(*out)
     # THE BOX STOPS AT THE EAVES, NOT AT THE RIDGE.

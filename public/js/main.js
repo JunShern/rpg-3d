@@ -32,6 +32,7 @@ import { makeGrass } from './grass.js';
 import { makeFoliage } from './foliage.js';
 import { makeHud } from './hud.js';
 import { makeMotes } from './motes.js';
+import { makeSmoke } from './smoke.js';
 import { makeTitle } from './title.js';
 import { CHAR_FILL } from './toon.js';
 
@@ -303,6 +304,7 @@ const PLATFORMS = [];      // flat tops ABOVE the analytic ground
 const CAM_BLOCKERS = [];
 let terrain = null;        // analytic ground for the meadow
 let grass = null;          // the field -- grass.js
+let smoke = null;          // chimney smoke -- smoke.js
 let terrainProbes = [];
 const FLOORS = [];         // meshes the ground raycast targets
 // OPEN VOLUMES THE CAMERA MAY ALWAYS OCCUPY -- see `Town.shafts` in arch_lib.
@@ -566,6 +568,7 @@ Promise.all([
   // the meadow answers ground queries analytically; prove the port agrees
   terrain = makeTerrain(meadowMan.terrain);
   terrainProbes = meadowMan.terrainProbes;
+  if (LOOK.painted && townMan.smokes) smoke = makeSmoke({ scene: world, sources: townMan.smokes });
   // THE FIELD. After both regions' solids are in, so no tuft grows through a
   // wall, a rock or a trunk.
   if (LOOK.painted) {
@@ -3202,6 +3205,7 @@ function frame(dt) {
   if (grass) grass.update(camera.position, cur ? cur.group.position : null, pushers());
   updateHud(dt);
   updateWaves(dt);
+  if (smoke) smoke.update(prNow);
   adaptResolution(dt);
   // the cast's sky fill fades as you walk indoors, over the same stride the
   // camera's interior blend uses
