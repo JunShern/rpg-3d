@@ -518,7 +518,7 @@ Promise.all([
         .map(([x, y, z, r]) => {
           // BUMPY, not spheres: each vertex pushed in or out by a hash of its
           // direction, so the crown's silhouette breaks up into clumps
-          const l = new THREE.IcosahedronGeometry(r, 2);
+          const l = new THREE.IcosahedronGeometry(r, 1);   // detail 2 was 1.9M triangles over 1,500 trees
           const P = l.attributes.position, v = new THREE.Vector3();
           for (let i = 0; i < P.count; i++) {
             v.fromBufferAttribute(P, i);

@@ -116,6 +116,7 @@ def palette():
         # fruit, flowers and goods -- they were `awning`, and awning is
         # striped canvas now
         "fruit":     (0.78, 0.30, 0.18),
+        "herb":      (0.36, 0.42, 0.20),
     }
     mats = {}
     for name, color in spec.items():
@@ -2326,6 +2327,24 @@ def smithy_fit(t, cx, cy, w, d, yaw=0.0, seed=0):
             {"p": Vector((bx2 - 0.32, -iy + 0.20, z + 1.75)), "r": (0.030, 0.030), "n": 2.4},
         ], seg=6, mat=M["iron"], squircle=2.4))
 
+    # beams, the bellows that feed the forge, and a board of horseshoes
+    ceil = 0.16 + GROUND_H - 0.18
+    for k in range(3):
+        by = -iy + (k + 0.5) * 2 * iy / 3
+        out.append(box("smithy_beam", (0, by, ceil - 0.08), (ix, 0.10, 0.12), M["timber"], bevel=0.015, seg=1))
+    bx_, by_ = fx + 1.55, fy
+    out.append(K.tube("bellows", [
+        {"p": Vector((bx_, by_ - 0.45, z + 0.55)), "r": (0.05, 0.05), "n": 2.0},
+        {"p": Vector((bx_, by_ - 0.10, z + 0.55)), "r": (0.30, 0.10), "n": 2.0},
+        {"p": Vector((bx_, by_ + 0.35, z + 0.55)), "r": (0.34, 0.11), "n": 2.0}], seg=12, mat=M["door"], up=(0, 0, 1)))
+    out.append(box("bellows_stand", (bx_, by_, z + 0.24), (0.12, 0.3, 0.24), M["timber"], bevel=0.02, seg=1))
+    out.append(box("shoe_board", (ix - 0.03, -iy * 0.2, z + 1.55), (0.03, 0.7, 0.35), M["timber"], bevel=0.01, seg=1))
+    for k in range(8):
+        hy = -iy * 0.2 - 0.55 + (k % 4) * 0.36
+        hz = z + 1.4 + (k // 4) * 0.34
+        out.append(K.tube("horseshoe", [
+            {"p": Vector((ix - 0.07, hy + 0.09 * math.cos(a_), hz + 0.10 * math.sin(a_))), "r": (0.02, 0.02), "n": 2.0}
+            for a_ in [math.pi * (0.1 + 1.8 * i / 8) - math.pi * 0.4 for i in range(9)]], seg=6, mat=M["iron"]))
     for o in out:
         if yaw:
             K.transform(o, rotate=(0, 0, yaw), around=(0, 0, 0))
@@ -2392,13 +2411,50 @@ def shop_fit(t, cx, cy, w, d, yaw=0.0, seed=0):
             r = 0.085 + rnd() * 0.05
             out.append(K.blob("shop_stock", (gx, iy - 0.22, sz + 0.035 + r),
                               (r, r * 0.9, r * 1.25), None,
-                              M[("awning", "door", "stone", "brass")[(j + k) % 4]],
+                              M[("fruit", "door", "stone", "brass")[(j + k) % 4]],
                               seg=8, rings=6, squircle=2.3))
 
     # A LAMP ON THE COUNTER, which is where the light is wanted and -- more to
     # the point -- within a metre of every timber surface in the room. The toon
     # ramp is a hard step: the belltower's stores stayed pure black under a lamp
     # three metres away, and moving it to 1.5 m fixed them entirely.
+    # A LIVED-IN ROOM: beams across the ceiling with herbs and pots hung from
+    # them, panelling to dado height, a rug where customers stand, and the
+    # clutter of a trade on the counter. None of it is collision.
+    ceil = 0.16 + GROUND_H - 0.18
+    for k in range(4):
+        by = -iy + (k + 0.5) * 2 * iy / 4
+        out.append(box("shop_beam", (0, by, ceil - 0.08), (ix, 0.09, 0.11), M["timber"], bevel=0.015, seg=1))
+        for j in range(3):
+            hx = -ix * 0.7 + ix * 1.4 * (j + 0.5) / 3 + (rnd() - 0.5) * 0.3
+            drop = 0.35 + rnd() * 0.35
+            out.append(box("shop_string", (hx, by, ceil - 0.19 - drop / 2), (0.006, 0.006, drop / 2),
+                           M["timber"], bevel=0.002, seg=1))
+            if (j + k) % 2:
+                # NOT `leaf`: the runtime dresses every leaf mesh in metre-wide
+                # leaf cards, and a bunch of drying herbs became a hanging bush
+                out.append(K.blob("shop_herbs", (hx, by, ceil - 0.25 - drop), (0.09, 0.09, 0.2), None,
+                                  M["herb"], seg=8, rings=6))
+            else:
+                out.append(K.blob("shop_pot", (hx, by, ceil - 0.25 - drop), (0.12, 0.12, 0.11), None,
+                                  M["fruit"], seg=10, rings=7))
+    for sx in (-1, 1):
+        out.append(box("shop_wainscot", (sx * (ix - 0.02), 0, z + 0.5), (0.02, iy, 0.5), M["timber"], bevel=0.005, seg=1))
+    out.append(box("shop_wainscot", (0, iy - 0.02, z + 0.5), (ix, 0.02, 0.5), M["timber"], bevel=0.005, seg=1))
+    out.append(box("shop_rug", (0, -iy + d * 0.18, z + 0.008), (ix * 0.55, 0.62, 0.008), M["fruit"], bevel=0.004, seg=1))
+    for j in range(4):
+        jx = -ix * 0.9 + j * 0.34
+        out.append(K.tube("shop_jar", [
+            {"p": Vector((jx, cy_local, z + 0.99)), "r": (0.07, 0.07), "n": 2.0},
+            {"p": Vector((jx, cy_local, z + 1.18 + 0.05 * (j % 2))), "r": (0.08, 0.08), "n": 2.0},
+            {"p": Vector((jx, cy_local, z + 1.22 + 0.05 * (j % 2))), "r": (0.05, 0.05), "n": 2.0}],
+            seg=10, mat=M["glass"] if j % 2 else M["fruit"], up=(0, 0, 1)))
+    out.append(box("shop_scale_post", (ix * 0.5, cy_local, z + 1.18), (0.02, 0.02, 0.2), M["brass"], bevel=0.005, seg=1))
+    out.append(box("shop_scale_beam", (ix * 0.5, cy_local, z + 1.37), (0.22, 0.015, 0.012), M["brass"], bevel=0.004, seg=1))
+    for sx in (-1, 1):
+        out.append(K.blob("shop_scale_pan", (ix * 0.5 + sx * 0.2, cy_local, z + 1.18), (0.09, 0.09, 0.02), None,
+                          M["brass"], seg=10, rings=5))
+
     lx, ly = world(-ix * 0.45, cy_local)
     lamps = [lantern(t, lx, ly, z0=z + 0.96, h=0.72, wall=True, kind='interior')]
 
