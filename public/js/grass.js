@@ -225,7 +225,9 @@ function grassMaterial(layer) {
         vec3 p = position;
         p.xz = mat2(ca, -sa, sa, ca) * p.xz;
         float hy = p.y * uHeight * s;
-        p.xz *= mix(1.0, s, 0.5);
+        // the spread shrinks WITH the height: short verge grass that kept its
+        // full fan came out as flat green stars lying on the ground
+        p.xz *= s;
 
         // WIND. A gust is a band of stronger bend that travels across the
         // field; under it, each blade flutters on its own phase.

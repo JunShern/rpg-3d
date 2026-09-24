@@ -332,12 +332,12 @@ float pBumpK = 1.0;
     // low sun is where relief shows most.
     float warmth = clamp((diffuseColor.r - diffuseColor.b) * 4.0, 0.0, 1.0);
     float n3 = pFbm(vPW * 0.9 + 21.0);
-    vec3 dirtC = mix(vec3(0.26, 0.17, 0.09), vec3(0.42, 0.30, 0.17), n3);
+    vec3 dirtC = mix(vec3(0.33, 0.23, 0.13), vec3(0.50, 0.37, 0.22), n3);
     // wheel ruts and a scatter of pale stones
     float peb = step(0.88, pNoise(vPW * 6.5)) * (1.0 - smoothstep(6.0, 18.0, pDist));
     dirtC = mix(dirtC, vec3(0.52, 0.47, 0.40), peb * 0.7);
     float strata = pNoise(vec3(vPW.x * 0.6, vPW.y * 3.5, vPW.z * 0.6));
-    vec3 rockC = mix(vec3(0.20, 0.19, 0.17), vec3(0.40, 0.37, 0.32), strata * 0.6 + n3 * 0.4);
+    vec3 rockC = mix(vec3(0.30, 0.28, 0.25), vec3(0.50, 0.47, 0.41), strata * 0.6 + n3 * 0.4);
     vec3 bare = mix(rockC, dirtC, smoothstep(0.35, 0.7, warmth));
     pBumpK = mix(mix(7.0, 3.0, smoothstep(0.35, 0.7, warmth)), 1.0, greenness);
     float big = pFbm(vPW * 0.045 + 3.0);
