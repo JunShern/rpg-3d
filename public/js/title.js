@@ -80,10 +80,11 @@ body.title #talkprompt, body.title #gains { opacity: 0 !important; }
 
 // the drift: a slow pan across the valley toward the town and its tower,
 // placed by looking (tools/look.mjs "vista") rather than by reasoning
+// from above the old stone circle, down the path to the town and its tower
 const PATH = {
-  from: new THREE.Vector3(38, 19, -92), to: new THREE.Vector3(20, 13.5, -66),
-  lookFrom: new THREE.Vector3(2, 4, -30), lookTo: new THREE.Vector3(-1, 9, 6),
-  secs: 48,
+  from: new THREE.Vector3(14, 25, -112), to: new THREE.Vector3(20, 20, -98),
+  lookFrom: new THREE.Vector3(0, 5, -32), lookTo: new THREE.Vector3(-1, 7, -16),
+  secs: 50,
 };
 
 export function makeTitle({ camera, onStart }) {

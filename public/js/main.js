@@ -3142,7 +3142,7 @@ Object.defineProperty(globalThis, 'npcs', { get: () => npcs, configurable: true 
 Object.defineProperty(globalThis, 'drops', { get: () => drops, configurable: true });
 Object.defineProperty(globalThis, 'party', { get: () => party, configurable: true });
 Object.defineProperty(globalThis, 'quest', { get: () => quest, configurable: true });
-Object.assign(globalThis, { __cine: cine, __scenes: SCENES });
+Object.assign(globalThis, { __cine: cine, __scenes: SCENES, __title: title });
 Object.assign(globalThis, { __audio: audio, __atmos: atmos });
 globalThis.__paint = paintTune;
 globalThis.__bellWave = bellWave;
@@ -3170,9 +3170,9 @@ Object.assign(globalThis, { scene, camera, renderer, chars, OUTLINES, THREE,
  */
 globalThis.__sim = ({ steps = 60, dt = 1 / 60, held = [], attack: doAttack = false,
                       az = null, polar = null, dist = null, warp = null,
-                      jump: doJump = false } = {}) => {
+                      jump: doJump = false, keepTitle = false } = {}) => {
   renderer.setAnimationLoop(null);      // take the loop away from rAF entirely
-  title.skip();                         // a check never has to press start
+  if (!keepTitle) title.skip();         // a check never has to press start (the film does)
   window.__simActive = true;           // and tell adaptResolution there is no real clock
   keys.clear();
   for (const k of held) keys.add(k);

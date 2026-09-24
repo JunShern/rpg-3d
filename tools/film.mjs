@@ -49,47 +49,50 @@ const TMP = '/tmp/rpg-film';
 // `kind: 'cine'`  -- run a sequence from cine.js
 // `kind: 'play'`  -- drive the actual game: walk, fight, talk
 const CUT = [
+  // THE TITLE, as the game opens: the valley under a slow drift, the name, and
+  // the prompt. `keepTitle` stops __sim from dismissing it.
+  { kind: 'play', secs: 7.0, hour: 0.12, zone: 'town', keepTitle: true,
+    drive: `(f) => __sim({ steps: 1, keepTitle: true })` },
+
   { kind: 'cine', scene: 'open', hour: 0.10, zone: 'town',
     setup: `quest.skipTo('q.start');` },
 
-  // GAMEPLAY. The party walking the square at late afternoon -- this is the
-  // shot that says the thing the whole session was for: three people, moving.
-  { kind: 'play', secs: 7.0, hour: 0.30, zone: 'town',
-    // footfalls, so the walk has a floor under it
-    cue: [[0.4, 'step_stone', 0.5], [1.0, 'step_stone', 0.5], [1.6, 'step_stone', 0.5],
-          [2.2, 'step_stone', 0.5], [2.8, 'step_stone', 0.5], [3.4, 'step_stone', 0.5],
-          [4.0, 'step_stone', 0.5], [4.6, 'step_stone', 0.5], [5.2, 'step_stone', 0.5]],
+  // OUT THROUGH THE GRASS. The party running the meadow path, the field
+  // bending in the wind around them -- the shot that says what the world is.
+  { kind: 'play', secs: 6.5, hour: 0.30, zone: 'field',
+    cue: Array.from({ length: 16 }, (_, i) => [0.3 + i * 0.38, 'step_grass', 0.45]),
     setup: `
       quest.skipTo('q.maren');
-      __sim({ warp: [2.0, 0, 9.5], az: 0.30, polar: 1.20, dist: 6.4, steps: 20 });
-      party.warp(2.0, 9.5, Math.PI);`,
-    drive: `(f) => __sim({ steps: 1, az: 0.30 + f * 0.0016, held: ['KeyW'] })` },
+      __sim({ warp: [-2.0, 0, -27.0], az: 0.25, polar: 1.26, dist: 6.6, steps: 20 });
+      party.warp(-2.0, -27.0, 0);`,
+    drive: `(f) => __sim({ steps: 1, az: 0.25 - f * 0.0025, held: ['KeyW'] })` },
 
-  // A FIGHT, with the party in it.
-  { kind: 'play', secs: 8.5, hour: 0.42, zone: 'battle',
-    // a combo, then the party joining in
+  // A FIGHT: a Bellow winding up (the meadow under it lights orange), the
+  // party in it, a death coming apart into light.
+  { kind: 'play', secs: 10.0, hour: 0.42, zone: 'battle',
     cue: [[1.1, 'swing', 0.9], [1.28, 'hit_hard', 0.9],
           [1.7, 'swing2', 0.9], [1.88, 'hit_hard', 0.9],
           [2.4, 'swing3', 1.0], [2.62, 'crit', 1.0],
-                    [4.2, 'swing3', 0.9], [4.45, 'crit', 1.0], [4.9, 'die', 0.9],
+          [4.2, 'swing3', 0.9], [4.45, 'crit', 1.0], [4.9, 'die', 0.9],
           [5.7, 'coin', 0.7],
-          [6.9, 'swing', 0.9], [7.1, 'hit_hard', 0.9]],
+          [6.9, 'swing', 0.9], [7.1, 'hit_hard', 0.9],
+          [8.3, 'swing3', 1.0], [8.5, 'crit', 1.0], [8.9, 'die', 0.9]],
     setup: `
       quest.skipTo('q.maren');
-      __sim({ warp: [6, 0, -46], az: 0.7, polar: 1.18, dist: 7.0, steps: 20 });
+      __sim({ warp: [6, 0, -46], az: 0.7, polar: 1.18, dist: 7.4, steps: 20 });
       party.warp(6, -46, 0.7);
-      combat.spawn('nettle', 8.5, -48.5);
-      combat.spawn('nettle', 4.0, -49.0);
-      combat.spawn('curler', 7.0, -51.0);`,
+      for (const [k, dx, dz, hp] of [['nettle', 2.2, -2.0, 30], ['nettle', -2.0, -2.6, 30],
+                                     ['bellow', 0.8, -4.6, 140]]) {
+        const e = combat.spawn(k, 6 + dx, -46 + dz); if (e) e.hp = hp;
+      }`,
     drive: `(f) => {
-      if (f % 22 === 0) combat.attack();
+      if (f % 20 === 0) combat.attack();
       __sim({ steps: 1, az: 0.7 + Math.sin(f * 0.012) * 0.25,
-              held: f < 70 ? ['KeyW'] : [] });
+              held: f < 60 ? ['KeyW'] : [] });
     }` },
 
   // A CONVERSATION, so the writing and the portraits are in the film.
-  { kind: 'play', secs: 9.0, hour: 0.55, wait: 900, zone: 'hush',
-    // the voice blips under the typewriter, pitched for the Sexton
+  { kind: 'play', secs: 8.0, hour: 0.55, wait: 900, zone: 'hush',
     cue: Array.from({ length: 46 }, (_, i) => [0.7 + i * 0.085, 'blip', 0.8])
            .concat([[5.2, 'ui_ok', 0.7]]),
     setup: `
@@ -99,15 +102,15 @@ const CUT = [
       npcs.tryTalk();`,
     drive: `(f) => {
       if (f === 120) { Dialogue.finishLine(); Dialogue.key('confirm'); }
-      if (f === 210) { Dialogue.finishLine(); Dialogue.key('confirm'); }
+      if (f === 200) { Dialogue.finishLine(); Dialogue.key('confirm'); }
       __sim({ steps: 1 });
     }` },
 
   { kind: 'cine', scene: 'ring', hour: 0.97, zone: 'hush',
-    // THE BELL, three times, at the top of the second shot. Everything the
-    // demo is for lands on these three strikes -- and they are spaced 3.1 s
-    // apart because the Sexton says to count to three after, and a bell whose
-    // partials have not finished before the next strike is a bell in a hurry.
+    // THE BELL, three times -- spaced 3.1 s apart because the Sexton says to
+    // count to three after, and a bell whose partials have not finished
+    // before the next strike is a bell in a hurry. Each strike rolls a wave
+    // of light out over the town.
     cue: [[2.2, 'bell', 1.0], [5.3, 'bell', 1.0], [8.4, 'bell', 0.95]],
     setup: `
       quest.skipTo('q.cleared');
@@ -115,6 +118,12 @@ const CUT = [
       __sim({ warp: [-1, 0, 13.5], az: 0, steps: 20 });`,
     at: [[2.2, `__audio.play('bell', { x: -1, y: 22.4, z: 15.5 }, 1.0);
                for (let i = 0; i < 3; i++) __bellWave({ x: -1, y: 22.4, z: 15.5 }, i * 3.1);`]] },
+
+  // THE CARD, over the last frame of the ring
+  { kind: 'play', secs: 5.0, hour: 0.99, zone: 'hush',
+    setup: `__title.ending();`,
+    drive: `(f) => { __sim({ steps: 1 }); __atmos.setHour(0.99);
+      camera.position.set(21, 20, -26); camera.lookAt(-1, 12, 15.5); __atmos.render(); }` },
 ];
 
 // ------------------------------------------------------------------- video
@@ -250,8 +259,9 @@ async function main() {
   // the invention was invisible until a tool without the catch sat there for
   // two minutes and gave up.
   await pg.waitForFunction('typeof window.__sim === "function"', null, { timeout: 90000 });
-  await pg.waitForFunction(
-    'window.combat && combat.enemies.length > 0 && __sim({steps:1}).who',
+  // NOT `__sim({steps:1})` as the suite does: any __sim call dismisses the
+  // title, and the film opens on it
+  await pg.waitForFunction('window.combat && combat.enemies.length > 0 && window.__title',
     null, { timeout: 90000 });
   await pg.waitForFunction("combat.enemies.some((e) => e.name === 'woolt')",
                            null, { timeout: 90000 });
@@ -271,12 +281,12 @@ async function main() {
     const t0 = index / FPS;
     if (shot.zone) cues.zones.push([t0, shot.zone]);
     for (const [at, name, vol] of shot.cue || []) cues.sfx.push([t0 + at, name, vol]);
-    await pg.evaluate(([code, h]) => {
+    await pg.evaluate(([code, h, keepTitle]) => {
       __cine.stop();
       if (h !== undefined) { __atmos.setHour(h); }
       (0, eval)(code);
-      __sim({ steps: 2 });
-    }, [shot.setup || '', shot.hour]);
+      __sim({ steps: 2, keepTitle });
+    }, [shot.setup || '', shot.hour, !!shot.keepTitle]);
     if (shot.wait) await pg.waitForTimeout(shot.wait);
     const n = await frames(pg, shot, TMP, index);
     index += n;
