@@ -188,7 +188,7 @@ const RECIPES = {
   flagstone: { hue: [0.10, 0.40], rough: 0.92, env: 0.38, pave: 2 },
   ring:      { hue: [0.10, 0.40], rough: 0.92, env: 0.38, pave: 2 },
   stone:     { hue: [0.22, 0.55], bump: [0.70, 1.4], mapBump: 0.7, mapFade: 0.35, moss: 0.45, grime: 0.25, rough: 0.88, env: 0.85, lichen: 0.5 },
-  rock:      { hue: [0.30, 0.30], bump: [2.2, 0.8], mapBump: 0.4, mapFade: 0.85, moss: 0.55, rough: 0.92, env: 0.8, tint: [0.62, 0.60, 0.56], lichen: 1 },
+  rock:      { hue: [0.30, 0.30], bump: [2.6, 0.9], mapBump: 0.4, mapFade: 0.85, moss: 0.30, rough: 0.92, env: 0.8, tint: [0.62, 0.60, 0.56], lichen: 1 },
   // the far ranges: dark forested hills that the air pass turns blue
   // SMOOTH, NOT BLOTCHED. A forest pattern at this distance came out, under
   // the haze, as drifting patches of cloud -- the eye reads large soft
@@ -590,7 +590,10 @@ vec3 pPaveTilt = vec3(0.0);
     // the noise carries more of it than the facing does: moss takes in
     // patches and drifts, and a rock with a perfect green cap reads as a
     // painted prop
-    float m = smoothstep(0.50, 0.66, mn * 0.95 + up * 0.30) * up * uMoss;
+    // patchier at a smaller scale too, so a boulder's top is moss in clumps
+    // with rock showing between, not a green carpet
+    float mn2 = pNoise(vPW * 4.5 + 7.0);
+    float m = smoothstep(0.50, 0.66, mn * 0.75 + mn2 * 0.25 + up * 0.30) * up * uMoss;
     vec3 mossCol = mix(vec3(0.24, 0.36, 0.14), vec3(0.42, 0.52, 0.20), pNoise(vPW * 4.0));
     diffuseColor.rgb = mix(diffuseColor.rgb, mossCol, clamp(m, 0.0, 1.0));
   }
