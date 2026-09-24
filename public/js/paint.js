@@ -216,6 +216,8 @@ const RECIPES = {
   bloom_a:   { hue: [0.08, 2.0], rough: 0.7, env: 0.8, glow: 0.15 },
   bloom_b:   { hue: [0.08, 2.0], rough: 0.7, env: 0.8, glow: 0.15 },
   fruit:     { hue: [0.14, 3.0], rough: 0.45, env: 1.1 },
+  herb:      { hue: [0.22, 4.0], bump: [0.5, 9.0], rough: 0.8, env: 0.7, glow: 0.3 },
+  bloom_pink:{ hue: [0.10, 4.0], rough: 0.6, env: 0.8, glow: 0.4 },
   // falling water: translucent streaks running down the jet
   foam:      { rough: 0.15, env: 1.3, flow: 1, opacity: 0.8, tint: [0.80, 0.90, 0.95] },
 };

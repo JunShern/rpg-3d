@@ -117,6 +117,7 @@ def palette():
         # striped canvas now
         "fruit":     (0.78, 0.30, 0.18),
         "herb":      (0.36, 0.42, 0.20),
+        "bloom_pink": (0.92, 0.42, 0.55),
     }
     mats = {}
     for name, color in spec.items():
@@ -964,13 +965,23 @@ def flowerbox(t, x, y0, z, w=0.70):
     yb = y0 - 0.11
     out.append(box("box_trough", (x, yb, z - 0.09), (w / 2, 0.09, 0.075),
                    M["timber"], bevel=0.02, seg=1))
-    for i, (dx, dz, rr, mat) in enumerate((
-            (-0.20, 0.05, 0.085, "leaf"), (0.02, 0.08, 0.095, "bloom"),
-            (0.21, 0.04, 0.080, "leaf"))):
-        out.append(K.blob(f"box_bloom{i}", (x + dx * (w / 0.70), yb, z + dz),
-                          (rr, rr * 0.8, rr * 0.9), None,
-                          M["fruit"] if mat == "bloom" else M["leaf"],
-                          seg=9, rings=6, squircle=2.2))
+    # GERANIUMS: a low bank of foliage (`herb`, not `leaf` -- leaf is dressed
+    # in metre-wide cards and a window box became a bush) with clusters of
+    # red and pink blooms standing out of it, some trailing over the edge
+    n = max(3, int(w / 0.14))
+    for i in range(n):
+        u = (i + 0.5) / n - 0.5
+        out.append(K.blob(f"box_foliage{i}", (x + u * w, yb, z + 0.02), (w / n * 0.8, 0.10, 0.08), None,
+                          M["herb"], seg=8, rings=5))
+    for i in range(max(3, int(w / 0.2))):
+        u = (i + 0.5) / max(3, int(w / 0.2)) - 0.5
+        col = ("fruit", "bloom_pink")[i % 2]
+        out.append(K.blob(f"box_bloom{i}", (x + u * w * 0.9, yb - 0.02, z + 0.10 + 0.04 * (i % 3 == 0)),
+                          (0.06, 0.05, 0.05), None, M[col], seg=8, rings=5))
+    for i in range(2):
+        u = (-0.3, 0.25)[i]
+        out.append(K.blob(f"box_trail{i}", (x + u * w, yb - 0.10, z - 0.20), (0.07, 0.04, 0.16), None,
+                          M["herb"], seg=7, rings=5))
     return t.add(*out) and out
 
 
@@ -1153,24 +1164,9 @@ def arch(t, cx, cy, span=3.2, height=4.2, depth=1.4, thick=0.42, yaw=0.0):
     # up=+Y so `ry` is the arch's DEPTH and `rx` its radial thickness; the
     # unseeded frame put them the other way round and the gate came out a fat
     # donut half a metre deep.
-    # VOUSSOIRS, not a swept tube: the arch is built of wedge stones, each its
-    # own block with a joint either side, the keystone proud and taller
-    n = 13
-    R = r + thick / 2
-    for i in range(n):
-        a0 = math.pi * (i + 0.04) / n
-        a1 = math.pi * (i + 0.96) / n
-        am = (a0 + a1) / 2
-        key = i == n // 2
-        L = (a1 - a0) * R
-        vb = box("arch_voussoir", (0, 0, 0),
-                 (L / 2, depth / 2 + (0.05 if key else 0.0), thick / 2 + (0.08 if key else 0.0)),
-                 M["stone"], bevel=0.025, seg=1)
-        # the angle is measured from -X here (x = -R cos a), so the block's
-        # tangent needs a rotation of (a - 90), not the tower's (90 - a)
-        K.transform(vb, rotate=(0, math.degrees(am) - 90, 0), around=(0, 0, 0),
-                    translate=(cx - R * math.cos(am), cy, straight + R * math.sin(am)))
-        out.append(vb)
+    # VOUSSOIRS, not a swept tube: true wedges (facade_lib.voussoirs) with a
+    # proud keystone, filling the ring between the arch and its outer radius
+    F.voussoirs(out, M, span, r, depth, straight, cx, cy, n=13, ring=thick)
     # the imposts: a moulded block where the arch springs from each pier
     for s_ in (-1, 1):
         out.append(box("arch_impost", (cx + s_ * (r + thick / 2), cy, straight - 0.06),

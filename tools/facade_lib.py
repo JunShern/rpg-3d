@@ -231,7 +231,7 @@ def facade_plan(face, w, storeys, ground_h, floor_h, bays, seed, shop, room,
                                 keystone=face == 'front' and not top and (b + f + seed) % 2 == 0,
                                 balcony=balcony,
                                 flowers=face == 'front' and not balcony and not top
-                                and (b + seed + f) % 3 == 1))
+                                and (b + seed + f) % 2 == 1))
     return ops
 
 
@@ -432,26 +432,30 @@ def arch_plate(name, span, height, depth, mat, rise=None, seg=20):
     return K._new_obj(name, verts, faces, mat=mat, smooth=False)
 
 
-def voussoirs(out, M, span, rise, depth, z_spring, x_c, y_c, n=11, mat="stone"):
+def voussoirs(out, M, span, rise, depth, z_spring, x_c, y_c, n=11, mat="stone", ring=0.30):
     """Wedge stones round an arch's face -- the ring that makes it read as
-    built rather than cut."""
+    built rather than cut. Each is a true WEDGE between the intrados and a
+    radius `ring` further out, bounded by two radial joints; the keystone is a
+    little proud and taller. (They were boxes, and a box as wide as it is deep
+    tilted round an arc is a row of diamonds.)"""
     hs = span / 2
     R = (hs * hs + rise * rise) / (2 * rise)
     zc = rise - R
     a0 = math.atan2(0 - zc, -hs)
     a1 = math.atan2(0 - zc, hs)
     for i in range(n):
-        t0 = a0 + (a1 - a0) * (i + 0.08) / n
-        t1 = a0 + (a1 - a0) * (i + 0.92) / n
-        tm = (t0 + t1) / 2
-        rr = R + 0.14
-        cxp = math.cos(tm) * rr
-        czp = zc + math.sin(tm) * rr
-        L = abs(t1 - t0) * rr
-        b = bbox("voussoir", (0, 0, 0), (L / 2, depth / 2, 0.15), M[mat], bevel=0.02)
-        K.transform(b, rotate=(0, -math.degrees(tm) + 90, 0), around=(0, 0, 0),
-                    translate=(x_c + cxp, y_c, z_spring + czp))
-        out.append(b)
+        t0 = a0 + (a1 - a0) * (i + 0.03) / n
+        t1 = a0 + (a1 - a0) * (i + 0.97) / n
+        key = i == n // 2
+        r0 = R - 0.005
+        r1 = R + ring + (0.06 if key else 0.0)
+        dy = depth / 2 + (0.02 if key else 0.0)
+        pts = []
+        for yy in (-dy, dy):
+            for tt, rr in ((t0, r0), (t1, r0), (t1, r1), (t0, r1)):
+                pts.append(Vector((x_c + math.cos(tt) * rr, y_c + yy, z_spring + zc + math.sin(tt) * rr)))
+        faces = [(0, 1, 2, 3), (7, 6, 5, 4), (0, 4, 5, 1), (1, 5, 6, 2), (2, 6, 7, 3), (3, 7, 4, 0)]
+        out.append(K._new_obj("voussoir", pts, faces, mat=M[mat], smooth=False))
 
 
 def hip_roof(t, cx, cy, cz, hw, h, mat, out):
