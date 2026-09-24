@@ -400,6 +400,10 @@ vec3 pPaveTilt = vec3(0.0);
   // browns, each with its own tone, set in dark earth that grows moss where
   // nobody walks. Flags (pave 2): large rectangular slabs in running bond.
   if (uPave > 0.5 && pWN.y > 0.6) {
+    // the procedural paving REPLACES the builder's texture: undo its tint
+    #ifdef USE_MAP
+      diffuseColor.rgb /= max(sampledDiffuseColor.rgb, vec3(0.05));
+    #endif
     vec2 q = vPW.xz;
     float gap, id;
     vec2 toC = vec2(0.0);
@@ -704,6 +708,12 @@ export function worldMaterial(name, opts = {}) {
       .replace('#include <lights_fragment_maps>', `#include <lights_fragment_maps>
         {
           float ind = pIndoor(vPW, pWN);
+          // BOUNCE. Shade in a sunlit town is not lit by the sky alone: warm
+          // light comes back off every sunlit wall and paving stone, and
+          // without it the shaded half of the square was lit only blue.
+          // Strongest on surfaces facing sideways or down, which see the most
+          // of the lit world around them.
+          iblIrradiance += uSunCol * (0.46 - 0.20 * pWN.y) * (1.0 - ind);
           iblIrradiance *= mix(1.0, 0.10, ind);
           radiance *= mix(1.0, 0.22, ind);
           iblIrradiance += uIndoorFill * ind;
