@@ -109,7 +109,7 @@ def palette():
         # doorknob is the single most obviously wrong thing in the room.
         "iron":      (0.30, 0.31, 0.35),
         # the square's shade trees
-        "bark":      (0.36, 0.30, 0.25),
+        "bark":      (0.25, 0.21, 0.18),
         # curtains behind the glass: warm and dim, or a sunlit curtain reads
         # through the glass as a lamp-lit room at noon
         "curtain":   (0.46, 0.30, 0.22),

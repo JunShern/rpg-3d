@@ -214,7 +214,8 @@ const RECIPES = {
   bloom_a:   { hue: [0.08, 2.0], rough: 0.7, env: 0.8, glow: 0.15 },
   bloom_b:   { hue: [0.08, 2.0], rough: 0.7, env: 0.8, glow: 0.15 },
   fruit:     { hue: [0.14, 3.0], rough: 0.45, env: 1.1 },
-  foam:      { hue: [0.05, 1.0], rough: 0.4, env: 1.2 },
+  // falling water: translucent streaks running down the jet
+  foam:      { rough: 0.15, env: 1.3, flow: 1, opacity: 0.8, tint: [0.80, 0.90, 0.95] },
 };
 const FALLBACK = { hue: [0.10, 0.8], rough: 0.85, env: 0.9 };
 
@@ -266,7 +267,7 @@ uniform vec3 uSunDir;
 uniform vec3 uSunCol;
 uniform vec2 uHue;
 uniform vec2 uBump;
-uniform float uMapBump, uMoss, uStreak, uGrime, uGlow, uField, uFoliage, uMapFade, uWater, uForest, uPave, uStripe, uAge, uLit;
+uniform float uMapBump, uMoss, uStreak, uGrime, uGlow, uField, uFoliage, uMapFade, uWater, uForest, uPave, uStripe, uAge, uLit, uFlow;
 uniform sampler2D uFieldMap;
 uniform vec3 uRoomLo[8];
 uniform vec3 uRoomHi[8];
@@ -412,8 +413,10 @@ vec3 pPaveTilt = vec3(0.0);
       gap = min(0.5 - abs(c.x), (0.5 - abs(c.y)) * 0.67) * 1.3;
       toC = -c * vec2(0.78, 0.52);
     }
-    float stoneK = smoothstep(0.06, 0.13, gap);
+    // flags have tight joints and sandstone faces; cobbles have wide earthy ones
+    float stoneK = uPave < 1.5 ? smoothstep(0.06, 0.13, gap) : smoothstep(0.012, 0.03, gap);
     vec3 warm = vec3(0.36, 0.31, 0.25), cool = vec3(0.31, 0.30, 0.29), dark = vec3(0.22, 0.20, 0.17);
+    if (uPave > 1.5) { warm = vec3(0.48, 0.42, 0.33); cool = vec3(0.42, 0.39, 0.34); dark = vec3(0.34, 0.30, 0.25); }
     vec3 sc = mix(mix(cool, warm, smoothstep(0.2, 0.7, id)), dark, step(0.82, id) * 0.8);
     sc *= 0.86 + 0.28 * pNoise(vPW * 2.3 + id * 17.0);
     // wear: stones on the walked line are polished paler; the edges of the
@@ -424,7 +427,18 @@ vec3 pPaveTilt = vec3(0.0);
     vec3 joint = mix(vec3(0.10, 0.085, 0.07), vec3(0.16, 0.22, 0.09), mossy);
     diffuseColor.rgb = mix(joint, sc, stoneK);
     pH0 = stoneK;
-    pPaveTilt = vec3(toC.x, 0.0, toC.y) / max(0.05, length(toC)) * (1.0 - smoothstep(0.05, 0.28, gap)) * 0.55;
+    pPaveTilt = vec3(toC.x, 0.0, toC.y) / max(0.05, length(toC))
+              * (uPave < 1.5 ? (1.0 - smoothstep(0.05, 0.28, gap)) * 0.55
+                             : (1.0 - smoothstep(0.01, 0.05, gap)) * 0.25);
+  }
+
+  // FLOWING WATER: streaks that fall, and thin to glassy between them
+  if (uFlow > 0.5) {
+    float fl = pNoise(vec3(vPW.x * 7.0, vPW.y * 3.0 + uTime * 4.5, vPW.z * 7.0));
+    float fl2 = pNoise(vec3(vPW.x * 15.0, vPW.y * 6.0 + uTime * 7.0, vPW.z * 15.0));
+    float white = smoothstep(0.45, 0.8, fl * 0.7 + fl2 * 0.5);
+    diffuseColor.rgb = mix(vec3(0.30, 0.45, 0.50), vec3(0.92, 0.96, 0.97), white);
+    diffuseColor.a *= 0.45 + white * 0.55;
   }
 
   // AGE, on plaster. Lime render falls away in patches and shows the rubble
@@ -626,6 +640,7 @@ export function worldMaterial(name, opts = {}) {
     uStripe: { value: r.stripe || 0 },
     uAge: { value: r.age || 0 },
     uLit: { value: r.lit || 0 },
+    uFlow: { value: r.flow || 0 },
     uSway: { value: sway },
   };
   mat.userData.paint = { name, recipe: r, uniforms: u };
