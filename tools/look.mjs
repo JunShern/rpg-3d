@@ -30,7 +30,7 @@ const TOWN_VIEWS = [
   { name: 'tower-foot',   warp: [-1.0, 0, 6.0], az: 3.14, polar: 1.40, dist: 8.0, hour: 0.15 },
   { name: 'town-high',    cam: [[16, 14, -12], [-2, 3, 8], 50], warp: [0, 0, 0], hour: 0.15 },
   { name: 'gate-in',      warp: [-1.0, 0, -14.0], az: 3.14, polar: 1.30, dist: 7.0, hour: 0.15 },
-  { name: 'street-low',   cam: [[8, 1.6, -6], [-4, 3.5, 4], 55], warp: [8, 0, -6], hour: 0.15 },
+  { name: 'plaza-low',    cam: [[4, 1.7, 3], [-10, 4.5, 8], 55], warp: [4, 0, 3], hour: 0.15 },
   { name: 'plaza-dusk',   warp: [0.6, 0, 5.6], az: 0.6, polar: 1.20, dist: 8.0, hour: 0.93 },
   { name: 'roofs',        cam: [[-14, 12, 14], [4, 5, -4], 50], warp: [0, 0, 0], hour: 0.15 },
 ];

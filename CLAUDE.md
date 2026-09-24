@@ -152,8 +152,10 @@ material fog: `scene.fog` is null and the air pass does it from depth.
 - **Headless Chromium is SwiftShader unless told otherwise.** Every tool now
   launches with `--use-angle=metal --enable-gpu --ignore-gpu-blocklist`. Without
   it a capture takes ~100 s and every ms/frame number is a CPU's.
-- **`flat` is a reserved word in GLSL ES 3.** A grass shader that used it failed
-  to compile and the whole field silently vanished. Check the console.
+- **`flat` and `patch` are reserved words in GLSL ES 3** (so are `sample`,
+  `smooth`, `centroid`, `layout`...). Using one as a variable fails the compile,
+  and because every painted surface shares one program, the WHOLE WORLD
+  vanishes. `tools/look.mjs` prints shader errors -- read them.
 - **Any `__sim` call dismisses the title screen** unless `keepTitle: true`.
 
 - **`window.__ready` does not exist.** Wait on

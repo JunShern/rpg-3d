@@ -248,6 +248,8 @@ def build_buildings(t):
     # 11.75 m gap between its two houses, so a 6.6 m tower still clears each
     # neighbour by 2.7 m.
     A.belltower(t, -1.0, -15.5, base=3.3, storeys=5)
+    import facade_lib as F
+    F.tower_dress(t, -1.0, -15.5, 3.3, 5, A.TOWER_INNER, A.TOWER_TAPER, A.BELFRY_H)
 
     # THE UPPER LEVEL. On the east range, facing the plaza, so from the fountain
     # you can see both the stair and the deck it leads to -- a balcony you
@@ -410,6 +412,115 @@ def render_sheet(prefix, floor_obj):
     return out
 
 
+NPC_AT = [(-6.2, -2.4), (15.6, 1.4), (-2.6, -11.2), (3.4, -1.2), (6.4, -16.6),
+          (1.6, 9.4), (5.6, 4.4)]          # townspeople, in Blender x/y: keep clear
+
+
+def _clear(x, y, r=1.4):
+    return all(math.hypot(x - a, y - b) > r for a, b in NPC_AT)
+
+
+def shade_tree(t, x, y, h=4.6, r=2.0, seed=0):
+    """A plane tree in a stone ring: a bark trunk, a few limbs and a canopy of
+    `leaf` blobs -- which the runtime dresses in leaf cards like every other
+    tree. A square in the south without a tree in it is a car park."""
+    M, out = t.M, []
+    out.append(K.tube("tree_ring", [
+        {"p": Vector((x, y, 0.0)), "r": (0.95, 0.95), "n": 3.0},
+        {"p": Vector((x, y, 0.36)), "r": (0.95, 0.95), "n": 3.0},
+        {"p": Vector((x, y, 0.42)), "r": (1.02, 1.02), "n": 3.0}], seg=20, mat=M["stone"], squircle=2.0))
+    out.append(K.blob("tree_soil", (x, y, 0.36), (0.85, 0.85, 0.06), None, M["timber"], seg=14, rings=6))
+    out.append(K.tube("tree_trunk", [
+        {"p": Vector((x, y, 0.3)), "r": (0.30, 0.30), "n": 2.0},
+        {"p": Vector((x + 0.10, y - 0.05, h * 0.55)), "r": (0.22, 0.22), "n": 2.0},
+        {"p": Vector((x + 0.05, y + 0.08, h)), "r": (0.15, 0.15), "n": 2.0}], seg=12, mat=M["bark"], squircle=2.0))
+    rnd = A._lcg_local(seed + 11)
+    for i in range(3):
+        a = i * 2.1 + seed
+        out.append(K.tube("tree_limb", [
+            {"p": Vector((x, y, h * 0.62)), "r": (0.12, 0.12), "n": 2.0},
+            {"p": Vector((x + math.cos(a) * r * 0.7, y + math.sin(a) * r * 0.7, h + 0.4)), "r": (0.06, 0.06), "n": 2.0}],
+            seg=8, mat=M["bark"], squircle=2.0))
+    for i in range(7):
+        a = i / 7 * math.tau + rnd() * 0.5
+        rr = r * (0.55 + rnd() * 0.3)
+        d = r * (0.45 if i else 0.0)
+        out.append(K.blob("tree_canopy", (x + math.cos(a) * d, y + math.sin(a) * d, h + 0.9 + rnd() * 0.8),
+                          (rr, rr, rr * 0.78), None, M["leaf"], seg=14, rings=9, squircle=2.0))
+    t.add(*out)
+    t.solid(x, y, 0.95, 0.95, top=0.42)
+    t.solid(x, y, 0.32, 0.32, top=h)
+    t.camblock(x, y, h + 1.3, r * 1.15)
+
+
+def pot(t, x, y, s=1.0, plant=True):
+    """A terracotta pot with something growing in it."""
+    M, out = t.M, []
+    out.append(K.tube("pot", [
+        {"p": Vector((x, y, 0.02)), "r": (0.18 * s, 0.18 * s), "n": 2.0},
+        {"p": Vector((x, y, 0.42 * s)), "r": (0.27 * s, 0.27 * s), "n": 2.0},
+        {"p": Vector((x, y, 0.48 * s)), "r": (0.30 * s, 0.30 * s), "n": 2.0}], seg=14, mat=M["roof_a"], squircle=2.0))
+    if plant:
+        for dx, dy, dz, rr in ((0, 0, 0.72, 0.34), (0.14, 0.08, 0.60, 0.24), (-0.12, -0.1, 0.62, 0.22)):
+            out.append(K.blob("pot_plant", (x + dx * s, y + dy * s, dz * s), (rr * s, rr * s, rr * s * 0.9),
+                              None, M["leaf"], seg=10, rings=7))
+    t.add(*out)
+    t.solid(x, y, 0.26 * s, 0.26 * s, top=0.5 * s)
+
+
+def bunting(t, x0, y0, x1, y1, z, sag=0.7, gap=0.46):
+    """A string of pennants across the square."""
+    M, out = t.M, []
+    L = math.hypot(x1 - x0, y1 - y0)
+    n = int(L / gap)
+    rope = []
+    for i in range(n + 1):
+        u = i / n
+        rope.append({"p": Vector((x0 + (x1 - x0) * u, y0 + (y1 - y0) * u,
+                                  z - sag * 4 * u * (1 - u))), "r": (0.012, 0.012), "n": 2.0})
+    out.append(K.tube("bunting_rope", rope, seg=5, mat=M["timber"]))
+    cols = ["awning", "shutter_b", "plaster_b", "cloth", "shutter_a"]
+    dx, dy = (x1 - x0) / L, (y1 - y0) / L
+    for i in range(1, n):
+        u = i / n
+        px, py = x0 + (x1 - x0) * u, y0 + (y1 - y0) * u
+        pz = z - sag * 4 * u * (1 - u)
+        hw = gap * 0.36
+        v = [Vector((px - dx * hw, py - dy * hw, pz)), Vector((px + dx * hw, py + dy * hw, pz)),
+             Vector((px, py, pz - 0.34))]
+        out.append(K._new_obj("pennant", v, [(0, 1, 2), (0, 2, 1)], mat=M[cols[i % len(cols)]],
+                              smooth=False, recalc=False))
+    t.add(*out)
+
+
+def build_life(t):
+    """The square lived in: shade trees, pots by the doors, bunting, stock."""
+    shade_tree(t, -10.6, -6.4, seed=1)
+    shade_tree(t, 10.9, -6.6, h=4.9, seed=2)
+    # pots either side of the house doors (the plan in build_buildings)
+    from math import radians, cos, sin
+    for cx, cy, w, d, st, yaw in ((-11.5, -14.0, 9.0, 8.0, 3, 180), (9.0, -14.0, 8.5, 8.0, 3, 180),
+                                  (-17.0, 8.5, 9.0, 8.0, 3, 90), (17.0, 8.5, 9.0, 8.0, 2, -90),
+                                  (-9.0, 15.0, 10.0, 8.0, 2, 0), (-17.0, -2.0, 9.0, 8.0, 2, 90)):
+        bays = max(1, int(w / 2.1))
+        door_x = -w / 2 + w * (bays // 2 + 0.5) / bays
+        c, s_ = cos(radians(yaw)), sin(radians(yaw))
+        for sx in (-1, 1):
+            lx, ly = door_x + sx * 0.98, -d / 2 - 0.42
+            x, y = cx + lx * c - ly * s_, cy + lx * s_ + ly * c
+            if _clear(x, y):
+                pot(t, x, y, s=0.9 + 0.2 * (sx > 0))
+    # bunting criss-crossing the square, high enough to clear everything
+    bunting(t, -13.0, -8.0, 13.0, -4.0, 6.6, sag=0.9)
+    bunting(t, -13.0, 7.0, 13.0, 3.5, 6.3, sag=0.8)
+    # stock stacked by the shopfronts
+    for x, y in ((12.2, -9.4), (-12.0, 4.4)):
+        if _clear(x, y):
+            A.barrel(t, x, y)
+            A.barrel(t, x + 0.72, y + 0.1, r=0.30, h=0.74)
+            A.crate(t, x + 0.2, y + 0.75, s=0.34, yaw=12)
+
+
 def main():
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
     out = "public/assets/town.glb"
@@ -432,6 +543,7 @@ def main():
     build_ground(t)
     build_buildings(t)
     build_props(t)
+    build_life(t)
 
     town, floor = A.finish(t)
     paved(floor, tile=3.2)

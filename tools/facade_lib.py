@@ -117,6 +117,18 @@ def glazing(out, M, x0, x1, zb, zt, hd, cols=2, rows=2, frame="timber"):
     shadowed by the reveal above it, and catches the sky."""
     yg = -hd + FT - 0.05
     out.append(slab("glass", x0, x1, yg, yg + 0.02, zb, zt, M["glass"]))
+    # CURTAINS behind about half the windows: a room behind the glass is most
+    # of what stops a window reading as a dark panel. Drawn half across, in
+    # cloth, just in front of the core.
+    k = int(abs(x0 * 7.3 + zb * 3.1)) % 3
+    if k != 0:
+        cw = (x1 - x0) * (0.32 if k == 1 else 0.5)
+        yc = -hd + FT - 0.02
+        out.append(slab("curtain", x0 + 0.03, x0 + 0.03 + cw, yc, yc + 0.012, zb + 0.05, zt - 0.03,
+                        M["curtain"]))
+        if k == 2:
+            out.append(slab("curtain", x1 - 0.03 - cw * 0.6, x1 - 0.03, yc, yc + 0.012, zb + 0.05, zt - 0.03,
+                            M["curtain"]))
     fy = yg - 0.025
     b = 0.045
     for (a0, a1, c0, c1) in ((x0, x1, zb, zb + b), (x0, x1, zt - b, zt),
@@ -318,8 +330,10 @@ def tiled_roof(t, cz, w, d, h, over_x, over_y, roof_mat, plaster_mat, slate=Fals
     # the deck: a dark timber underlay, seen only from below the eaves
     deck = [(-hw, -hd, 0), (hw, -hd, 0), (hw, 0, h), (-hw, 0, h), (-hw, hd, 0), (hw, hd, 0)]
     dv = [Vector((x, y, z + cz - 0.02)) for x, y, z in deck]
-    out.append(K._new_obj("roof_deck", dv, [(0, 1, 2, 3), (4, 3, 2, 5), (0, 3, 4), (1, 5, 2),
-                                             (0, 4, 5, 1)], mat=M["timber"], smooth=False))
+    # (no gable faces: those are plaster, below, and a timber triangle in
+    # front of them read as a dark wooden gable on every street-facing roof)
+    out.append(K._new_obj("roof_deck", dv, [(0, 1, 2, 3), (4, 3, 2, 5), (0, 4, 5, 1)],
+                          mat=M["timber"], smooth=False, recalc=False))
     L = math.hypot(hd, h)
     step = 0.24 if slate else 0.30
     n = max(3, int(L / step))
@@ -373,4 +387,187 @@ def chimney(t, x, y, z0, h):
         out.append(K.tube("chim_pot", [{"p": Vector((x + s * 0.11, y, z0 + h + 0.08)), "r": (0.07, 0.07), "n": 2.0},
                                        {"p": Vector((x + s * 0.11, y, z0 + h + 0.30)), "r": (0.055, 0.055), "n": 2.0}],
                           seg=10, mat=M["roof_a"], up=(0, 0, 1)))
+    return out
+
+
+# ------------------------------------------------------------------ arches
+
+def arch_plate(name, span, height, depth, mat, rise=None, seg=20):
+    """The solid above an arch: a plate spanning x in [-span/2, span/2], from
+    z = 0 up to z = height, with an arch cut out of its bottom edge. `rise` is
+    the arch's height at the crown (a semicircle if None). Depth runs along Y,
+    centred on y = 0.  Built as columns from the intrados up to the top edge,
+    so the non-convex front face triangulates without a fan across the hole.
+    """
+    hs = span / 2
+    r = hs if rise is None else rise
+    R = (hs * hs + r * r) / (2 * r)             # the circle through springings and crown
+    zc = r - R                                   # its centre, below the crown by R
+    pts = []
+    for i in range(seg + 1):
+        x = -hs + span * i / seg
+        z = zc + math.sqrt(max(0.0, R * R - x * x))
+        pts.append((x, max(0.0, z)))
+    verts, faces = [], []
+    hd = depth / 2
+    for yy in (-hd, hd):
+        for x, z in pts:
+            verts.append(Vector((x, yy, z)))
+        for x, z in pts:
+            verts.append(Vector((x, yy, height)))
+    n = seg + 1
+    F0, F1 = 0, 2 * n                  # front block, back block
+    for i in range(seg):
+        a, b = i, i + 1
+        # front face (y = -hd, facing -Y): intrados row a,b and top row n+a,n+b
+        faces.append((F0 + a, F0 + n + a, F0 + n + b, F0 + b))
+        faces.append((F1 + a, F1 + b, F1 + n + b, F1 + n + a))
+        # intrados: the soffit of the arch, facing down
+        faces.append((F0 + a, F0 + b, F1 + b, F1 + a))
+        # top
+        faces.append((F0 + n + a, F1 + n + a, F1 + n + b, F0 + n + b))
+    # the two ends
+    faces.append((F0, F1, F1 + n, F0 + n))
+    faces.append((F0 + seg, F0 + n + seg, F1 + n + seg, F1 + seg))
+    return K._new_obj(name, verts, faces, mat=mat, smooth=False)
+
+
+def voussoirs(out, M, span, rise, depth, z_spring, x_c, y_c, n=11, mat="stone"):
+    """Wedge stones round an arch's face -- the ring that makes it read as
+    built rather than cut."""
+    hs = span / 2
+    R = (hs * hs + rise * rise) / (2 * rise)
+    zc = rise - R
+    a0 = math.atan2(0 - zc, -hs)
+    a1 = math.atan2(0 - zc, hs)
+    for i in range(n):
+        t0 = a0 + (a1 - a0) * (i + 0.08) / n
+        t1 = a0 + (a1 - a0) * (i + 0.92) / n
+        tm = (t0 + t1) / 2
+        rr = R + 0.14
+        cxp = math.cos(tm) * rr
+        czp = zc + math.sin(tm) * rr
+        L = abs(t1 - t0) * rr
+        b = bbox("voussoir", (0, 0, 0), (L / 2, depth / 2, 0.15), M[mat], bevel=0.02)
+        K.transform(b, rotate=(0, -math.degrees(tm) + 90, 0), around=(0, 0, 0),
+                    translate=(x_c + cxp, y_c, z_spring + czp))
+        out.append(b)
+
+
+def hip_roof(t, cx, cy, cz, hw, h, mat, out):
+    """A square pyramid laid in courses, with capped hips -- for the tower."""
+    M = t.M
+    L = math.hypot(hw, h)
+    n = max(4, int(L / 0.22))
+    for face in range(4):
+        pieces = []
+        for k in range(n):
+            s0 = k * L / n
+            s1 = min(L, s0 + L / n + 0.04)
+            half = hw * (1 - (s0 + s1) / 2 / L) + 0.02
+            c = corrugated("tower_tile", -half, half, s0, s1, mat, hw, h, -1,
+                           lip=0.028, amp=0.010, period=0.30)
+            pieces.append(c)
+        for c in pieces:
+            K.transform(c, rotate=(0, 0, 90 * face), around=(0, 0, 0), translate=(cx, cy, cz))
+        out += pieces
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            out.append(K.tube("tower_hip", [
+                {"p": Vector((cx + sx * hw, cy + sy * hw, cz + 0.04)), "r": (0.07, 0.06), "n": 2.0},
+                {"p": Vector((cx, cy, cz + h + 0.06)), "r": (0.07, 0.06), "n": 2.0}],
+                seg=8, mat=mat, up=(0, 0, 1)))
+
+
+def clock(out, M, x, y, z, facing_x, r=0.82):
+    """A clock face on a tower, set at twenty to six -- the hour the bell is
+    late for."""
+    s = 1 if facing_x > 0 else -1
+    disc = K.tube("clock_face", [
+        {"p": Vector((x - s * 0.06, y, z)), "r": (r, r), "n": 2.0},
+        {"p": Vector((x + s * 0.05, y, z)), "r": (r, r), "n": 2.0}],
+        seg=40, mat=M["cloth"], up=(0, 0, 1))
+    out.append(disc)
+    out.append(K.tube("clock_ring", [
+        {"p": Vector((x + s * 0.04, y, z)), "r": (r + 0.10, r + 0.10), "n": 2.0},
+        {"p": Vector((x + s * 0.09, y, z)), "r": (r + 0.10, r + 0.10), "n": 2.0}],
+        seg=40, mat=M["stone"], up=(0, 0, 1)))
+    for k in range(12):
+        a = k * math.pi / 6
+        L = 0.16 if k % 3 == 0 else 0.09
+        tk = bbox("clock_tick", (0, 0, 0), (0.012, 0.03, L / 2), M["iron"], bevel=0.004)
+        K.transform(tk, rotate=(math.degrees(a), 0, 0), around=(0, 0, 0),
+                    translate=(x + s * 0.075, y + math.sin(a) * (r - 0.12), z + math.cos(a) * (r - 0.12)))
+        out.append(tk)
+    for ang, L, wdt in ((-(5 + 40 / 60) * 30, r * 0.52, 0.035), (-40 * 6, r * 0.78, 0.022)):
+        hand = bbox("clock_hand", (0, 0, 0), (0.012, wdt, L / 2), M["iron"], bevel=0.004)
+        K.transform(hand, translate=(0, 0, L / 2 - 0.05))
+        K.transform(hand, rotate=(ang * s, 0, 0), around=(0, 0, 0), translate=(x + s * 0.10, y, z))
+        out.append(hand)
+
+
+def tower_dress(t, cx, cy, base, storeys, inner, taper, belfry_h):
+    """Everything on the tower that is not structure: pilasters, a rusticated
+    base, arched heads in the plaza arcade, clock faces, an arcaded belfry and
+    a slate pyramid. Nothing here is collision; the tower's walls and stair
+    are untouched."""
+    M, out = t.M, []
+    for i in range(storeys):
+        z0 = 0.44 + 3.9 * i
+        w = base * (1.0 - taper * i)
+        th = w - inner
+        # corner pilasters, proud of both faces
+        for sx in (-1, 1):
+            for sy in (-1, 1):
+                out.append(bbox("tower_pilaster", (cx + sx * (w - 0.14), cy + sy * (w - 0.14), z0 + 1.95),
+                                (0.22, 0.22, 1.95), M["stone"], bevel=0.02))
+        if i == 0:
+            # rustication: deep horizontal channels on the ground storey
+            for k in range(1, 8):
+                z = z0 + k * 0.48
+                for sx in (-1, 1):
+                    out.append(slab("tower_rustic", cx + sx * (w + 0.005), cx + sx * (w + 0.035),
+                                    cy - w + 0.35, cy + w - 0.35, z - 0.035, z + 0.035, M["stone"]))
+                out.append(slab("tower_rustic", cx - w + 0.35, cx + w - 0.35, cy - w - 0.035, cy - w - 0.005,
+                                z - 0.035, z + 0.035, M["stone"]))
+        else:
+            # ARCHED HEADS in the plaza arcade: the tops of both openings fill
+            # with a round arch and its voussoirs. The openings keep their
+            # full width and most of their height -- the camera needs them.
+            span = inner - 0.26
+            rise = span / 2
+            yc = cy + (inner + w) / 2
+            for sgn in (-1, 1):
+                xc = cx + sgn * (0.26 + span / 2)
+                ap = arch_plate("tower_arch", span, rise, th * 2 - 0.02, M["stone"], rise=rise)
+                K.transform(ap, translate=(xc, yc, z0 + 3.40 - rise))
+                out.append(ap)
+                voussoirs(out, M, span, rise, 0.10, z0 + 3.40 - rise, xc, cy + w + 0.03)
+            # a clock on the two side faces of the top shaft stage
+            if i == storeys - 1:
+                for sx in (-1, 1):
+                    clock(out, M, cx + sx * (w + 0.02), cy, z0 + 2.15, sx)
+    # the belfry: arches between the corner piers on all four sides
+    top = 0.44 + 3.9 * storeys
+    bw = base * (1.0 - taper * (storeys - 1))
+    span = 2 * (bw - 0.44)
+    zt = top + 2 * belfry_h
+    for face in range(4):
+        pieces = []
+        rise = 0.95
+        ap = arch_plate("belfry_arch", span, rise + 0.02, 0.36, M["stone"], rise=rise)
+        K.transform(ap, translate=(0, -(bw - 0.20), zt - rise - 0.02))
+        pieces.append(ap)
+        # dentils under the lintel
+        nd = int(2 * bw / 0.26)
+        for k in range(nd):
+            x = -bw + (k + 0.5) * 2 * bw / nd
+            pieces.append(bbox("dentil", (x, -(bw + 0.08), zt + 0.03), (0.06, 0.06, 0.07), M["stone"], bevel=0.01))
+        for p in pieces:
+            K.transform(p, rotate=(0, 0, 90 * face), around=(0, 0, 0), translate=(cx, cy, 0))
+        out += pieces
+    # a slate pyramid laid in courses over the flat cap
+    capz = top + 2 * belfry_h + 0.24
+    hip_roof(t, cx, cy, capz + 0.01, bw + 0.34, 2.5, M["roof_b"], out)
+    t.add(*out)
     return out

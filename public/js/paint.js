@@ -178,10 +178,10 @@ const RECIPES = {
   // the meadow floor -- see FIELD below; this is the fallback
   ground:    { hue: [0.30, 0.05], bump: [0.10, 1.6], rough: 1.0, env: 0.75, field: 1 },
   // --- built ------------------------------------------------------------
-  plaster_a: { hue: [0.10, 0.60], bump: [0.10, 3.0], grime: 0.45, rough: 0.94, env: 1.0 },
-  plaster_b: { hue: [0.10, 0.60], bump: [0.10, 3.0], grime: 0.45, rough: 0.94, env: 1.0 },
-  plaster_c: { hue: [0.10, 0.60], bump: [0.10, 3.0], grime: 0.45, rough: 0.94, env: 1.0 },
-  plaster_d: { hue: [0.10, 0.60], bump: [0.10, 3.0], grime: 0.45, rough: 0.94, env: 1.0 },
+  plaster_a: { hue: [0.10, 0.60], bump: [0.10, 3.0], grime: 0.45, rough: 0.94, env: 1.0, age: 1 },
+  plaster_b: { hue: [0.10, 0.60], bump: [0.10, 3.0], grime: 0.45, rough: 0.94, env: 1.0, age: 1 },
+  plaster_c: { hue: [0.10, 0.60], bump: [0.10, 3.0], grime: 0.45, rough: 0.94, env: 1.0, age: 1 },
+  plaster_d: { hue: [0.10, 0.60], bump: [0.10, 3.0], grime: 0.45, rough: 0.94, env: 1.0, age: 1 },
   roof_a:    { hue: [0.18, 0.35], bump: [0.06, 5.0], mapBump: 1.6, moss: 0.22, rough: 0.72, env: 1.0 },
   roof_b:    { hue: [0.18, 0.35], bump: [0.06, 5.0], mapBump: 1.6, moss: 0.22, rough: 0.72, env: 1.0 },
   roof_c:    { hue: [0.18, 0.35], bump: [0.06, 5.0], mapBump: 1.6, moss: 0.22, rough: 0.72, env: 1.0 },
@@ -191,10 +191,13 @@ const RECIPES = {
   awning:    { hue: [0.08, 1.5], bump: [0.04, 9.0], rough: 0.9, env: 0.9, glow: 0.35, stripe: 1,
                tint: [0.82, 0.72, 0.70] },
   cloth:     { hue: [0.08, 1.5], bump: [0.04, 9.0], rough: 0.9, env: 1.0, glow: 0.3 },
+  curtain:   { hue: [0.10, 2.0], rough: 0.95, env: 0.4, glow: 0.2 },
   brass:     { hue: [0.08, 3.0], rough: 0.32, metal: 0.85, env: 1.4 },
   iron:      { hue: [0.12, 3.0], bump: [0.10, 6.0], rough: 0.55, metal: 0.7, env: 1.2 },
   // dark and reflective: what a window is from outside in daylight
-  glass:     { rough: 0.10, metal: 0.0, env: 0.9, tint: [0.12, 0.12, 0.13] },
+  // dark, reflective and a little transparent, so the curtains and the room
+  // behind read through it
+  glass:     { rough: 0.10, metal: 0.0, env: 0.9, tint: [0.10, 0.11, 0.12], opacity: 0.62 },
   shutter_a: { hue: [0.12, 1.4], bump: [0.18, 5.0], streak: 1, grime: 0.2, rough: 0.7, env: 0.9 },
   shutter_b: { hue: [0.12, 1.4], bump: [0.18, 5.0], streak: 1, grime: 0.2, rough: 0.7, env: 0.9 },
   shutter_c: { hue: [0.12, 1.4], bump: [0.18, 5.0], streak: 1, grime: 0.2, rough: 0.7, env: 0.9 },
@@ -263,7 +266,7 @@ uniform vec3 uSunDir;
 uniform vec3 uSunCol;
 uniform vec2 uHue;
 uniform vec2 uBump;
-uniform float uMapBump, uMoss, uStreak, uGrime, uGlow, uField, uFoliage, uMapFade, uWater, uForest, uPave, uStripe;
+uniform float uMapBump, uMoss, uStreak, uGrime, uGlow, uField, uFoliage, uMapFade, uWater, uForest, uPave, uStripe, uAge;
 uniform sampler2D uFieldMap;
 uniform vec3 uRoomLo[8];
 uniform vec3 uRoomHi[8];
@@ -424,10 +427,35 @@ vec3 pPaveTilt = vec3(0.0);
     pPaveTilt = vec3(toC.x, 0.0, toC.y) / max(0.05, length(toC)) * (1.0 - smoothstep(0.05, 0.28, gap)) * 0.55;
   }
 
+  // AGE, on plaster. Lime render falls away in patches and shows the rubble
+  // stone it was laid over; rain runs down from every sill and ledge and
+  // leaves a dark tail; the top of a wall under the eaves stays cleaner.
+  if (uAge > 0.5) {
+    float vert = 1.0 - abs(pWN.y);
+    // spalled patches, with a lighter lip where the render breaks
+    float pn = pFbm(vPW * 0.95 + 13.0) + pNoise(vPW * 4.0) * 0.10;
+    // mostly low on the wall, where the damp gets in
+    float low = 1.0 - smoothstep(1.5, 5.0, vPW.y) * 0.6;
+    float spall = smoothstep(0.64, 0.655, pn * low + 0.04) * vert;
+    float lip = smoothstep(0.62, 0.64, pn * low + 0.04) * (1.0 - spall) * vert;
+    float course = abs(fract(vPW.y / 0.22) - 0.5);
+    vec3 rubble = mix(vec3(0.46, 0.41, 0.34), vec3(0.62, 0.56, 0.46), pNoise(vPW * 5.0))
+                * mix(0.55, 1.0, smoothstep(0.03, 0.08, course));
+    diffuseColor.rgb = mix(diffuseColor.rgb, rubble, spall);
+    diffuseColor.rgb *= 1.0 + lip * 0.12;
+    // rain streaks: thin vertical runs, darker lower down each run
+    float sx = pNoise(vec3(vPW.x * 4.5 + vPW.z * 4.5, vPW.y * 0.08, 3.0));
+    float run = smoothstep(0.62, 0.9, sx) * smoothstep(0.2, 0.7, pNoise(vec3(vPW.xz * 0.7, vPW.y * 0.5)));
+    diffuseColor.rgb *= 1.0 - run * vert * 0.22;
+  }
+
   // CANVAS STRIPES: across the cloth's width, which is the horizontal line
   // lying in its surface -- so on an awning they run down the slope
   if (uStripe > 0.5) {
-    vec3 tng = cross(vec3(0.0, 1.0, 0.0), pWN);
+    // the FLAT face's normal, not the smoothed one: across a bevelled slab
+    // the interpolated normal swings and the stripes zig-zagged
+    vec3 fN = normalize(cross(dFdx(vPW), dFdy(vPW)));
+    vec3 tng = cross(vec3(0.0, 1.0, 0.0), fN);
     tng = length(tng) < 0.2 ? vec3(1.0, 0.0, 0.0) : normalize(tng);
     float u = dot(vPW, tng) / 0.26;
     float st = smoothstep(0.46, 0.54, abs(fract(u) - 0.5) * 2.0);
@@ -565,13 +593,14 @@ export function worldMaterial(name, opts = {}) {
   const { map = null, vertexColors = false, opacity = 1, sway = 0 } = opts;
   if (r.tint) color = color.clone().multiply(new THREE.Color(...r.tint));
   const water = !!r.water;
+  const opacity0 = r.opacity ?? opacity;
   const mat = new THREE.MeshStandardMaterial({
     color, map, vertexColors,
     roughness: r.rough ?? 0.85,
     metalness: r.metal ?? 0,
     envMapIntensity: r.env ?? 0.9,
-    transparent: water || opacity < 1, opacity: water ? 1 : opacity,
-    depthWrite: !water && opacity >= 1,
+    transparent: water || opacity0 < 1, opacity: water ? 1 : opacity0,
+    depthWrite: !water && opacity0 >= 1,
   });
   const u = {
     uHue: { value: new THREE.Vector2(...(r.hue || [0, 1])) },
@@ -588,6 +617,7 @@ export function worldMaterial(name, opts = {}) {
     uForest: { value: r.forest || 0 },
     uPave: { value: r.pave || 0 },
     uStripe: { value: r.stripe || 0 },
+    uAge: { value: r.age || 0 },
     uSway: { value: sway },
   };
   mat.userData.paint = { name, recipe: r, uniforms: u };

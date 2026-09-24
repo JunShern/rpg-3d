@@ -108,6 +108,11 @@ def palette():
         # -- the only metal in the palette -- and an anvil the colour of a
         # doorknob is the single most obviously wrong thing in the room.
         "iron":      (0.30, 0.31, 0.35),
+        # the square's shade trees
+        "bark":      (0.36, 0.30, 0.25),
+        # curtains behind the glass: warm and dim, or a sunlit curtain reads
+        # through the glass as a lamp-lit room at noon
+        "curtain":   (0.46, 0.30, 0.22),
     }
     mats = {}
     for name, color in spec.items():
@@ -821,13 +826,11 @@ def stall(t, cx, cy, yaw=0.0, kind=0, w=2.4, d=1.5):
     # seen from above and the whole point is the silhouette from the side
     out.append(prism("stall_canopy", (cx, cy, post_h + 0.02), w + 0.42, d + 0.34, 0.34,
                      M["awning"], over_y=0.06, over_x=0.06))
-    # scallops along the front edge, the same trick the shop awnings use
-    n = max(3, int(w / 0.34))
-    for i in range(n):
-        sx = cx - (w + 0.3) / 2 + (w + 0.3) * (i + 0.5) / n
-        out.append(K.blob("stall_scallop", (sx, cy - (d + 0.34) / 2, post_h + 0.02),
-                          (0.17, 0.05, 0.13), None, M["awning"], seg=9, rings=6,
-                          squircle=2.4))
+    # a canvas valance hanging from the front and back eaves -- it was a row
+    # of blobs, which under real light read as a string of pink balls
+    for sy in (-1, 1):
+        out.append(box("stall_valance", (cx, cy + sy * ((d + 0.34) / 2 + 0.06), post_h - 0.06),
+                       ((w + 0.54) / 2, 0.012, 0.13), M["awning"], bevel=0.008, seg=1))
     # trestle: a top and two cross-legs
     top_h = 0.86
     out.append(box("stall_board", (cx, cy, top_h), (w / 2 - 0.06, d / 2 - 0.16, 0.035),
@@ -1041,12 +1044,9 @@ def awning(t, x, y0, z, w=1.5, drop=0.55, reach=0.85):
                bevel=0.03, seg=1)
     K.transform(slab, rotate=(-22, 0, 0), around=(x, y0, z + 0.12))
     out.append(slab)
-    n = max(3, int(w / 0.34))
-    for i in range(n):
-        px = x - w / 2 + w * (i + 0.5) / n
-        out.append(K.blob("awning_scallop", (px, y0 - reach + 0.02, z - drop * 0.52),
-                          (w / n * 0.5, 0.05, 0.13), None, M["awning"],
-                          seg=10, rings=7, squircle=2.2))
+    # a flat canvas valance along the front edge (it was a row of blobs)
+    out.append(box("awning_valance", (x, y0 - reach + 0.03, z - drop * 0.40),
+                   (w / 2, 0.012, 0.14), M["awning"], bevel=0.008, seg=1))
     for s in (-1, 1):
         out.append(box("awning_arm", (x + s * (w / 2 - 0.04), cy, z - 0.16),
                        (0.03, reach / 2, 0.03), M["timber"], bevel=0.01, seg=1))
@@ -1505,8 +1505,7 @@ def building(t, cx, cy, w, d, storeys=2, yaw=0.0, plaster="plaster_a",
         out += shopsign(t, door_x + min(1.5, w / bays * 0.8), y0, 3.35, kind=seed)
 
     if storeys >= 2:
-        out += banner(t, w * 0.30, y0 - 0.02, 0.16 + GROUND_H + 0.55,
-                      mat="awning" if seed % 2 else "roof_b")
+        out += banner(t, w * 0.30, y0 - 0.02, 0.16 + GROUND_H + 0.55, mat="awning")
 
     for o in out:
         if yaw:
