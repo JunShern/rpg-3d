@@ -243,7 +243,8 @@ function installHelpers() {
 /* eslint-enable no-undef */
 
 async function run() {
-  const browser = await chromium.launch({ headless: true });
+  // the real GPU (ANGLE on Metal), not SwiftShader -- see tools/look.mjs
+  const browser = await chromium.launch({ headless: true, args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'] });
   page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
 
   const errors = [];

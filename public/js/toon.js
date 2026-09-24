@@ -13,6 +13,7 @@
 // at distance and swallow their face up close.
 
 import * as THREE from 'three';
+import { worldMaterial } from './paint.js';
 
 /** A 1-D nearest-filtered ramp.  `steps` are 0..255 luminance stops. */
 export function gradientMap(steps) {
@@ -71,6 +72,22 @@ const SWAY_GLSL = /* glsl */`
   }
 `;
 
+/**
+ * THE CAST'S OWN FILL LIGHT.
+ *
+ * In the painted look the world is lit by the sky (image-based light), which
+ * MeshToonMaterial cannot read -- and a scene-wide hemisphere light, which it
+ * can, would light every painted surface a second time and flatten the whole
+ * frame into pastel. So the hemisphere is off, and the characters carry their
+ * own: the same two colours, applied in their shader only. atmos.js sets them
+ * from the preset, so a character in the dusk square is still lit by dusk.
+ */
+export const CHAR_FILL = {
+  uFillSky: { value: new THREE.Color(0.6, 0.65, 0.7) },
+  uFillGround: { value: new THREE.Color(0.35, 0.3, 0.25) },
+  uFillOn: { value: 0 },
+};
+
 const RIM_UNIFORMS = [];
 const RIM_SCALE = { value: 1 };
 /** Scale every rim light at once, for A/B-ing a frame. `__rim(0)` = off. */
@@ -109,6 +126,22 @@ export const LOOKS = {
     hemi: { sky: 0xd2e2ee, ground: 0x8f7f6a, intensity: 0.88 },
     ambient: { color: 0x9d9aa4, intensity: 0.26 },
     exposure: 1.02,
+    albedo: 1,
+  },
+  // THE ONE THE GAME USES. World surfaces are physically lit and painted in
+  // world space (paint.js), lit by the sky itself; the cast keeps its cel
+  // shading and its ink line. See paint.js for why that split is the look
+  // rather than a compromise.
+  painted: {
+    label: 'painted',
+    painted: true,
+    lit: true,
+    outlines: false,          // environment hulls; characters keep theirs
+    rim: 1,
+    key: { color: 0xfff2d8, intensity: 2.5 },
+    hemi: { sky: 0xd2e2ee, ground: 0x8f7f6a, intensity: 0.88 },
+    ambient: { color: 0x9d9aa4, intensity: 0.26 },
+    exposure: 1.0,
     albedo: 1,
   },
   lit: {
@@ -150,6 +183,13 @@ function toAlbedo(c, k) {
  * One recipe, either shading model. `look` is a member of LOOKS.
  */
 export function surfaceMaterial(look, color, opts = {}) {
+  if (look.painted) {
+    // world surfaces are painted; anything without a surface name is a
+    // character and keeps the ramp
+    if (!opts.surface) return toonMaterial(color, opts);
+    return worldMaterial(opts.surface, { color, map: opts.map, vertexColors: opts.vertexColors,
+                                         opacity: opts.opacity, sway: opts.sway || 0 });
+  }
   if (!look.lit) return toonMaterial(color, opts);
   const { map = null, vertexColors = false, opacity = 1, roughness = 0.92 } = opts;
   return new THREE.MeshStandardMaterial({
@@ -199,12 +239,26 @@ export function toonMaterial(color, opts = {}) {
     RIM_UNIFORMS.push(shader.uniforms.uRimStrength);
     shader.uniforms.uRimStrength.value = rimStrength * RIM_SCALE.value;
     shader.uniforms.uRimStrength.userData = { base: rimStrength };
+    shader.uniforms.uFillSky = CHAR_FILL.uFillSky;
+    shader.uniforms.uFillGround = CHAR_FILL.uFillGround;
+    shader.uniforms.uFillOn = CHAR_FILL.uFillOn;
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', /* glsl */`
         #include <common>
         uniform vec3 uRimColor;
         uniform float uRimPower;
         uniform float uRimStrength;
+        uniform vec3 uFillSky;
+        uniform vec3 uFillGround;
+        uniform float uFillOn;
+      `)
+      .replace('#include <lights_fragment_end>', /* glsl */`
+        #include <lights_fragment_end>
+        if (uFillOn > 0.5) {
+          vec3 fnW = (vec4(normal, 0.0) * viewMatrix).xyz;
+          vec3 fill = mix(uFillGround, uFillSky, fnW.y * 0.5 + 0.5);
+          reflectedLight.indirectDiffuse += fill * BRDF_Lambert(diffuseColor.rgb);
+        }
       `)
       // hook before tone mapping so the rim is tone-mapped with everything else
       .replace('#include <tonemapping_fragment>', /* glsl */`

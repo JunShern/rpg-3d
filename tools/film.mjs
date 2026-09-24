@@ -237,7 +237,7 @@ async function main() {
   await mkdir(TMP, { recursive: true });
   await mkdir(OUT, { recursive: true });
 
-  const browser = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required'] });
+  const browser = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required', '--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'] });
   const pg = await browser.newPage({ viewport: { width: W, height: H } });
   const errs = [];
   pg.on('pageerror', (e) => errs.push(String(e).slice(0, 200)));

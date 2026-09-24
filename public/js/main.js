@@ -26,6 +26,10 @@ import { createCombat, SPECIES, TUNE } from './combat.js';
 import { makeBreakables } from './breakables.js';
 import { makeTrail } from './trail.js';
 import { makeTerrain } from './terrain.js';
+import { PAINT, tune as paintTune } from './paint.js';
+import { makeGrass } from './grass.js';
+import { makeFoliage } from './foliage.js';
+import { makeHud } from './hud.js';
 
 // ------------------------------------------------------------------ renderer
 
@@ -278,7 +282,8 @@ const TOWN_LOOK = {
 // load is what makes the switch possible at all -- by the time the material
 // exists the GLB's own colour and map have been thrown away.
 const SURFACES = [];       // { mesh, kind, name, color, map, vcol, opts }
-let LOOK = LOOKS.toon;
+let LOOK = LOOKS.painted;
+PAINT.uWind = WIND;
 let breakables = null;     // the props that come apart -- see breakables.js
 const SOLIDS = [];         // oriented boxes, from every region's manifest
 const PLATFORMS = [];      // flat tops ABOVE the analytic ground
@@ -286,6 +291,7 @@ const PLATFORMS = [];      // flat tops ABOVE the analytic ground
 // canopies, chiefly. See Town.camblock for why this is a separate list.
 const CAM_BLOCKERS = [];
 let terrain = null;        // analytic ground for the meadow
+let grass = null;          // the field -- grass.js
 let terrainProbes = [];
 const FLOORS = [];         // meshes the ground raycast targets
 // OPEN VOLUMES THE CAMERA MAY ALWAYS OCCUPY -- see `Town.shafts` in arch_lib.
@@ -334,10 +340,14 @@ function applyTownLook(root) {
     // ignoring it ships a field of flat mottled white.
     const vcol = !!m.geometry.getAttribute('color');
     const opts = { gradient: RAMP_SOFT, rimStrength: 0.28, map, vertexColors: vcol,
-                   key: `town:${name}:${vcol ? 'v' : ''}`, ...(TOWN_LOOK[name] || {}) };
-    SURFACES.push({ mesh: m, flat: TOWN_FLAT.has(name), color: base, opts });
-    m.material = TOWN_FLAT.has(name) ? flatMaterial(base)
-                                     : surfaceMaterial(LOOK, base, opts);
+                   key: `town:${name}:${vcol ? 'v' : ''}`, ...(TOWN_LOOK[name] || {}),
+                   surface: name };
+    // THE FAR RIDGES ARE PAINTED TOO in the painted look -- they were flat
+    // colour so a cel ramp could not band them; lit and hazed by the air pass
+    // they become the layered blue hills a valley should end in
+    const flat = TOWN_FLAT.has(name) && !(LOOK.painted && /^ridge_/.test(name));
+    SURFACES.push({ mesh: m, flat, color: base, opts });
+    m.material = flat ? flatMaterial(base) : surfaceMaterial(LOOK, base, opts);
     // NOT EVERYTHING CASTS. The shadow map is a second full pass over the
     // scene, so a 6k-triangle terrain and 500 grass tufts casting shadows
     // nobody can see is the most expensive nothing in the build. Ground
@@ -354,10 +364,17 @@ function applyTownLook(root) {
     if (NO_FOG_ENV.has(name)) { m.material.fog = false; m.renderOrder = -1; }
     m.castShadow = !NO_SHADOW_ENV.has(name);
     m.receiveShadow = !TINY_ENV.has(name);
+    // THE MODELLED TUFTS RETIRE in the painted look: grass.js grows a real
+    // field, and a few hundred rigid clumps standing in it read as litter
+    if (LOOK.painted && (name === 'leaf_lo' || name === 'grass_hi')) m.visible = false;
   }
   for (const m of meshes) {
     const name = m.userData.matName || '';
     if (NO_OUTLINE_ENV.has(name)) continue;
+    // THE PAINTED WORLD HAS NO INK. The hull stays on the cast, where a line
+    // round a silhouette is a style; round every stone in a wall it was the
+    // single thing that most made this look like a mobile game.
+    if (LOOK.painted) continue;
     // the shell has to move with what it wraps, or it leaks out of one side
     addOutline(m, 0.0022, (TOWN_LOOK[name] || {}).sway || 0);
   }
@@ -409,6 +426,12 @@ Promise.all([
 ]).then(([town, townMan, meadow, meadowMan]) => {
   applyTownLook(town.scene);
   applyTownLook(meadow.scene);
+  if (LOOK.painted) {
+    const t0 = performance.now();
+    const cards = makeFoliage({ roots: [town.scene, meadow.scene], parent: world });
+    console.log(`[foliage] ${cards.map((c) => c.userData.cards).join(' + ')} cards in `
+                + `${Math.round(performance.now() - t0)} ms`);
+  }
   absorbRegion(town.scene, townMan);
   absorbRegion(meadow.scene, meadowMan);
 
@@ -416,6 +439,14 @@ Promise.all([
   // the meadow answers ground queries analytically; prove the port agrees
   terrain = makeTerrain(meadowMan.terrain);
   terrainProbes = meadowMan.terrainProbes;
+  // THE FIELD. After both regions' solids are in, so no tuft grows through a
+  // wall, a rock or a trunk.
+  if (LOOK.painted) {
+    const t0 = performance.now();
+    grass = makeGrass({ scene: world, terrain, solids: SOLIDS });
+    console.log(`[grass] baked in ${Math.round(performance.now() - t0)} ms`,
+                JSON.stringify(grass._debug()));
+  }
   const agree = terrain.check(terrainProbes);
   console.log(`[terrain] port agrees with the mesh to ${agree.worst} over `
     + `${agree.n} probes`);
@@ -2580,6 +2611,34 @@ addEventListener('resize', resize);
 resize();
 
 const hud = document.getElementById('hud');
+
+// ---------------------------------------------------------------- the HUD
+//
+// hud.js draws it; this is the only place that knows where each number lives.
+const hud2 = makeHud();
+const NAMES = { vesper: 'Vesper', lake: 'Lake', maren: 'Maren' };
+// PLACES. A name card when you walk into one, the way the genre announces an
+// area. The town ends at the gate; the meadow is everything the terrain owns.
+function placeAt(p) {
+  if (!terrain || !terrain.owns(p.x, p.z)) return ['Emberbrook', 'the town of the bell'];
+  if (-p.z > 78) return ['The High Circle', 'where the old stones stand'];
+  return ['The Ford Meadow', 'beyond the town gate'];
+}
+function updateHud(dt) {
+  if (!cur || !combat) return;
+  const me = window.GS && GS.ok ? (GS.state.party.find((m) => m.active) || GS.state.party[0]) : null;
+  const members = window.party && party.members ? party.members : [];
+  hud2.update({
+    dt,
+    lead: { id: cur.name, name: NAMES[cur.name] || cur.name, hp: combat.player.hp,
+            maxHp: combat.player.maxHP, level: me ? me.level : 1 },
+    party: members.map((m) => ({ id: m.id, name: NAMES[m.id] || m.id, frac: 1 })),
+    gold: window.GS && GS.ok ? GS.state.gold : 0,
+    near: !!(window.npcs && npcs.near),
+  });
+  const [pl, sub] = placeAt(cur.group.position);
+  if (!cine.active && !document.body.classList.contains('talking')) hud2.showPlace(pl, sub);
+}
 const clock = new THREE.Clock();
 let acc = 0, frames = 0, fps = 0;
 
@@ -2768,6 +2827,7 @@ function frame(dt) {
   // the weather, and a world that stops breathing every time you connect reads
   // as the game hitching.
   WIND.value += dt;
+  PAINT.uTime.value += dt;
   // A CONVERSATION FREEZES THE FIGHT, NOT THE FRAME. `sdt` going to zero stops
   // the player, the enemies, the swing and the animation; `dt` keeps running so
   // the wind still moves in the grass behind the box and the typewriter is not
@@ -2812,6 +2872,8 @@ function frame(dt) {
   // is the correct order -- trying to suppress the gameplay camera instead
   // means every future change to it has to remember this feature exists.
   if (cine.active) cine.step(dt);
+  if (grass) grass.update(camera.position, cur ? cur.group.position : null);
+  updateHud(dt);
   atmos.render();
   hud.textContent =
     `${fps} fps  ·  ${cur ? cur.name : '—'}  ·  ${combat && combat.isStaggered() ? 'hurt' : slip.t > 0 ? 'slip' : attacking ? 'attack' : !grounded ? 'air'
@@ -2855,6 +2917,11 @@ Object.defineProperty(globalThis, 'party', { get: () => party, configurable: tru
 Object.defineProperty(globalThis, 'quest', { get: () => quest, configurable: true });
 Object.assign(globalThis, { __cine: cine, __scenes: SCENES });
 Object.assign(globalThis, { __audio: audio, __atmos: atmos });
+globalThis.__paint = paintTune;
+// for tools that move the camera by hand and then render: re-centre what
+// follows the camera (the grass field) before the frame is drawn
+globalThis.__lookFrame = () => { if (grass) grass.update(camera.position, cur ? cur.group.position : null); };
+Object.defineProperty(globalThis, 'grass', { get: () => grass, configurable: true });
 globalThis.__preset = (n) => { atmos.apply(n); return atmos._debug(); };
 Object.defineProperty(globalThis, '__actx', { get: () => audio.ctx, configurable: true });
 globalThis.__tap = (n) => audio.tap(n);

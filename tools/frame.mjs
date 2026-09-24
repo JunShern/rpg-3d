@@ -9,7 +9,7 @@ import { chromium } from 'playwright';
 const URL = process.env.SHOT_URL || 'http://localhost:3100/';
 const args = process.argv.slice(2);
 const hour = Number(process.env.HOUR ?? 0.15);
-const b = await chromium.launch();
+const b = await chromium.launch({ args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'] });
 const pg = await b.newPage({ viewport: { width: 1180, height: 664 } });
 pg.on('pageerror', (e) => console.log('ERR', String(e).slice(0, 160)));
 await pg.goto(URL);

@@ -26,6 +26,9 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { AirPass } from './air.js';
+import { PAINT } from './paint.js';
+import { CHAR_FILL } from './toon.js';
 
 // ---------------------------------------------------------------- the sky
 //
@@ -43,28 +46,69 @@ void main() {
 
 const SKY_FRAG = `
 uniform vec3 uHorizon, uMid, uZenith, uSun, uSunDir;
-uniform float uSunSize, uSunGlow, uHaze;
+uniform float uSunSize, uSunGlow, uHaze, uTime, uCloud;
 varying vec3 vDir;
+
+float sh(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float sn(vec2 p) {
+  vec2 i = floor(p), f = fract(p);
+  vec2 u = f * f * (3.0 - 2.0 * f);
+  return mix(mix(sh(i), sh(i + vec2(1, 0)), u.x), mix(sh(i + vec2(0, 1)), sh(i + vec2(1, 1)), u.x), u.y);
+}
+float sfbm(vec2 p) {
+  float a = 0.0, m = 0.5;
+  mat2 r = mat2(0.8, 0.6, -0.6, 0.8);
+  for (int i = 0; i < 6; i++) { a += m * sn(p); p = r * p * 2.02; m *= 0.5; }
+  return a;
+}
 
 void main() {
   vec3 d = normalize(vDir);
   float h = clamp(d.y * 0.5 + 0.5, 0.0, 1.0);
-  // two-stage ramp: horizon -> mid over the bottom third, mid -> zenith above
   float a = smoothstep(0.40, 0.56, h);
   float b = smoothstep(0.52, 0.95, h);
   vec3 col = mix(mix(uHorizon, uMid, a), uZenith, b);
 
-  // THE SUN. A disc with a wide glow around it -- the glow is most of the
-  // effect and the disc is almost incidental, which is true of real skies too.
-  float cd = max(0.0, dot(d, normalize(uSunDir)));
+  vec3 sd = normalize(uSunDir);
+  float cd = max(0.0, dot(d, sd));
   float disc = smoothstep(1.0 - uSunSize, 1.0 - uSunSize * 0.35, cd);
   float glow = pow(cd, uSunGlow);
-  col += uSun * (disc * 1.7 + glow * 0.55);
+  // a second, much wider glow: the brightening of the whole quarter of the
+  // sky the sun is in, which is what makes it read as low and hot
+  float wide = pow(cd, 4.0);
+  col += uSun * (glow * 0.55 + wide * 0.18);
 
-  // haze thickens toward the horizon AND toward the sun, which is what makes a
-  // low sun read as low rather than as a lamp stuck on a gradient
   float haze = pow(1.0 - abs(d.y), 3.0) * uHaze;
   col = mix(col, uHorizon * 1.08 + uSun * 0.10, clamp(haze, 0.0, 1.0));
+
+  // CLOUDS. A painted layer on a plane over the valley: projected so they
+  // bunch toward the horizon, lit by stepping the density toward the sun (the
+  // side facing it is bright, the far side takes the sky colour), with a
+  // silver edge when they pass in front of it. They drift.
+  if (d.y > 0.0 && uCloud > 0.0) {
+    vec2 p = d.xz / (d.y + 0.12) * 0.55 + vec2(uTime * 0.006, uTime * 0.0025);
+    float base = sfbm(p * 1.4);
+    float shape = sfbm(p * 0.35 + 4.0);
+    // c averages ~0.59; uCloud 0.55 puts the threshold a little above that,
+    // which is a sky about half full of broken cloud
+    float c = base * 0.6 + shape * 0.6 + (uCloud - 0.55) * 0.4;
+    float dens = smoothstep(0.55, 0.74, c);
+    vec2 toSun = normalize(sd.xz + 1e-4) * 0.09;
+    float c2 = sfbm((p + toSun) * 1.4) * 0.6 + sfbm((p + toSun) * 0.35 + 4.0) * 0.6
+             + (uCloud - 0.55) * 0.4;
+    float lit = clamp(0.62 + (c - c2) * 4.0, 0.0, 1.0);
+    // thick cloud is darker underneath: denser means less light gets through
+    lit *= mix(1.0, 0.72, smoothstep(0.66, 0.9, c));
+    vec3 shade = mix(uMid, uHorizon, 0.55) * 0.82;
+    vec3 bright = mix(vec3(1.0), uSun, 0.55) * 1.18;
+    vec3 cc = mix(shade, bright, lit);
+    cc += uSun * pow(cd, 12.0) * (1.0 - dens) * 1.6;         // silver lining
+    float fade = smoothstep(0.015, 0.22, d.y);
+    col = mix(col, cc, dens * fade * 0.96);
+  }
+
+  // the disc last, so a cloud can cross the sun's glow but the disc burns through thin ones
+  col += uSun * disc * 1.7;
   gl_FragColor = vec4(col, 1.0);
 }`;
 
@@ -261,6 +305,7 @@ export function makeAtmos({ renderer, scene, camera, key, hemi, ambient }) {
       uZenith: { value: new THREE.Color() }, uSun: { value: new THREE.Color() },
       uSunDir: { value: new THREE.Vector3(0, 1, 0) },
       uSunSize: { value: 0.01 }, uSunGlow: { value: 40 }, uHaze: { value: 0.4 },
+      uTime: PAINT.uTime, uCloud: { value: 0.55 },
     },
   });
   const sky = new THREE.Mesh(new THREE.SphereGeometry(300, 32, 20), skyMat);
@@ -269,8 +314,19 @@ export function makeAtmos({ renderer, scene, camera, key, hemi, ambient }) {
   scene.add(sky);
 
   // ---- post ------------------------------------------------------------
-  const composer = new EffectComposer(renderer);
+  // THE SCENE TARGET CARRIES ITS DEPTH, so the air pass can reconstruct where
+  // every pixel is in the world; and it is multisampled, because the composer
+  // otherwise renders without the canvas's antialiasing and every edge in the
+  // game crawls.
+  const size = renderer.getDrawingBufferSize(new THREE.Vector2());
+  const rt = new THREE.WebGLRenderTarget(size.x, size.y, {
+    type: THREE.HalfFloatType, samples: 4,
+    depthTexture: new THREE.DepthTexture(size.x, size.y),
+  });
+  const composer = new EffectComposer(renderer, rt);
   composer.addPass(new RenderPass(scene, camera));
+  const air = new AirPass(camera);
+  composer.addPass(air);
 
   const bloom = new UnrealBloomPass(
     new THREE.Vector2(innerWidth, innerHeight), 0.6, 0.55, 0.78);
@@ -291,6 +347,29 @@ export function makeAtmos({ renderer, scene, camera, key, hemi, ambient }) {
   composer.addPass(grade);
   // NO OutputPass. The grade shader ends in ACES + sRGB, so adding one would
   // tone map the image a second time -- which is exactly the bug above.
+
+  // ---- light from the sky ------------------------------------------------
+  //
+  // IMAGE-BASED LIGHT. The painted surfaces are lit by the sky itself -- the
+  // same shader, rendered into a prefiltered cube -- so shade under a blue sky
+  // is blue from above and warm where the low sun has coloured the horizon,
+  // and every surface facing a bright part of the sky gets a little of it. A
+  // hemisphere light has two colours; this has the whole sky, clouds included.
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  const envScene = new THREE.Scene();
+  const envSky = new THREE.Mesh(new THREE.SphereGeometry(300, 32, 20), skyMat);
+  envScene.add(envSky);
+  let envRT = null, envSig = '';
+  function refreshEnv(force) {
+    const sig = [Math.round(sunDir.y * 60), skyMat.uniforms.uZenith.value.getHexString(),
+                 skyMat.uniforms.uHorizon.value.getHexString()].join(':');
+    if (!force && sig === envSig) return;
+    envSig = sig;
+    const next = pmrem.fromScene(envScene, 0, 1, 1000);
+    if (envRT) envRT.dispose();
+    envRT = next;
+    scene.environment = envRT.texture;
+  }
 
   // ---- apply -----------------------------------------------------------
   function apply(n) {
@@ -317,6 +396,9 @@ export function makeAtmos({ renderer, scene, camera, key, hemi, ambient }) {
     skyMat.uniforms.uSunGlow.value = p.sky.sunGlow;
     skyMat.uniforms.uHaze.value = p.sky.haze;
 
+    // THE AIR PASS OWNS THE FOG NOW. Material fog would apply it a second time
+    // on top, so the scene carries none.
+    scene.fog = null;
     if (scene.fog) {
       scene.fog.color.setHex(p.fog.color);
       scene.fog.near = p.fog.near;
@@ -345,7 +427,35 @@ export function makeAtmos({ renderer, scene, camera, key, hemi, ambient }) {
     // grade rather than a renderer setting, because the renderer's version is
     // applied inside every material shader and would be the second curve again.
     grade.uniforms.uExposure.value = p.grade.exposure * p.exposure;
+
+    // ---- the painted world's share of it ----
+    PAINT.uSunDir.value.copy(sunDir);
+    PAINT.uSunCol.value.setHex(p.sun.color).multiplyScalar(p.sun.power / 3);
+    const a = air.uniforms;
+    a.uSunDir.value.copy(sunDir);
+    a.uFogCol.value.setHex(p.fog.color);
+    a.uSunFogCol.value.setHex(p.sky.sun).lerp(_e.setHex(p.fog.color), 0.35);
+    a.uFogNear.value = p.fog.near * 1.5;
+    a.uFogFar.value = p.fog.far * 2.6;
+    // the sky and the IBL follow the sun; the hemisphere, which the cel-shaded
+    // cast still depends on, is kept but eased back so the painted surfaces
+    // are not lit twice from above
+    // THE HEMISPHERE MOVES INTO THE CAST'S SHADER (toon.CHAR_FILL): the
+    // painted world takes its fill from the sky, and a scene light would
+    // light it twice. HEMI_K/AMB_K are what the cast gets, in the units a
+    // hemisphere light would have used.
+    CHAR_FILL.uFillOn.value = 1;
+    CHAR_FILL.uFillSky.value.setHex(p.hemi.sky).multiplyScalar(p.hemi.power * HEMI_K)
+      .add(_e.setHex(p.ambient.color).multiplyScalar(p.ambient.power));
+    CHAR_FILL.uFillGround.value.setHex(p.hemi.ground).multiplyScalar(p.hemi.power * HEMI_K)
+      .add(_e.setHex(p.ambient.color).multiplyScalar(p.ambient.power));
+    hemi.intensity = 0;
+    ambient.intensity = 0;
+    scene.environmentIntensity = ENV_K;
+    refreshEnv(false);
   }
+  const _e = new THREE.Color();
+  const HEMI_K = 1.0, ENV_K = 0.45;
 
   /** Put the shadow frustum where the player is, along the preset's sun. */
   function follow(target) {
@@ -364,7 +474,10 @@ export function makeAtmos({ renderer, scene, camera, key, hemi, ambient }) {
   function resize() {
     composer.setSize(innerWidth, innerHeight);
     bloom.setSize(innerWidth, innerHeight);
+    const d = renderer.getDrawingBufferSize(new THREE.Vector2());
+    air.setSize(d.x, d.y);
   }
+  resize();
 
   // BLEND BETWEEN TWO PRESETS.
   //
@@ -438,7 +551,8 @@ export function makeAtmos({ renderer, scene, camera, key, hemi, ambient }) {
   const stats = { calls: 0, triangles: 0 };
 
   return {
-    apply, blend, setHour, follow, resize, stats,
+    apply, blend, setHour, follow, resize, stats, air, bloom, grade, skyMat,
+    refreshEnv: () => refreshEnv(true),
     render: () => {
       // ACCUMULATE ACROSS THE WHOLE FRAME. `renderer.info` resets on every
       // render call, so reading it after `composer.render()` gives you the
@@ -462,6 +576,6 @@ export function makeAtmos({ renderer, scene, camera, key, hemi, ambient }) {
                      sunEl: +(Math.asin(sunDir.y) * 180 / Math.PI).toFixed(1),
                      bloom: +bloom.strength.toFixed(2),
                      keyLight: '#' + key.color.getHexString(),
-                     fogFar: scene.fog ? Math.round(scene.fog.far) : null }),
+                     fogFar: Math.round(air.uniforms.uFogFar.value) }),
   };
 }

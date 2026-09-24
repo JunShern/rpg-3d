@@ -236,7 +236,8 @@ const list = want.length
   ? SHOTS.filter((s) => want.some((w) => s.name.includes(w)))
   : SHOTS;
 
-const browser = await chromium.launch({ headless: true });
+// the real GPU (ANGLE on Metal), not SwiftShader -- see tools/look.mjs
+const browser = await chromium.launch({ headless: true, args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'] });
 const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
 // A SHOT THAT WALKS runs several hundred stepped frames before the capture,
 // and at 1600x900 that is slow enough to blow the 30 s default -- which
