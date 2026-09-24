@@ -117,6 +117,9 @@ public/js/vendor/   Emberbrook's dialogue/menu/shop/game_state, near byte-for-by
 public/game/*.json  dialogue, items, shops, monsters, growth -- all data, no code
 public/assets/      built glb + the manifests the runtime reads
 tools/*_build.py    Blender: geometry, characters, creatures
+tools/facade_lib.py the building SKIN: panels round real openings, stone trim,
+                    shutters, doors, tiled roofs, chimneys, arches, the tower's
+                    dressing. arch_lib.building() is assembled from it
 tools/smoke.mjs     the checks
 tools/shots.mjs     the capture sheet
 tools/frame.mjs     put the camera at x,y,z and look at the picture
@@ -146,6 +149,21 @@ shader) plus the sun; the hemisphere light is OFF and lives inside the cast's
 toon shader instead (`toon.CHAR_FILL`), or the world would be lit twice. Rooms
 (manifest `shafts`) take almost no sky light (`paint.setRooms`). Fog is not
 material fog: `scene.fog` is null and the air pass does it from depth.
+
+### The town (facade_lib)
+
+Buildings keep their footprint and collision exactly; only what is drawn
+changed. A building is a CORE box inset by the wall thickness (`FT`) plus a
+skin per face, cut round each opening, so windows are holes with reveals.
+When you change a building, rebuild and diff the manifest's `solids` against
+the previous one -- they should be identical unless you meant otherwise.
+Collision boxes can be walk-only (`t.solid(..., cam=False)` -> manifest
+`nocam`): the camera sweeps past tree trunks and pots instead of snapping in.
+
+Paving (`pave` in paint.js) is procedural and REPLACES the builder's texture;
+plaster ages (`age`); shaded surfaces get a warm bounce term that fades with
+the sun. Things outside both builds -- the fields round the town and the far
+country -- stand on `outerGround()` in main.js, which the grass bake shares.
 
 ## Things that will bite you again
 
