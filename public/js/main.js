@@ -514,19 +514,39 @@ Promise.all([
         trees.push([x, heightAt(x, z), z, 0.8 + rng() * 0.7, rng()]);
       }
       // three lumps, not one ball: a crown is irregular
-      const lumps = [[0, 6.4, 0, 3.0], [1.9, 5.4, 0.8, 2.3], [-1.5, 5.6, -1.2, 2.4]].map(([x, y, z, r]) => {
-        const l = new THREE.IcosahedronGeometry(r, 1); l.translate(x, y, z); return l;
-      });
+      const lumps = [[0, 6.4, 0, 3.0], [1.9, 5.4, 0.8, 2.3], [-1.5, 5.6, -1.2, 2.4], [0.4, 7.6, -0.6, 2.0]]
+        .map(([x, y, z, r]) => {
+          // BUMPY, not spheres: each vertex pushed in or out by a hash of its
+          // direction, so the crown's silhouette breaks up into clumps
+          const l = new THREE.IcosahedronGeometry(r, 2);
+          const P = l.attributes.position, v = new THREE.Vector3();
+          for (let i = 0; i < P.count; i++) {
+            v.fromBufferAttribute(P, i);
+            const k = 1 + 0.22 * Math.sin(v.x * 2.1 + v.y * 1.3) * Math.cos(v.z * 1.9 - v.y * 0.7)
+                        + 0.10 * Math.sin(v.x * 5.3 + v.z * 4.1);
+            v.multiplyScalar(k);
+            P.setXYZ(i, v.x, v.y, v.z);
+          }
+          l.computeVertexNormals();
+          l.translate(x, y, z);
+          return l;
+        });
       const canopyG = mergeGeometries(lumps);
       const trunkG = new THREE.CylinderGeometry(0.28, 0.4, 5, 6);
       trunkG.translate(0, 2.5, 0);
-      const cm = new THREE.InstancedMesh(canopyG, surfaceMaterial(LOOK, new THREE.Color(0.17, 0.30, 0.13), { surface: 'leaf' }), trees.length);
+      const cm = new THREE.InstancedMesh(canopyG, surfaceMaterial(LOOK, new THREE.Color(0.15, 0.27, 0.11), { surface: 'leaf' }), trees.length);
       const tm = new THREE.InstancedMesh(trunkG, surfaceMaterial(LOOK, new THREE.Color(0.30, 0.24, 0.18), { surface: 'bark' }), trees.length);
       const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), pv = new THREE.Vector3();
+      const tc = new THREE.Color();
       trees.forEach(([x, y, z, k, r], i) => {
         q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), r * 6.28);
         m4.compose(pv.set(x, y - 0.3, z), q, sc.set(k, k * (0.85 + r * 0.4), k));
         cm.setMatrixAt(i, m4); tm.setMatrixAt(i, m4);
+        // each tree its own green: olive, deep, and the odd autumn-touched one
+        const h = (r * 7.31) % 1;
+        tc.setRGB(0.75 + 0.35 * h, 0.85 + 0.25 * ((r * 3.7) % 1), 0.7 + 0.2 * h);
+        if (h > 0.9) tc.setRGB(1.35, 1.0, 0.55);
+        cm.setColorAt(i, tc);
       });
       for (const im of [cm, tm]) { im.castShadow = false; im.receiveShadow = false; world.add(im); }
       console.log(`[far] ${trees.length} trees in the far country`);
