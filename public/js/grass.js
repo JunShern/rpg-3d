@@ -25,7 +25,7 @@
 // walking through it.
 
 import * as THREE from 'three';
-import { NOISE_GLSL, PAINT } from './paint.js';
+import { NOISE_GLSL, PAINT, CLOUD_GLSL } from './paint.js';
 
 const RES = 0.5;                    // metres per texel of the field map
 
@@ -195,6 +195,7 @@ function grassMaterial(layer) {
   mat.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, u, SHARED);
     sh.uniforms.uTime = PAINT.uTime;
+    sh.uniforms.uCloudShadow = PAINT.uCloudShadow;
     sh.uniforms.uSunDir = PAINT.uSunDir;
     sh.uniforms.uSunCol = PAINT.uSunCol;
     sh.vertexShader = sh.vertexShader
@@ -313,8 +314,16 @@ function grassMaterial(layer) {
         varying float vGFlowerHue;
         varying vec3 vGWarn;
         uniform vec3 uSunDir, uSunCol;
+        uniform float uTime, uCloudShadow;
         ${NOISE_GLSL}
+        ${CLOUD_GLSL}
       `)
+      .replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
+        {
+          float cs = pCloudShadow(vGW, uTime) * uCloudShadow;
+          reflectedLight.directDiffuse *= 1.0 - cs;
+          reflectedLight.directSpecular *= 1.0 - cs;
+        }`)
       .replace('#include <map_fragment>', /* glsl */`
         // THE SAME PATCHES AS THE GROUND (paint.js FIELD), so tufts and the
         // floor under them agree about where the grass is lush and where it

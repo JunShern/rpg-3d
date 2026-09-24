@@ -448,6 +448,8 @@ export function makeAtmos({ renderer, scene, camera, key, hemi, ambient }) {
 
     // ---- the painted world's share of it ----
     PAINT.uSunDir.value.copy(sunDir);
+    // cloud shadow follows the sun: strong while it is high, gone at dusk
+    PAINT.uCloudShadow.value = 0.42 * THREE.MathUtils.smoothstep(sunDir.y, 0.12, 0.45);
     PAINT.uSunCol.value.setHex(p.sun.color).multiplyScalar(p.sun.power / 3);
     const a = air.uniforms;
     a.uSunDir.value.copy(sunDir);

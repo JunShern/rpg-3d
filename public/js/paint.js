@@ -53,7 +53,31 @@ export const PAINT = {
   uRoomHi: { value: Array.from({ length: 8 }, () => new THREE.Vector3(0, 0, 0)) },
   uRoomW: { value: new Array(8).fill(0) },
   uIndoorFill: { value: new THREE.Color(0.95, 0.62, 0.36) },
+  // CLOUD SHADOW: 0 none .. 1 full. Big soft shapes that drift across the
+  // land with the wind; atmos sets the strength from the preset (a dusk sky
+  // has no sun to shade)
+  uCloudShadow: { value: 0.42 },
 };
+
+/** The same cloud-shadow function for every shader that takes the sun. */
+export const CLOUD_GLSL = /* glsl */`
+float pCloudShadow(vec3 w, float t) {
+  vec2 q = w.xz * 0.018 + vec2(t * 0.012, t * 0.005);
+  float n = 0.0, a = 0.5;
+  mat2 r = mat2(0.8, 0.6, -0.6, 0.8);
+  for (int i = 0; i < 4; i++) {
+    vec2 f = fract(q), ip = floor(q);
+    vec2 u = f * f * (3.0 - 2.0 * f);
+    float h00 = fract(sin(dot(ip, vec2(127.1, 311.7))) * 43758.5);
+    float h10 = fract(sin(dot(ip + vec2(1, 0), vec2(127.1, 311.7))) * 43758.5);
+    float h01 = fract(sin(dot(ip + vec2(0, 1), vec2(127.1, 311.7))) * 43758.5);
+    float h11 = fract(sin(dot(ip + vec2(1, 1), vec2(127.1, 311.7))) * 43758.5);
+    n += a * mix(mix(h00, h10, u.x), mix(h01, h11, u.x), u.y);
+    q = r * q * 2.03; a *= 0.5;
+  }
+  return smoothstep(0.50, 0.66, n);
+}
+`;
 
 /** Hand the room boxes to every painted surface. `rooms` = manifest shafts. */
 export function setRooms(rooms) {
@@ -277,6 +301,8 @@ uniform vec3 uRoomLo[8];
 uniform vec3 uRoomHi[8];
 uniform float uRoomW[8];
 uniform vec3 uIndoorFill;
+uniform float uCloudShadow;
+${CLOUD_GLSL}
 // how indoors a surface is: inside a room box, or on a wall of one facing in
 // (so the OUTSIDE face of the same wall stays in the sky)
 float pIndoor(vec3 p, vec3 n) {
@@ -705,6 +731,7 @@ export function worldMaterial(name, opts = {}) {
     sh.uniforms.uRoomHi = PAINT.uRoomHi;
     sh.uniforms.uRoomW = PAINT.uRoomW;
     sh.uniforms.uIndoorFill = PAINT.uIndoorFill;
+    sh.uniforms.uCloudShadow = PAINT.uCloudShadow;
     sh.vertexShader = sh.vertexShader
       .replace('#include <common>', '#include <common>\n' + VERT_PARS)
       .replace('#include <defaultnormal_vertex>', VERT_NORMAL)
@@ -714,6 +741,12 @@ export function worldMaterial(name, opts = {}) {
       .replace('#include <map_fragment>', FRAG_COLOR)
       .replace('#include <normal_fragment_maps>', FRAG_NORMAL)
       .replace('#include <emissivemap_fragment>', FRAG_GLOW)
+      .replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
+        {
+          float cs = pCloudShadow(vPW, uTime) * uCloudShadow;
+          reflectedLight.directDiffuse *= 1.0 - cs;
+          reflectedLight.directSpecular *= 1.0 - cs;
+        }`)
       .replace('#include <lights_fragment_maps>', `#include <lights_fragment_maps>
         {
           float ind = pIndoor(vPW, pWN);
