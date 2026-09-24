@@ -162,8 +162,8 @@ const RECIPES = {
   cobble_b:  { hue: [0.08, 0.35], rough: 0.82, env: 0.85, pave: 1 },
   flagstone: { hue: [0.10, 0.40], rough: 0.80, env: 0.85, pave: 2 },
   ring:      { hue: [0.10, 0.40], rough: 0.78, env: 0.85, pave: 2 },
-  stone:     { hue: [0.22, 0.55], bump: [0.70, 1.4], mapBump: 0.7, mapFade: 0.35, moss: 0.45, grime: 0.25, rough: 0.88, env: 0.85 },
-  rock:      { hue: [0.30, 0.30], bump: [1.5, 0.55], mapBump: 0.4, mapFade: 0.7, moss: 0.70, rough: 0.92, env: 0.8, tint: [0.62, 0.60, 0.56] },
+  stone:     { hue: [0.22, 0.55], bump: [0.70, 1.4], mapBump: 0.7, mapFade: 0.35, moss: 0.45, grime: 0.25, rough: 0.88, env: 0.85, lichen: 0.5 },
+  rock:      { hue: [0.30, 0.30], bump: [2.2, 0.8], mapBump: 0.4, mapFade: 0.85, moss: 0.55, rough: 0.92, env: 0.8, tint: [0.62, 0.60, 0.56], lichen: 1 },
   // the far ranges: dark forested hills that the air pass turns blue
   // SMOOTH, NOT BLOTCHED. A forest pattern at this distance came out, under
   // the haze, as drifting patches of cloud -- the eye reads large soft
@@ -267,7 +267,7 @@ uniform vec3 uSunDir;
 uniform vec3 uSunCol;
 uniform vec2 uHue;
 uniform vec2 uBump;
-uniform float uMapBump, uMoss, uStreak, uGrime, uGlow, uField, uFoliage, uMapFade, uWater, uForest, uPave, uStripe, uAge, uLit, uFlow;
+uniform float uMapBump, uMoss, uStreak, uGrime, uGlow, uField, uFoliage, uMapFade, uWater, uForest, uPave, uStripe, uAge, uLit, uFlow, uLichen;
 uniform sampler2D uFieldMap;
 uniform vec3 uRoomLo[8];
 uniform vec3 uRoomHi[8];
@@ -432,6 +432,20 @@ vec3 pPaveTilt = vec3(0.0);
                              : (1.0 - smoothstep(0.01, 0.05, gap)) * 0.25);
   }
 
+  // FIELD STONE: hairline cracks, lichen in pale rosettes, and the colour
+  // band of weathering that makes a boulder read as old rather than cast
+  if (uLichen > 0.0) {
+    float cr = 1.0 - abs(pNoise(vPW * 2.6 + 3.0) * 2.0 - 1.0);
+    cr = smoothstep(0.965, 0.995, cr) * (1.0 - smoothstep(5.0, 16.0, pDist));
+    diffuseColor.rgb *= 1.0 - cr * 0.35;
+    float lc = pNoise(vPW * 9.0 + 21.0) * 0.65 + pNoise(vPW * 23.0) * 0.35;
+    float lich = smoothstep(0.76, 0.80, lc) * uLichen * (1.0 - smoothstep(8.0, 25.0, pDist));
+    vec3 lcol = mix(vec3(0.62, 0.62, 0.50), vec3(0.66, 0.50, 0.28), step(0.7, pNoise(vPW * 1.3)));
+    diffuseColor.rgb = mix(diffuseColor.rgb, lcol, lich * 0.55);
+    // weathered: darker toward the ground, where water sits
+    diffuseColor.rgb *= mix(0.72, 1.0, smoothstep(-0.2, 0.9, pWN.y + 0.3));
+  }
+
   // FLOWING WATER: streaks that fall, and thin to glassy between them
   if (uFlow > 0.5) {
     float fl = pNoise(vec3(vPW.x * 7.0, vPW.y * 3.0 + uTime * 4.5, vPW.z * 7.0));
@@ -494,7 +508,7 @@ vec3 pPaveTilt = vec3(0.0);
     float bed = texture2D(uFieldMap, fuv).r;
     float dep = mix(0.9, vPW.y - bed, inside);
     pWaterDepth = dep;
-    vec3 shallow = vec3(0.16, 0.36, 0.33);
+    vec3 shallow = vec3(0.10, 0.24, 0.22);
     vec3 deep = vec3(0.015, 0.07, 0.10);
     diffuseColor.rgb = mix(shallow, deep, smoothstep(0.05, 1.1, dep));
     float fn = pNoise(vec3(vPW.x * 2.2 - uTime * 0.9, vPW.z * 2.2, uTime * 0.25));
@@ -504,7 +518,7 @@ vec3 pPaveTilt = vec3(0.0);
     float foam = (1.0 - smoothstep(0.0, 0.035 + fn * 0.05, dep)) * inside;
     foam = max(foam, step(0.86, fn) * (1.0 - smoothstep(0.0, 0.2, dep)) * inside * 0.45);
     diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.85, 0.90, 0.88), foam);
-    diffuseColor.a = clamp(mix(0.30, 0.94, smoothstep(0.02, 0.8, dep)) + foam, 0.0, 1.0);
+    diffuseColor.a = clamp(mix(0.50, 0.95, smoothstep(0.02, 0.8, dep)) + foam, 0.0, 1.0);
   }
 
   // MOSS on up-facing faces -- and the noise decides where it has taken, so it
@@ -641,6 +655,7 @@ export function worldMaterial(name, opts = {}) {
     uAge: { value: r.age || 0 },
     uLit: { value: r.lit || 0 },
     uFlow: { value: r.flow || 0 },
+    uLichen: { value: r.lichen || 0 },
     uSway: { value: sway },
   };
   mat.userData.paint = { name, recipe: r, uniforms: u };
