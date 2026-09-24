@@ -137,7 +137,7 @@ const RECIPES = {
   // the far ranges: dark forested hills that the air pass turns blue
   ridge_a:   { hue: [0.35, 0.05], bump: [0.6, 0.08], rough: 1.0, env: 0.6, tint: [0.30, 0.42, 0.30], forest: 1 },
   ridge_b:   { hue: [0.30, 0.04], bump: [0.6, 0.06], rough: 1.0, env: 0.6, tint: [0.36, 0.44, 0.44], forest: 1 },
-  water:     { water: 1, rough: 0.16, env: 1.2 },
+  water:     { water: 1, rough: 0.26, env: 1.1 },
   dirt:      { hue: [0.22, 0.30], bump: [0.30, 3.0], rough: 1.0, env: 0.8 },
   // the meadow floor -- see FIELD below; this is the fallback
   ground:    { hue: [0.30, 0.05], bump: [0.10, 1.6], rough: 1.0, env: 0.75, field: 1 },
@@ -161,12 +161,12 @@ const RECIPES = {
   bark_dead: { hue: [0.14, 0.8], bump: [0.60, 3.2], streak: 1, moss: 0.15, rough: 0.9, env: 0.7 },
   leaf:      { hue: [0.26, 0.55], bump: [0.30, 2.4], rough: 0.75, env: 0.9, glow: 0.55, foliage: 1 },
   leaf_lo:   { hue: [0.28, 0.35], rough: 0.85, env: 0.8, glow: 0.45, foliage: 1 },
-  conifer:   { hue: [0.20, 0.7], bump: [0.30, 2.8], rough: 0.8, env: 0.8, glow: 0.30, foliage: 1 },
+  conifer:   { hue: [0.20, 0.7], bump: [0.30, 2.8], rough: 0.8, env: 0.5, glow: 0.30, foliage: 1, tint: [0.55, 0.85, 0.5] },
   grass_hi:  { hue: [0.26, 0.30], rough: 0.85, env: 0.8, glow: 0.5, foliage: 1 },
   reed:      { hue: [0.20, 0.8], rough: 0.8, env: 0.8, glow: 0.5, foliage: 1 },
   reed_head: { hue: [0.16, 1.2], rough: 0.9, env: 0.8, glow: 0.3 },
-  bloom_a:   { hue: [0.08, 2.0], rough: 0.7, env: 0.9, glow: 0.8 },
-  bloom_b:   { hue: [0.08, 2.0], rough: 0.7, env: 0.9, glow: 0.8 },
+  bloom_a:   { hue: [0.08, 2.0], rough: 0.7, env: 0.8, glow: 0.15 },
+  bloom_b:   { hue: [0.08, 2.0], rough: 0.7, env: 0.8, glow: 0.15 },
   fruit:     { hue: [0.14, 3.0], rough: 0.45, env: 1.1 },
   foam:      { hue: [0.05, 1.0], rough: 0.4, env: 1.2 },
 };
@@ -283,7 +283,7 @@ float pBumpK = 1.0;
     float n3 = pFbm(vPW * 0.9 + 21.0);
     vec3 dirtC = mix(vec3(0.26, 0.17, 0.09), vec3(0.42, 0.30, 0.17), n3);
     // wheel ruts and a scatter of pale stones
-    float peb = step(0.80, pNoise(vPW * 6.5)) * (1.0 - smoothstep(8.0, 25.0, pDist));
+    float peb = step(0.88, pNoise(vPW * 6.5)) * (1.0 - smoothstep(6.0, 18.0, pDist));
     dirtC = mix(dirtC, vec3(0.52, 0.47, 0.40), peb * 0.7);
     float strata = pNoise(vec3(vPW.x * 0.6, vPW.y * 3.5, vPW.z * 0.6));
     vec3 rockC = mix(vec3(0.20, 0.19, 0.17), vec3(0.40, 0.37, 0.32), strata * 0.6 + n3 * 0.4);
@@ -342,7 +342,10 @@ float pBumpK = 1.0;
   if (uMoss > 0.0) {
     float up = smoothstep(0.35, 0.85, pWN.y);
     float mn = pFbm(vPW * 1.1 + 31.0);
-    float m = smoothstep(0.42, 0.62, mn * 0.6 + up * 0.55) * uMoss;
+    // the noise carries more of it than the facing does: moss takes in
+    // patches and drifts, and a rock with a perfect green cap reads as a
+    // painted prop
+    float m = smoothstep(0.50, 0.66, mn * 0.95 + up * 0.30) * up * uMoss;
     vec3 mossCol = mix(vec3(0.24, 0.36, 0.14), vec3(0.42, 0.52, 0.20), pNoise(vPW * 4.0));
     diffuseColor.rgb = mix(diffuseColor.rgb, mossCol, clamp(m, 0.0, 1.0));
   }
@@ -472,7 +475,13 @@ export function worldMaterial(name, opts = {}) {
       .replace('#include <common>', '#include <common>\n' + FRAG_PARS)
       .replace('#include <map_fragment>', FRAG_COLOR)
       .replace('#include <normal_fragment_maps>', FRAG_NORMAL)
-      .replace('#include <emissivemap_fragment>', FRAG_GLOW);
+      .replace('#include <emissivemap_fragment>', FRAG_GLOW)
+      // WATER DOES NOT BURN. A low-roughness surface under a 3.4 sun reflects
+      // a highlight many times brighter than anything else in the frame, and
+      // bloom turned it into a white fog over a third of the image. The glint
+      // stays -- capped where it still reads as sun on water.
+      .replace('#include <opaque_fragment>', `#include <opaque_fragment>
+        if (uWater > 0.5) gl_FragColor.rgb = min(gl_FragColor.rgb, vec3(1.4));`);
   };
   // one program per feature set is plenty; the recipe values are uniforms
   mat.customProgramCacheKey = () => 'paint:' + (map ? 'm' : '') + (vertexColors ? 'v' : '');

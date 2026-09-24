@@ -30,12 +30,20 @@ import { PAINT, tune as paintTune } from './paint.js';
 import { makeGrass } from './grass.js';
 import { makeFoliage } from './foliage.js';
 import { makeHud } from './hud.js';
+import { makeMotes } from './motes.js';
 
 // ------------------------------------------------------------------ renderer
 
 const canvas = document.getElementById('view');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+// ADAPTIVE RESOLUTION. The painted frame is fill-heavy (a multisampled HDR
+// target, an AO and haze pass, bloom), so its cost scales with pixels -- and a
+// Retina laptop has five times the pixels of the 720p frame it was tuned at.
+// The ratio starts at 1.25 and walks between 0.75 and the device's own ratio
+// to hold ~60 fps: see `adaptResolution` in the loop.
+const PR_MAX = Math.min(devicePixelRatio, 2);
+let prNow = Math.min(PR_MAX, 1.25);
+renderer.setPixelRatio(prNow);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -301,6 +309,8 @@ const SHAFTS = [];
 // bell inside a mesh that contains the whole town.
 const MOVERS = [];
 const LAMPS = [];   // street lamps, raised at dusk -- see the lamp loop below
+const WINDOWS = []; // glass that is lit from inside once the light goes
+const _winLit = new THREE.Color(1.0, 0.62, 0.28).multiplyScalar(2.6);
 const RING_T = 7.0;             // how long a ring takes to die away
 const _mm = new THREE.Matrix4();
 const _mr = new THREE.Matrix4();
@@ -348,6 +358,9 @@ function applyTownLook(root) {
     const flat = TOWN_FLAT.has(name) && !(LOOK.painted && /^ridge_/.test(name));
     SURFACES.push({ mesh: m, flat, color: base, opts });
     m.material = flat ? flatMaterial(base) : surfaceMaterial(LOOK, base, opts);
+    // WINDOWS LIGHT UP AT DUSK -- see the hour loop. Kept by reference so a
+    // look switch that rebuilds materials still finds them.
+    if (name === 'glass') WINDOWS.push({ mesh: m, day: base.clone() });
     // NOT EVERYTHING CASTS. The shadow map is a second full pass over the
     // scene, so a 6k-triangle terrain and 500 grass tufts casting shadows
     // nobody can see is the most expensive nothing in the build. Ground
@@ -366,7 +379,9 @@ function applyTownLook(root) {
     m.receiveShadow = !TINY_ENV.has(name);
     // THE MODELLED TUFTS RETIRE in the painted look: grass.js grows a real
     // field, and a few hundred rigid clumps standing in it read as litter
-    if (LOOK.painted && (name === 'leaf_lo' || name === 'grass_hi')) m.visible = false;
+    // ...and so do the modelled flowers, whose stems were those tufts: without
+    // them the heads float. The field grows its own flowers (grass.js).
+    if (LOOK.painted && ['leaf_lo', 'grass_hi', 'bloom_a', 'bloom_b'].includes(name)) m.visible = false;
   }
   for (const m of meshes) {
     const name = m.userData.matName || '';
@@ -2616,6 +2631,7 @@ const hud = document.getElementById('hud');
 //
 // hud.js draws it; this is the only place that knows where each number lives.
 const hud2 = makeHud();
+const motes = LOOK.painted ? makeMotes({ scene }) : null;
 const NAMES = { vesper: 'Vesper', lake: 'Lake', maren: 'Maren' };
 // PLACES. A name card when you walk into one, the way the genre announces an
 // area. The town ends at the gate; the meadow is everything the terrain owns.
@@ -2623,6 +2639,23 @@ function placeAt(p) {
   if (!terrain || !terrain.owns(p.x, p.z)) return ['Emberbrook', 'the town of the bell'];
   if (-p.z > 78) return ['The High Circle', 'where the old stones stand'];
   return ['The Ford Meadow', 'beyond the town gate'];
+}
+let prAcc = 0, prN = 0;
+function adaptResolution(dt) {
+  // only in the real loop -- a stepped capture (__sim) has no frame time
+  if (window.__simActive) return;
+  prAcc += dt; prN++;
+  if (prN < 45) return;
+  const avg = prAcc / prN;
+  prAcc = 0; prN = 0;
+  let next = prNow;
+  if (avg > 0.0215) next = Math.max(0.75, prNow - 0.125);
+  else if (avg < 0.0150) next = Math.min(PR_MAX, prNow + 0.125);
+  if (next !== prNow) {
+    prNow = next;
+    renderer.setPixelRatio(prNow);
+    resize();
+  }
 }
 function updateHud(dt) {
   if (!cur || !combat) return;
@@ -2858,9 +2891,21 @@ function frame(dt) {
   // the cost is nothing and it is the difference between evening and a power
   // cut. Curved, so they come up late rather than tracking the sun linearly --
   // nobody lights a lamp at four in the afternoon.
-  if (quest && LAMPS.length) {
-    const t = Math.pow(Math.max(0, Math.min(1, quest.hour)), 1.8);
+  // THE ATMOSPHERE'S hour, not the quest's: they are the same number in play,
+  // and only the atmosphere's is right when a tool sets the light by hand.
+  {
+    const hr = atmos.hour;
+    const t = Math.pow(Math.max(0, Math.min(1, hr)), 1.8);
     for (const l of LAMPS) l.light.intensity = l.day + (l.night - l.day) * t;
+    // WINDOWS. Somebody is home: as the square darkens the glass stops
+    // reflecting a sky it can no longer see and starts showing the room
+    // behind it, warm, and bright enough to bloom.
+    const w = THREE.MathUtils.smoothstep(hr, 0.55, 0.92);
+    for (const g of WINDOWS) {
+      const mat = g.mesh.material;
+      if (!mat || !mat.color) continue;
+      mat.color.copy(g.day).lerp(_winLit, w);
+    }
   }
   // ON SCALED TIME. A drop is part of the fight -- it should hang in the air
   // through hit-stop with everything else, and it must not be collectable
@@ -2874,6 +2919,9 @@ function frame(dt) {
   if (cine.active) cine.step(dt);
   if (grass) grass.update(camera.position, cur ? cur.group.position : null);
   updateHud(dt);
+  adaptResolution(dt);
+  if (motes) motes.update(camera.position, atmos.hour,
+                          !!(terrain && terrain.owns(camera.position.x, camera.position.z)), prNow);
   atmos.render();
   hud.textContent =
     `${fps} fps  ·  ${cur ? cur.name : '—'}  ·  ${combat && combat.isStaggered() ? 'hurt' : slip.t > 0 ? 'slip' : attacking ? 'attack' : !grounded ? 'air'
@@ -2944,6 +2992,7 @@ globalThis.__sim = ({ steps = 60, dt = 1 / 60, held = [], attack: doAttack = fal
                       az = null, polar = null, dist = null, warp = null,
                       jump: doJump = false } = {}) => {
   renderer.setAnimationLoop(null);      // take the loop away from rAF entirely
+  window.__simActive = true;           // and tell adaptResolution there is no real clock
   keys.clear();
   for (const k of held) keys.add(k);
   if (warp) {

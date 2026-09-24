@@ -74,6 +74,7 @@ attribute vec4 aRnd;          // size, rotation, shade, phase
 uniform float uTime;
 uniform float uWindAmp;
 varying float vShade;
+varying float vDepth;
 varying vec3 vFW;
 varying vec3 vFN;
 `;
@@ -84,7 +85,8 @@ float ph = aCenter.x * 0.35 + aCenter.z * 0.27 + aRnd.w * 6.28;
 transformed.x += (sin(uTime * 1.1 + ph) * 0.68 + sin(uTime * 2.3 + ph * 1.7) * 0.32) * uWindAmp;
 transformed.z += sin(uTime * 0.87 + ph * 1.3) * uWindAmp * 0.5;
 transformed.y += sin(uTime * 2.7 + ph * 2.0) * uWindAmp * 0.25;
-vShade = aRnd.z;
+vShade = fract(aRnd.z);
+vDepth = floor(aRnd.z) / 9.0;
 vFW = transformed;
 vFN = aNrm;
 `;
@@ -92,7 +94,11 @@ const VERT_PROJECT = /* glsl */`
 vec4 mvPosition = modelViewMatrix * vec4(transformed, 1.0);
 {
   float c = cos(aRnd.y), s = sin(aRnd.y);
-  vec2 corner = mat2(c, -s, s, c) * position.xy * aRnd.x;
+  // CARDS SHRINK AWAY FROM THE LENS. A leaf cluster a metre across is right
+  // at ten metres and a green hand over the screen at one; when the camera
+  // brushes a canopy the cards nearest it get out of the way.
+  float near = smoothstep(0.8, 3.2, -mvPosition.z);
+  vec2 corner = mat2(c, -s, s, c) * position.xy * aRnd.x * near;
   mvPosition.xy += corner;
 }
 gl_Position = projectionMatrix * mvPosition;
@@ -154,10 +160,15 @@ function cardsFor(meshes, { count, size, lift, kind, tint, tint2, windAmp }) {
       // lean each normal a little outward-and-up so the crown catches the sky
       nrm.y += 0.15;
       nrm.normalize();
-      const out = lift * (0.3 + R() * 0.9);
+      const depth = R();
+      const out = lift * (-0.4 + depth * 1.6);
       centers.push(p.x + nrm.x * out, p.y + nrm.y * out, p.z + nrm.z * out);
       normals.push(nrm.x, nrm.y, nrm.z);
-      rnd.push(size * (0.7 + R() * 0.6), R() * Math.PI * 2, R(), R());
+      // z packs two things: the card's own shade (0..1) in the fraction and
+      // how deep in the canopy it sits (0 inside .. 1 outside) in the integer
+      // tenths, so the fragment can darken the interior without a 5th attribute
+      rnd.push(size * (0.7 + R() * 0.6), R() * Math.PI * 2,
+               Math.floor(depth * 9.99) + R() * 0.99, R());
     }
   }
 
@@ -185,15 +196,24 @@ function cardsFor(meshes, { count, size, lift, kind, tint, tint2, windAmp }) {
       .replace('#include <common>', /* glsl */`
         #include <common>
         varying float vShade;
+        varying float vDepth;
         varying vec3 vFW;
         varying vec3 vFN;
         uniform vec3 uSunDir, uSunCol, uTint, uTint2;
+        float fh(vec2 p) { return fract(sin(dot(p, vec2(41.3, 289.1))) * 17853.7); }
       `)
       .replace('#include <map_fragment>', /* glsl */`
-        // two greens, per card, and darker toward the canopy's underside --
-        // the self-shadow of the lump the cards sit on
-        vec3 lc = mix(uTint, uTint2, vShade);
-        lc *= mix(0.55, 1.1, smoothstep(-0.7, 0.7, vFN.y));
+        // EVERY TREE ITS OWN GREEN. The cell a card sits in is roughly the
+        // tree it belongs to; hash it into a hue so an orchard is a dozen
+        // trees and not one colour repeated.
+        float tree = fh(floor(vFW.xz / 4.0));
+        vec3 a = mix(uTint, uTint * vec3(1.15, 0.95, 0.70), step(0.6, tree));
+        a = mix(a, uTint * vec3(0.80, 1.00, 1.15), step(0.85, tree));
+        vec3 lc = mix(a, uTint2 * mix(0.9, 1.1, tree), vShade);
+        // self-shadow: the underside and the INSIDE of the crown are dark,
+        // which is what gives a canopy its lumps
+        lc *= mix(0.50, 1.10, smoothstep(-0.7, 0.7, vFN.y));
+        lc *= mix(0.45, 1.0, smoothstep(0.0, 0.8, vDepth));
         diffuseColor.rgb = lc;
       `)
       .replace('#include <emissivemap_fragment>', /* glsl */`
@@ -241,8 +261,8 @@ export function makeFoliage({ roots, parent }) {
   }
   const out = [];
   const broad = cardsFor(leaf, {
-    count: 36000, size: 0.95, lift: 0.22, kind: 'leaf',
-    tint: 0x4f8a2c, tint2: 0x86a83a, windAmp: 0.07,
+    count: 42000, size: 0.95, lift: 0.26, kind: 'leaf',
+    tint: 0x3e7a2c, tint2: 0x7e9e36, windAmp: 0.07,
   });
   if (broad) { parent.add(broad); out.push(broad); }
   const pine = cardsFor(conifer, {

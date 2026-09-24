@@ -82,7 +82,7 @@ function bakeField(terrain, solids) {
           const sl = c.streamY + 3.4 * Math.sin(x * 0.055) + 1.5 * Math.sin(x * 0.128 + 1.1);
           const d = Math.abs(by - sl);
           if (x > c.streamX0 - 4 && x < c.streamX1 + 4) {
-            dens *= ramp(d, c.streamHalf - 0.6, c.streamHalf + 0.9);
+            dens *= ramp(d, c.streamHalf + 0.3, c.streamHalf + 1.7);
             hmul *= 0.6 + 0.4 * ramp(d, c.streamHalf, c.streamHalf + 3);
           }
         }
@@ -186,6 +186,8 @@ function grassMaterial(layer) {
         varying vec3 vGW;
         varying float vGT;
         varying float vGShade;
+        varying float vGFlower;
+        varying float vGFlowerHue;
         float gh(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
       `)
       .replace('#include <begin_vertex>', /* glsl */`
@@ -230,6 +232,12 @@ function grassMaterial(layer) {
         vGW = transformed;
         vGT = aT;
         vGShade = mix(0.85, 1.15, h2);
+        // WILDFLOWERS: one tuft in forty is in flower -- clustered, because
+        // flowers grow in drifts -- and stands a little taller than the grass
+        float drift = smoothstep(0.55, 0.8, fract(sin(dot(floor(root / 6.0), vec2(7.1, 3.3))) * 9173.1));
+        vGFlower = step(gh(cellW + 9.9), 0.025 + drift * 0.08) * step(0.5, dens);
+        vGFlowerHue = gh(floor(root / 6.0) + 1.7);
+        transformed.y += vGFlower * aT * 0.10 * s;
       `)
       .replace('#include <beginnormal_vertex>', /* glsl */`
         vec3 objectNormal = vec3(0.0, 1.0, 0.0);
@@ -240,6 +248,8 @@ function grassMaterial(layer) {
         varying vec3 vGW;
         varying float vGT;
         varying float vGShade;
+        varying float vGFlower;
+        varying float vGFlowerHue;
         uniform vec3 uSunDir, uSunCol;
         ${NOISE_GLSL}
       `)
@@ -258,6 +268,12 @@ function grassMaterial(layer) {
         // tufts read as grass in shadow rather than as ground
         vec3 root = tip * 0.34;
         diffuseColor.rgb = mix(root, tip * vGShade, smoothstep(0.0, 0.9, vGT));
+        if (vGFlower > 0.5 && vGT > 0.78) {
+          vec3 fc = vGFlowerHue < 0.4 ? vec3(0.95, 0.92, 0.80)
+                  : vGFlowerHue < 0.7 ? vec3(0.95, 0.75, 0.18)
+                  : vGFlowerHue < 0.88 ? vec3(0.85, 0.40, 0.62) : vec3(0.45, 0.55, 0.95);
+          diffuseColor.rgb = fc;
+        }
       `)
       .replace('#include <emissivemap_fragment>', /* glsl */`
         #include <emissivemap_fragment>

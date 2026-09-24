@@ -100,9 +100,9 @@ void main() {
     // thick cloud is darker underneath: denser means less light gets through
     lit *= mix(1.0, 0.72, smoothstep(0.66, 0.9, c));
     vec3 shade = mix(uMid, uHorizon, 0.55) * 0.82;
-    vec3 bright = mix(vec3(1.0), uSun, 0.55) * 1.18;
+    vec3 bright = mix(vec3(0.92), uSun, 0.55) * 0.95;
     vec3 cc = mix(shade, bright, lit);
-    cc += uSun * pow(cd, 12.0) * (1.0 - dens) * 1.6;         // silver lining
+    cc += uSun * pow(cd, 12.0) * (1.0 - dens) * 0.8;         // silver lining
     float fade = smoothstep(0.015, 0.22, d.y);
     col = mix(col, cc, dens * fade * 0.96);
   }
@@ -241,16 +241,16 @@ export const PRESETS = {
   // proves the emissive materials were worth having.
   dusk: {
     label: 'lamplight',
-    sun: { az: 2.75, el: 0.10, color: 0xff9e6a, power: 1.25 },
-    sky: { horizon: 0xff9a68, mid: 0x7d6f9e, zenith: 0x1b2450, sun: 0xffb27a,
+    sun: { az: 2.75, el: 0.07, color: 0xff8c5a, power: 0.9 },
+    sky: { horizon: 0xd8704a, mid: 0x5a4f7e, zenith: 0x121838, sun: 0xffa06a,
            sunSize: 0.016, sunGlow: 20, haze: 0.55 },
-    fog: { color: 0x6e6f92, near: 22, far: 110 },
+    fog: { color: 0x4e5074, near: 22, far: 110 },
     hemi: { sky: 0x6b78a4, ground: 0x554a54, power: 0.74 },
     ambient: { color: 0x6b7098, power: 0.56 },
     bloom: { strength: 0.72, radius: 0.70, threshold: 0.74 },
-    grade: { contrast: 1.10, saturation: 1.08, vignette: 0.34, lift: 0.15,
-             exposure: 1.10, shadowTint: 0x6c7cb4, highTint: 0xffd8a8 },
-    exposure: 1.12,
+    grade: { contrast: 1.12, saturation: 1.10, vignette: 0.40, lift: 0.10,
+             exposure: 1.0, shadowTint: 0x6c7cb4, highTint: 0xffd8a8 },
+    exposure: 1.0,
   },
 
   // Flat white light, no shadows to speak of. Useful as a control and honestly
@@ -537,8 +537,10 @@ export function makeAtmos({ renderer, scene, camera, key, hemi, ambient }) {
   // THE CLOCK. `hour` runs 0..1 across the demo's afternoon; the presets it
   // walks are the story's three acts.
   const STOPS = ['gold', 'evening', 'dusk'];
+  let hourNow = 0;
   function setHour(h) {
     h = Math.max(0, Math.min(0.9999, h));
+    hourNow = h;
     const seg = h * (STOPS.length - 1);
     const i = Math.min(STOPS.length - 2, Math.floor(seg));
     blend(STOPS[i], STOPS[i + 1], seg - i);
@@ -566,6 +568,8 @@ export function makeAtmos({ renderer, scene, camera, key, hemi, ambient }) {
       stats.triangles = renderer.info.render.triangles;
     },
     get name() { return name; },
+    /** The story clock as last set -- what the lamps and windows follow. */
+    get hour() { return hourNow; },
     get sunDir() { return sunDir; },
     names: () => Object.keys(PRESETS),
     /** For probes and for the shot sheet. */
