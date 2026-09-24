@@ -177,7 +177,7 @@ class Town:
                 self.floors.append(o)
         return objs[0] if objs else None
 
-    def solid(self, cx, cy, hx, hy, yaw=0.0, top=3.0, base=-0.5):
+    def solid(self, cx, cy, hx, hy, yaw=0.0, top=3.0, base=-0.5, cam=True):
         """`top` is how tall the box is.  The camera collision needs it: without
         a height every prop is an infinite pillar and the camera refuses to rise
         over a barrel.
@@ -189,6 +189,13 @@ class Town:
         player walked straight through it into the earth.
         """
         self.solids.append((cx, cy, hx, hy, math.radians(yaw), top, base))
+        # `cam=False`: blocks WALKING only. A tree trunk the camera sweeps past
+        # snapped the boom in by two metres in one frame; a slim thing in the
+        # square should be seen past, not collided with.
+        if not cam:
+            if not hasattr(self, 'nocam'):
+                self.nocam = set()
+            self.nocam.add(len(self.solids) - 1)
 
     def shaft(self, cx, cy, hx, hy, z0, z1, pad=0.0):
         """A volume the camera may be placed inside. See the note on
@@ -264,8 +271,9 @@ class Town:
                 {"x": round(cx, 4), "z": round(-cy, 4),
                  "hx": round(hx, 4), "hz": round(hy, 4),
                  "yaw": round(yaw, 5), "top": round(top, 3),
-                 "base": round(base, 3)}
-                for cx, cy, hx, hy, yaw, top, base in self.solids],
+                 "base": round(base, 3),
+                 **({"nocam": True} if i in getattr(self, 'nocam', ()) else {})}
+                for i, (cx, cy, hx, hy, yaw, top, base) in enumerate(self.solids)],
             "platforms": [
                 {"x": round(cx, 4), "z": round(-cy, 4),
                  "hx": round(hx, 4), "hz": round(hy, 4), "top": round(top, 3)}

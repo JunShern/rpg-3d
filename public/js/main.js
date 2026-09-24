@@ -435,6 +435,7 @@ function absorbRegion(root, manifest) {
       // `base` defaults to -0.5 for everything that stands on the ground; the
       // cellar's walls are the first thing in the build that does not.
       base: s.base ?? -0.5,
+      nocam: !!s.nocam,
       c: Math.cos(s.yaw), s: Math.sin(s.yaw),
     });
   }
@@ -1141,6 +1142,7 @@ function pushOut(p, r, y = null) {
 function rayCastSolids(ox, oy, oz, dx, dy, dz, maxD) {
   let best = maxD;
   for (const b of SOLIDS) {
+    if (b.nocam) continue;
     const l = toLocal(b, ox, oz, _l);
     const lox = l.x, loz = l.z;
     const ldx = dx * b.c - dz * b.s;

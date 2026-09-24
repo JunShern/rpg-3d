@@ -449,7 +449,7 @@ def shade_tree(t, x, y, h=4.6, r=2.0, seed=0):
                           (rr, rr, rr * 0.78), None, M["leaf"], seg=14, rings=9, squircle=2.0))
     t.add(*out)
     t.solid(x, y, 0.95, 0.95, top=0.42)
-    t.solid(x, y, 0.32, 0.32, top=h)
+    t.solid(x, y, 0.32, 0.32, top=h, cam=False)
     t.camblock(x, y, h + 1.3, r * 1.15)
 
 
@@ -465,7 +465,7 @@ def pot(t, x, y, s=1.0, plant=True):
             out.append(K.blob("pot_plant", (x + dx * s, y + dy * s, dz * s), (rr * s, rr * s, rr * s * 0.9),
                               None, M["leaf"], seg=10, rings=7))
     t.add(*out)
-    t.solid(x, y, 0.26 * s, 0.26 * s, top=0.5 * s)
+    t.solid(x, y, 0.26 * s, 0.26 * s, top=0.5 * s, cam=False)
 
 
 def bunting(t, x0, y0, x1, y1, z, sag=0.7, gap=0.46):
