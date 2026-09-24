@@ -106,6 +106,12 @@ public/js/          the runtime
   party.js            Lake and Maren: follow, target, swing
   quest.js            the twenty minutes. Flags -> stage -> hour -> objective
   cine.js             the cutscene camera + the shot lists
+  paint.js            THE LOOK: every world surface, lit and detailed in world space
+  grass.js            the GPU grass field (baked field map, wind, parting, warnings)
+  foliage.js          leaf-card canopies generated from the builders' blobs
+  air.js              post pass: depth AO, height haze, light shafts
+  motes.js            dust in the sun, fireflies at dusk
+  hud.js title.js     party rings + command deck; title screen and end card
   npc.js drops.js breakables.js toon.js terrain.js trail.js
 public/js/vendor/   Emberbrook's dialogue/menu/shop/game_state, near byte-for-byte
 public/game/*.json  dialogue, items, shops, monsters, growth -- all data, no code
@@ -114,7 +120,8 @@ tools/*_build.py    Blender: geometry, characters, creatures
 tools/smoke.mjs     the checks
 tools/shots.mjs     the capture sheet
 tools/frame.mjs     put the camera at x,y,z and look at the picture
-tools/film.mjs      record the demo to docs/film/emberbrook.mp4
+tools/film.mjs      record the trailer to docs/film/emberbrook.mp4
+tools/look.mjs      look-dev: nine fixed views -> one contact sheet, with ms/frame
 ```
 
 ## The demo
@@ -129,7 +136,25 @@ kill a bellow for its iron -> Hobb forges the pin -> climb the tower and pull.
 degrees to 6, warms the key light, closes the fog and brings the street lamps
 up on a curve. Skip to any beat with `quest.skipTo('q.pin')`.
 
+## The look (paint.js and friends)
+
+The world is not cel-shaded any more; the CAST is. World surfaces are
+MeshStandardMaterials whose detail (colour variation, relief, moss, grime,
+leaf glow) is generated in world space from noise -- tune one live with
+`__paint('rock', { moss: 0.8 })`. Light comes from the sky (PMREM of the sky
+shader) plus the sun; the hemisphere light is OFF and lives inside the cast's
+toon shader instead (`toon.CHAR_FILL`), or the world would be lit twice. Rooms
+(manifest `shafts`) take almost no sky light (`paint.setRooms`). Fog is not
+material fog: `scene.fog` is null and the air pass does it from depth.
+
 ## Things that will bite you again
+
+- **Headless Chromium is SwiftShader unless told otherwise.** Every tool now
+  launches with `--use-angle=metal --enable-gpu --ignore-gpu-blocklist`. Without
+  it a capture takes ~100 s and every ms/frame number is a CPU's.
+- **`flat` is a reserved word in GLSL ES 3.** A grass shader that used it failed
+  to compile and the whole field silently vanished. Check the console.
+- **Any `__sim` call dismisses the title screen** unless `keepTitle: true`.
 
 - **`window.__ready` does not exist.** Wait on
   `typeof window.__sim === "function"` and then on `combat.enemies.length > 0`,
