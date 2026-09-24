@@ -113,7 +113,8 @@ const CUT = [
       quest.skipTo('q.cleared');
       GS.state.flags['q.rung'] = true;
       __sim({ warp: [-1, 0, 13.5], az: 0, steps: 20 });`,
-    at: [[2.2, `__audio.play('bell', { x: -1, y: 22.4, z: 15.5 }, 1.0);`]] },
+    at: [[2.2, `__audio.play('bell', { x: -1, y: 22.4, z: 15.5 }, 1.0);
+               for (let i = 0; i < 3; i++) __bellWave({ x: -1, y: 22.4, z: 15.5 }, i * 3.1);`]] },
 ];
 
 // ------------------------------------------------------------------- video

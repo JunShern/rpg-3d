@@ -208,7 +208,10 @@ export const SPECIES = {
     url: '/assets/woolt.glb', far: 21,
     hp: 45, radius: 0.46, height: 0.72, speed: 1.15,
     spook: 5.2, flee: 4.6, fleeTime: 2.6, startle: 0.45,
-    look: { fleece: { rimStrength: 0.9 }, face: { rimStrength: 0.5 } },
+    // 0.35, not 0.9: in the lit world the cast carries a sky fill of its own,
+    // and a white fleece with a strong rim on top of it bloomed into a glowing
+    // cloud with legs
+    look: { fleece: { rimStrength: 0.35 }, face: { rimStrength: 0.3 } },
     flat: ['eye'], hostile: false,
   },
 
@@ -220,7 +223,11 @@ export const SPECIES = {
     hp: 8, radius: 0.16, height: 0.20, speed: 2.2,
     spook: 6.5, flee: 7.0, fleeTime: 3.4, startle: 0.16,
     flies: true, ceiling: 4.6,
-    look: { coat: { rimStrength: 0.8 }, trim: { rimStrength: 0.9 } },
+    look: { coat: { rimStrength: 0.3 }, trim: { rimStrength: 0.3 } },
+    // SPARROWS, not white arrowheads. A pale 20 cm body with an ink line round
+    // it, lying on cobbles, reads as a mouse cursor -- a dozen of them made the
+    // square look like a bug report. Brown back, buff front.
+    recolor: { coat: 0x7a5638, trim: 0xd8c4a0 },
     flat: ['eye'], hostile: false,
   },
 };
@@ -339,6 +346,7 @@ export function createCombat(ctx) {
     for (const m of meshes) {
       const mat = (m.material?.name || '').toLowerCase();
       const color = m.material?.color?.clone() || new THREE.Color(0xffffff);
+      if (spec.recolor && spec.recolor[mat] !== undefined) color.set(spec.recolor[mat]);
       m.material = spec.flat.includes(mat)
         ? flatMaterial(color)
         : toonMaterial(color, { key: `${name}:${mat}`, ...(spec.look[mat] || {}) });

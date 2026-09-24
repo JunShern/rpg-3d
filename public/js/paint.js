@@ -168,6 +168,8 @@ const RECIPES = {
   ridge_a:   { hue: [0.12, 0.03], rough: 1.0, env: 0.5, tint: [0.20, 0.30, 0.24] },
   ridge_b:   { hue: [0.10, 0.03], rough: 1.0, env: 0.5, tint: [0.30, 0.38, 0.42] },
   water:     { water: 1, rough: 0.26, env: 1.1 },
+  // the land beyond the built world: fields and woods, seen through haze
+  farfield:  { hue: [0.20, 0.02], rough: 1.0, env: 0.6, forest: 1 },
   dirt:      { hue: [0.22, 0.30], bump: [0.30, 3.0], rough: 1.0, env: 0.8 },
   // the meadow floor -- see FIELD below; this is the fallback
   ground:    { hue: [0.30, 0.05], bump: [0.10, 1.6], rough: 1.0, env: 0.75, field: 1 },

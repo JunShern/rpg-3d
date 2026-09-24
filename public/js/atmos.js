@@ -46,7 +46,7 @@ void main() {
 
 const SKY_FRAG = `
 uniform vec3 uHorizon, uMid, uZenith, uSun, uSunDir;
-uniform float uSunSize, uSunGlow, uHaze, uTime, uCloud;
+uniform float uSunSize, uSunGlow, uHaze, uTime, uCloud, uStars;
 varying vec3 vDir;
 
 float sh(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -80,6 +80,21 @@ void main() {
 
   float haze = pow(1.0 - abs(d.y), 3.0) * uHaze;
   col = mix(col, uHorizon * 1.08 + uSun * 0.10, clamp(haze, 0.0, 1.0));
+
+  // STARS, as the light goes. A hashed grid on the sphere, one cell in sixty
+  // lit, each twinkling on its own clock -- behind the clouds, which are drawn
+  // over them next.
+  if (uStars > 0.0 && d.y > 0.0) {
+    vec3 sp = d * 170.0;
+    vec3 cell = floor(sp);
+    float hs = fract(sin(dot(cell, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
+    if (hs > 0.983) {
+      float st = smoothstep(0.16, 0.0, length(fract(sp) - 0.5));
+      float tw = 0.55 + 0.45 * sin(uTime * (1.5 + hs * 3.0) + hs * 60.0);
+      col += mix(vec3(1.0, 0.9, 0.78), vec3(0.8, 0.88, 1.0), fract(hs * 91.0))
+             * st * tw * uStars * smoothstep(0.04, 0.35, d.y) * 2.2;
+    }
+  }
 
   // CLOUDS. A painted layer on a plane over the valley: projected so they
   // bunch toward the horizon, lit by stepping the density toward the sun (the
@@ -305,7 +320,7 @@ export function makeAtmos({ renderer, scene, camera, key, hemi, ambient }) {
       uZenith: { value: new THREE.Color() }, uSun: { value: new THREE.Color() },
       uSunDir: { value: new THREE.Vector3(0, 1, 0) },
       uSunSize: { value: 0.01 }, uSunGlow: { value: 40 }, uHaze: { value: 0.4 },
-      uTime: PAINT.uTime, uCloud: { value: 0.55 },
+      uTime: PAINT.uTime, uCloud: { value: 0.55 }, uStars: { value: 0 },
     },
   });
   const sky = new THREE.Mesh(new THREE.SphereGeometry(300, 32, 20), skyMat);
@@ -541,6 +556,7 @@ export function makeAtmos({ renderer, scene, camera, key, hemi, ambient }) {
   function setHour(h) {
     h = Math.max(0, Math.min(0.9999, h));
     hourNow = h;
+    skyMat.uniforms.uStars.value = THREE.MathUtils.smoothstep(h, 0.72, 0.98);
     const seg = h * (STOPS.length - 1);
     const i = Math.min(STOPS.length - 2, Math.floor(seg));
     blend(STOPS[i], STOPS[i + 1], seg - i);

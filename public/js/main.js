@@ -443,6 +443,21 @@ Promise.all([
 ]).then(([town, townMan, meadow, meadowMan]) => {
   applyTownLook(town.scene);
   applyTownLook(meadow.scene);
+  // THE WORLD HAD AN EDGE, and past it the camera saw the underside of the sky
+  // -- a flat blue void north of the town, visible from the title, the ring
+  // sequence and every high shot. A wide painted ground sits under
+  // everything, four metres below the lowest floor, so any view past the
+  // modelled world lands on distant fields and woods in the haze.
+  if (LOOK.painted) {
+    const g = new THREE.PlaneGeometry(1400, 1400, 1, 1);
+    g.rotateX(-Math.PI / 2);
+    const far = new THREE.Mesh(g, surfaceMaterial(LOOK, new THREE.Color(0.24, 0.36, 0.18),
+                                                  { surface: 'farfield' }));
+    far.position.set(0, -4.2, 0);
+    far.receiveShadow = false;
+    far.userData.matName = 'farfield';
+    world.add(far);
+  }
   if (LOOK.painted) {
     const t0 = performance.now();
     const cards = makeFoliage({ roots: [town.scene, meadow.scene], parent: world });
@@ -2719,6 +2734,49 @@ function placeAt(p) {
   if (-p.z > 78) return ['The High Circle', 'where the old stones stand'];
   return ['The Ford Meadow', 'beyond the town gate'];
 }
+// ---------------------------------------------------------------- bell waves
+const WAVES = [];
+// A SPHERE, NOT A RING. A flat ring at belfry height is seen edge-on from
+// almost anywhere a camera stands, and came out as a thin line on the horizon.
+// A shell that glows where you see it side-on reads as sound spreading from
+// any angle -- the rim is where the light is.
+const waveGeo = new THREE.SphereGeometry(1, 64, 32);
+function bellWave(at, delay) {
+  const mat = new THREE.ShaderMaterial({
+    uniforms: { uOpacity: { value: 0 }, uColor: { value: new THREE.Color(1.0, 0.76, 0.40) } },
+    vertexShader: `varying vec3 vN; varying vec3 vV;
+      void main() { vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz);
+        gl_Position = projectionMatrix * mv; }`,
+    fragmentShader: `uniform float uOpacity; uniform vec3 uColor; varying vec3 vN; varying vec3 vV;
+      void main() { float f = pow(1.0 - abs(dot(vN, vV)), 4.0);
+        gl_FragColor = vec4(uColor * (0.03 + f * 2.6) * uOpacity, 1.0); }`,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+  });
+  Object.defineProperty(mat, 'opacity', { get: () => mat.uniforms.uOpacity.value,
+                                          set: (v) => { mat.uniforms.uOpacity.value = v; } });
+  const mesh = new THREE.Mesh(waveGeo, mat);
+  mesh.position.set(at.x, at.y, at.z);
+  mesh.frustumCulled = false;
+  mesh.renderOrder = 7;
+  mesh.visible = false;
+  scene.add(mesh);
+  WAVES.push({ mesh, t: -delay });
+}
+function updateWaves(dt) {
+  for (let i = WAVES.length - 1; i >= 0; i--) {
+    const w = WAVES[i];
+    w.t += dt;
+    if (w.t < 0) continue;
+    const u = w.t / 5.5;
+    if (u >= 1) { scene.remove(w.mesh); w.mesh.material.dispose(); WAVES.splice(i, 1); continue; }
+    w.mesh.visible = true;
+    const r = 2 + 90 * (1 - Math.pow(1 - u, 2.2));
+    w.mesh.scale.set(r, r, r);
+    w.mesh.material.opacity = Math.pow(1 - u, 1.6) * Math.min(1, w.t * 6);
+  }
+}
+
 // WHO PARTS THE GRASS this frame: you, your party, and the nearest monsters.
 const _push = [];
 function pushers() {
@@ -2904,6 +2962,10 @@ function hitMovers(spec) {
       if (real && !window.__simActive) {
         cine.play(SCENES.ring).then(() => title.ending());
       }
+      // THE SOUND, MADE VISIBLE: rings of warm light roll out from the belfry
+      // across the roofs and the valley, one per strike. This is the moment
+      // the whole demo is for; it should be the brightest thing in it.
+      if (real) for (let i = 0; i < 3; i++) bellWave({ x: m.hx, y: m.hy + 19.5, z: m.hz }, 2.2 + i * 3.1);
     } else if (quest) {
       audio.play('break_wood', null, 0.25);      // rope, and nothing else
       m.t = -1;                                   // do not swing a dead bell
@@ -3028,6 +3090,7 @@ function frame(dt) {
   if (title.active) title.update(dt);
   if (grass) grass.update(camera.position, cur ? cur.group.position : null, pushers());
   updateHud(dt);
+  updateWaves(dt);
   adaptResolution(dt);
   // the cast's sky fill fades as you walk indoors, over the same stride the
   // camera's interior blend uses
@@ -3082,6 +3145,7 @@ Object.defineProperty(globalThis, 'quest', { get: () => quest, configurable: tru
 Object.assign(globalThis, { __cine: cine, __scenes: SCENES });
 Object.assign(globalThis, { __audio: audio, __atmos: atmos });
 globalThis.__paint = paintTune;
+globalThis.__bellWave = bellWave;
 // for tools that move the camera by hand and then render: re-centre what
 // follows the camera (the grass field) before the frame is drawn
 globalThis.__lookFrame = () => { if (grass) grass.update(camera.position, cur ? cur.group.position : null, pushers()); };
