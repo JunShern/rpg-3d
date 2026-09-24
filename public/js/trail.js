@@ -19,20 +19,26 @@
 
 import * as THREE from 'three';
 
-const MAX_SEG = 10;               // the active window is ~7 frames long
-const VERT_PER_SEG = 2;
+const MAX_SEG = 12;               // raw samples: the active window is ~7 frames
+const SUB = 4;                    // Catmull-Rom subdivisions between samples
+const MAX_PTS = (MAX_SEG - 1) * SUB + 1;
 
+// THE SLASH IS LIGHT, NOT A PANE. It used to be a flat white ribbon drawn with
+// alpha -- in a lit, bloomed world that read as a sheet of paper swung through
+// the air. Now it is drawn additively in HDR: a white-hot leading edge where
+// the tip has just been, bleeding into a coloured tail that cools and thins as
+// it ages, so bloom turns it into the arc of light the genre swings.
 const VERT = `
 attribute float age;
+attribute float side;
 varying float vAge;
 varying float vSide;
 void main() {
   vAge = age;
-  vSide = float(gl_VertexID % 2);
+  vSide = side;
   gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
 }`;
 
-// Two flat bands and a hard cut, so it reads as ink rather than as light.
 const FRAG = `
 precision mediump float;
 uniform vec3 uCore;
@@ -42,25 +48,36 @@ varying float vAge;
 varying float vSide;
 void main() {
   float a = clamp(1.0 - vAge, 0.0, 1.0);
-  if (a <= 0.02) discard;
-  vec3 c = vSide > 0.5 ? uEdge : uCore;
-  // banded, not smooth: three steps is the whole ramp, and the trailing edge
-  // is much fainter than the core so it reads as a stroke lifting
-  float band = a > 0.66 ? 0.62 : (a > 0.33 ? 0.34 : 0.13);
-  float side = vSide > 0.5 ? 0.55 : 1.0;
-  gl_FragColor = vec4(c, band * side * uFade);
+  if (a <= 0.01) discard;
+  // bright along the tip's path, dim toward the hilt
+  float edge = smoothstep(0.15, 1.0, vSide);
+  float hot = pow(vSide, 6.0) * pow(a, 2.0);
+  vec3 c = mix(uEdge * edge * 1.6, uCore * 3.2, hot);
+  gl_FragColor = vec4(c * pow(a, 1.4) * uFade, 1.0);
 }`;
 
+const _g = new THREE.Vector3(), _t = new THREE.Vector3();
+function cr(a, b, c, d, t, out) {
+  const t2 = t * t, t3 = t2 * t;
+  for (const k of ['x', 'y', 'z']) {
+    out[k] = 0.5 * ((2 * b[k]) + (-a[k] + c[k]) * t + (2 * a[k] - 5 * b[k] + 4 * c[k] - d[k]) * t2
+                    + (-a[k] + 3 * b[k] - 3 * c[k] + d[k]) * t3);
+  }
+  return out;
+}
+
 export function makeTrail(scene) {
-  const pos = new Float32Array(MAX_SEG * VERT_PER_SEG * 3);
-  const age = new Float32Array(MAX_SEG * VERT_PER_SEG);
+  const pos = new Float32Array(MAX_PTS * 2 * 3);
+  const age = new Float32Array(MAX_PTS * 2);
+  const side = new Float32Array(MAX_PTS * 2);
+  for (let i = 0; i < MAX_PTS; i++) { side[i * 2] = 0; side[i * 2 + 1] = 1; }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   geo.setAttribute('age', new THREE.BufferAttribute(age, 1));
+  geo.setAttribute('side', new THREE.BufferAttribute(side, 1));
 
-  // one strip: 0-1-2, 2-1-3, ...
   const idx = [];
-  for (let i = 0; i < MAX_SEG - 1; i++) {
+  for (let i = 0; i < MAX_PTS - 1; i++) {
     const a = i * 2;
     idx.push(a, a + 1, a + 2, a + 2, a + 1, a + 3);
   }
@@ -71,14 +88,13 @@ export function makeTrail(scene) {
     vertexShader: VERT,
     fragmentShader: FRAG,
     uniforms: {
-      // a pale warm core with only a hint of cool at the trailing edge. The
-      // first pass used a saturated blue and it was the loudest thing in frame.
-      uCore: { value: new THREE.Color(0xfffaf0) },
-      uEdge: { value: new THREE.Color(0xdfeaf2) },
+      uCore: { value: new THREE.Color(0xfff6e0) },
+      uEdge: { value: new THREE.Color(0x58c8ff) },
       uFade: { value: 1 },
     },
     transparent: true,
     depthWrite: false,
+    blending: THREE.AdditiveBlending,
     side: THREE.DoubleSide,
   });
 
@@ -111,30 +127,42 @@ export function makeTrail(scene) {
       if (samples.length > MAX_SEG) samples.shift();
     },
 
+    /** The arc's colour -- each character swings their own. */
+    setColor(edge, core) {
+      mat.uniforms.uEdge.value.set(edge);
+      if (core !== undefined) mat.uniforms.uCore.value.set(core);
+    },
+
     update(dt) {
       // age everything and drop what has expired
-      for (const s of samples) s.age += dt * 7.5;   // gone in ~0.13 s
+      for (const s of samples) s.age += dt * 5.2;   // gone in ~0.19 s
       while (samples.length && samples[0].age >= 1) samples.shift();
       if (samples.length < 2) { mesh.visible = false; return; }
 
-      // TAPER FROM THE TAIL. The oldest end of the stroke pulls its outer edge
-      // in toward the inner one, so the ribbon narrows to nothing instead of
-      // ending in a square edge hanging in the air.
+      // SMOOTH THE ARC. Seven samples of a fast swing are seven straight
+      // chords; a Catmull-Rom through them is the curve the blade actually
+      // described. TAPER FROM THE TAIL, so the ribbon narrows to nothing
+      // instead of ending in a square edge hanging in the air.
+      const N = samples.length;
+      const at = (i) => samples[Math.max(0, Math.min(N - 1, i))];
       let n = 0;
-      for (const s of samples) {
-        const k = 1 - s.age * 0.85;
-        pos[n * 3 + 0] = s.g.x; pos[n * 3 + 1] = s.g.y; pos[n * 3 + 2] = s.g.z;
-        age[n] = s.age;
-        n++;
-        pos[n * 3 + 0] = s.g.x + (s.t.x - s.g.x) * k;
-        pos[n * 3 + 1] = s.g.y + (s.t.y - s.g.y) * k;
-        pos[n * 3 + 2] = s.g.z + (s.t.z - s.g.z) * k;
-        age[n] = s.age;
-        n++;
+      for (let i = 0; i < N - 1; i++) {
+        const p0 = at(i - 1), p1 = at(i), p2 = at(i + 1), p3 = at(i + 2);
+        const steps = i === N - 2 ? SUB + 1 : SUB;
+        for (let k = 0; k < steps; k++) {
+          const t = k / SUB;
+          const g = cr(p0.g, p1.g, p2.g, p3.g, t, _g);
+          const tp = cr(p0.t, p1.t, p2.t, p3.t, t, _t);
+          const ag = p1.age + (p2.age - p1.age) * t;
+          const w = 1 - ag * 0.85;
+          pos.set([g.x, g.y, g.z], n * 3); age[n] = ag; n++;
+          pos.set([g.x + (tp.x - g.x) * w, g.y + (tp.y - g.y) * w, g.z + (tp.z - g.z) * w], n * 3);
+          age[n] = ag; n++;
+        }
       }
       geo.attributes.position.needsUpdate = true;
       geo.attributes.age.needsUpdate = true;
-      geo.setDrawRange(0, (samples.length - 1) * 6);
+      geo.setDrawRange(0, (n / 2 - 1) * 6);
       mesh.visible = true;
     },
   };

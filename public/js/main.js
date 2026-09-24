@@ -31,6 +31,7 @@ import { makeGrass } from './grass.js';
 import { makeFoliage } from './foliage.js';
 import { makeHud } from './hud.js';
 import { makeMotes } from './motes.js';
+import { makeTitle } from './title.js';
 
 // ------------------------------------------------------------------ renderer
 
@@ -679,6 +680,8 @@ function selectCharacter(name) {
   cur = next;
   cur.group.visible = true;
   attacking = false;
+  // EACH OF THEM SWINGS THEIR OWN LIGHT: Vesper sea-glass, Lake ember, Maren dusk
+  if (trail) trail.setColor({ vesper: 0x58c8ff, lake: 0xffa040, maren: 0xb88cff }[name] ?? 0x58c8ff);
   landing = false;
   play('idle', 0);
   hud.dataset.who = name;
@@ -761,6 +764,20 @@ let drops = null;
 let party = null;
 let quest = null;
 const cine = makeCine({ camera, scene });
+// THE TITLE, and what pressing a key on it starts: the music (the key is the
+// gesture the audio context needs) and, on a fresh game, the opening.
+const title = makeTitle({
+  camera,
+  onStart: () => {
+    audio.boot();
+    const fresh = !window.quest || quest.stage === 0;
+    // after the opening, say where you are and what you are here to do
+    const after = () => {
+      if (window.quest && quest._debug) quest.say(quest._debug().text);
+    };
+    if (fresh) cine.play(SCENES.open).then(after); else after();
+  },
+});
 
 // ------------------------------------------------------- what you just got
 //
@@ -2640,6 +2657,28 @@ function placeAt(p) {
   if (-p.z > 78) return ['The High Circle', 'where the old stones stand'];
   return ['The Ford Meadow', 'beyond the town gate'];
 }
+// WHO PARTS THE GRASS this frame: you, your party, and the nearest monsters.
+const _push = [];
+function pushers() {
+  _push.length = 0;
+  if (!cur) return _push;
+  const p = cur.group.position;
+  _push.push({ x: p.x, y: p.y, z: p.z, r: 1.1 });
+  for (const m of (window.party && party.members) || []) {
+    const q = m.group ? m.group.position : m.pos;
+    if (q) _push.push({ x: q.x, y: q.y, z: q.z, r: 1.0 });
+  }
+  if (combat) {
+    const foes = combat.enemies.filter((e) => !e.dead)
+      .map((e) => ({ e, d: (e.pos.x - p.x) ** 2 + (e.pos.z - p.z) ** 2 }))
+      .sort((a, b) => a.d - b.d);
+    for (const { e } of foes) {
+      if (_push.length >= 8) break;
+      _push.push({ x: e.pos.x, y: e.pos.y, z: e.pos.z, r: e.name === 'bellow' ? 1.8 : 1.2 });
+    }
+  }
+  return _push;
+}
 let prAcc = 0, prN = 0;
 function adaptResolution(dt) {
   // only in the real loop -- a stepped capture (__sim) has no frame time
@@ -2796,6 +2835,13 @@ function hitMovers(spec) {
     const real = quest ? quest.onBellRung() : true;
     if (real || (quest && quest.rung)) {
       audio.play('bell', { x: m.hx, y: m.hy + 19.5, z: m.hz }, 1.0);
+      // THE PAYOFF IS SHOWN, not just heard: the first true ring hands the
+      // camera to the ring sequence -- the bell against the dusk, then away
+      // over the roofs -- and ends on the card. Not under __sim: a check that
+      // rings the bell is checking the bell, not watching a film.
+      if (real && !window.__simActive) {
+        cine.play(SCENES.ring).then(() => title.ending());
+      }
     } else if (quest) {
       audio.play('break_wood', null, 0.25);      // rope, and nothing else
       m.t = -1;                                   // do not swing a dead bell
@@ -2917,7 +2963,8 @@ function frame(dt) {
   // is the correct order -- trying to suppress the gameplay camera instead
   // means every future change to it has to remember this feature exists.
   if (cine.active) cine.step(dt);
-  if (grass) grass.update(camera.position, cur ? cur.group.position : null);
+  if (title.active) title.update(dt);
+  if (grass) grass.update(camera.position, cur ? cur.group.position : null, pushers());
   updateHud(dt);
   adaptResolution(dt);
   if (motes) motes.update(camera.position, atmos.hour,
@@ -2968,7 +3015,7 @@ Object.assign(globalThis, { __audio: audio, __atmos: atmos });
 globalThis.__paint = paintTune;
 // for tools that move the camera by hand and then render: re-centre what
 // follows the camera (the grass field) before the frame is drawn
-globalThis.__lookFrame = () => { if (grass) grass.update(camera.position, cur ? cur.group.position : null); };
+globalThis.__lookFrame = () => { if (grass) grass.update(camera.position, cur ? cur.group.position : null, pushers()); };
 Object.defineProperty(globalThis, 'grass', { get: () => grass, configurable: true });
 globalThis.__preset = (n) => { atmos.apply(n); return atmos._debug(); };
 Object.defineProperty(globalThis, '__actx', { get: () => audio.ctx, configurable: true });
@@ -2992,6 +3039,7 @@ globalThis.__sim = ({ steps = 60, dt = 1 / 60, held = [], attack: doAttack = fal
                       az = null, polar = null, dist = null, warp = null,
                       jump: doJump = false } = {}) => {
   renderer.setAnimationLoop(null);      // take the loop away from rAF entirely
+  title.skip();                         // a check never has to press start
   window.__simActive = true;           // and tell adaptResolution there is no real clock
   keys.clear();
   for (const k of held) keys.add(k);

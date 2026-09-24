@@ -155,6 +155,10 @@ const SHARED = {
   uRect: { value: new THREE.Vector4() },
   uCam: { value: new THREE.Vector3() },
   uPlayer: { value: new THREE.Vector3(0, -99, 0) },
+  // EVERYONE PARTS THE GRASS, not just the player: up to eight bodies a frame
+  // (xyz + radius). A nettle is 40 cm tall and the meadow grows to 55, so
+  // without this the monsters fought in it were invisible.
+  uPush: { value: Array.from({ length: 8 }, () => new THREE.Vector4(0, -99, 0, 0)) },
 };
 
 function grassMaterial(layer) {
@@ -183,6 +187,7 @@ function grassMaterial(layer) {
         uniform sampler2D uField;
         uniform vec4 uRect;
         uniform vec3 uCam, uPlayer;
+        uniform vec4 uPush[8];
         varying vec3 vGW;
         varying float vGT;
         varying float vGShade;
@@ -221,12 +226,18 @@ function grassMaterial(layer) {
         float bend = (0.22 + gust * 0.95 + flutter * 0.4) * aT * aT;
         vec2 off = wdir * bend * uHeight * s * 0.55;
 
-        // PARTING. Blades within a metre of the player lean out and flatten.
-        vec2 away = root - uPlayer.xz;
-        float pd = length(away);
-        float push = (1.0 - smoothstep(0.25, 1.1, pd)) * step(abs(uPlayer.y - fld.r), 1.5);
-        off += normalize(away + 1e-4) * push * 0.42 * aT * aT * uHeight * s;
-        hy *= 1.0 - push * 0.45;
+        // PARTING. Blades within a body's reach lean out and flatten.
+        float flatK = 0.0;
+        for (int k = 0; k < 8; k++) {
+          vec4 P = uPush[k];
+          if (P.w <= 0.0) continue;
+          vec2 away = root - P.xz;
+          float pd = length(away);
+          float push = (1.0 - smoothstep(P.w * 0.25, P.w, pd)) * step(abs(P.y - fld.r), 1.5);
+          off += normalize(away + 1e-4) * push * 0.42 * aT * aT * uHeight * s;
+          flatK = max(flatK, push);
+        }
+        hy *= 1.0 - flatK * 0.55;
 
         vec3 transformed = vec3(root.x + p.x + off.x, fld.r + hy, root.y + p.z + off.y);
         vGW = transformed;
@@ -335,9 +346,16 @@ export function makeGrass({ scene, terrain, solids }) {
   return {
     meshes,
     /** Re-centre on the camera. Cheap: two uniforms per layer. */
-    update(camPos, playerPos) {
+    /** @param pushers  [{x,y,z,r}] -- bodies that part the grass, nearest first */
+    update(camPos, playerPos, pushers) {
       SHARED.uCam.value.copy(camPos);
       if (playerPos) SHARED.uPlayer.value.copy(playerPos);
+      const P = SHARED.uPush.value;
+      const list = pushers || (playerPos ? [{ x: playerPos.x, y: playerPos.y, z: playerPos.z, r: 1.1 }] : []);
+      for (let i = 0; i < 8; i++) {
+        const b = list[i];
+        if (b) P[i].set(b.x, b.y, b.z, b.r); else P[i].w = 0;
+      }
       for (const m of meshes) {
         const L = m.userData.layer;
         L.u.uOrigin.value.set(Math.round(camPos.x / L.spacing) * L.spacing,

@@ -142,7 +142,7 @@ const CSS = `
 }
 
 body.talking #party, body.talking #deck, body.cine #party, body.cine #deck,
-body.cine #place, body.menu #deck { opacity: 0; }
+body.cine #place, body.talking #place, body.menu #deck { opacity: 0; }
 `;
 
 const RING = (size, stroke, frac) => {

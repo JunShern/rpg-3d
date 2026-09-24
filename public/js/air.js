@@ -127,7 +127,7 @@ export class AirPass extends Pass {
       uCamPos: { value: new THREE.Vector3() }, uSunDir: { value: new THREE.Vector3(0, 1, 0) },
       uFogCol: { value: new THREE.Color(0xcfd8e6) }, uSunFogCol: { value: new THREE.Color(0xffe0b0) },
       uFogNear: { value: 20 }, uFogFar: { value: 180 }, uFogBase: { value: 0 },
-      uFogHeight: { value: 14 }, uFogMax: { value: 0.62 },
+      uFogHeight: { value: 14 }, uFogMax: { value: 0.5 },
       uAO: { value: 0.55 }, uAORadius: { value: 0.6 },
       uRays: { value: 0.22 },
       uSunUv: { value: new THREE.Vector2() }, uSunVis: { value: 0 },

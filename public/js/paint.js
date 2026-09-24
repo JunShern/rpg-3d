@@ -135,8 +135,12 @@ const RECIPES = {
   stone:     { hue: [0.22, 0.55], bump: [0.70, 1.4], mapBump: 0.7, mapFade: 0.35, moss: 0.45, grime: 0.25, rough: 0.88, env: 0.85 },
   rock:      { hue: [0.30, 0.30], bump: [1.5, 0.55], mapBump: 0.4, mapFade: 0.7, moss: 0.70, rough: 0.92, env: 0.8, tint: [0.62, 0.60, 0.56] },
   // the far ranges: dark forested hills that the air pass turns blue
-  ridge_a:   { hue: [0.35, 0.05], bump: [0.6, 0.08], rough: 1.0, env: 0.6, tint: [0.30, 0.42, 0.30], forest: 1 },
-  ridge_b:   { hue: [0.30, 0.04], bump: [0.6, 0.06], rough: 1.0, env: 0.6, tint: [0.36, 0.44, 0.44], forest: 1 },
+  // SMOOTH, NOT BLOTCHED. A forest pattern at this distance came out, under
+  // the haze, as drifting patches of cloud -- the eye reads large soft
+  // light-and-dark shapes on a far slope as weather. A painted backdrop is a
+  // silhouette with a little tone in it; the haze does the rest.
+  ridge_a:   { hue: [0.12, 0.03], rough: 1.0, env: 0.5, tint: [0.20, 0.30, 0.24] },
+  ridge_b:   { hue: [0.10, 0.03], rough: 1.0, env: 0.5, tint: [0.30, 0.38, 0.42] },
   water:     { water: 1, rough: 0.26, env: 1.1 },
   dirt:      { hue: [0.22, 0.30], bump: [0.30, 3.0], rough: 1.0, env: 0.8 },
   // the meadow floor -- see FIELD below; this is the fallback
@@ -313,8 +317,10 @@ float pBumpK = 1.0;
 
   // THE FAR HILLS: stripes of forest and clearing, too far off to model
   if (uForest > 0.5) {
-    float trees = smoothstep(0.42, 0.6, pFbm(vPW * 0.05 + 2.0));
-    diffuseColor.rgb *= mix(1.15, 0.55, trees);
+    // forest in bands and clumps, with the trunks' dark between them
+    float trees = smoothstep(0.40, 0.56, pFbm(vPW * 0.06 + 2.0));
+    float tex = pNoise(vPW * 0.9);
+    diffuseColor.rgb *= mix(1.2, 0.38 + tex * 0.2, trees);
   }
 
   // WATER. Its depth at this pixel is the surface height minus the terrain
