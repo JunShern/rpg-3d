@@ -460,7 +460,7 @@ Promise.all([
     // AT STREET LEVEL round the town, so it sits in fields rather than on a
     // plinth over a void -- and dropped well below the meadow, whose own
     // terrain owns the ground there (and whose stream bed dips below zero).
-    const g = new THREE.PlaneGeometry(1400, 1400, 280, 280);
+    const g = new THREE.PlaneGeometry(1400, 1400, 120, 120);
     g.rotateX(-Math.PI / 2);
     {
       const P = g.attributes.position;
@@ -488,9 +488,9 @@ Promise.all([
     {
       const P = g.attributes.position;
       const heightAt = (x, z) => {        // bilinear on the farfield grid
-        const fx = (x + 700) / 1400 * 280, fz = (z + 700) / 1400 * 280;
-        const i = Math.max(0, Math.min(279, Math.floor(fx))), j = Math.max(0, Math.min(279, Math.floor(fz)));
-        return P.getY(j * 281 + i);
+        const fx = (x + 700) / 1400 * 120, fz = (z + 700) / 1400 * 120;
+        const i = Math.max(0, Math.min(119, Math.round(fx))), j = Math.max(0, Math.min(119, Math.round(fz)));
+        return P.getY(j * 121 + i);
       };
       const c = meadowMan.terrain;
       const rng = (() => { let s = 97; return () => ((s = (s * 16807) % 2147483647) / 2147483647); })();
