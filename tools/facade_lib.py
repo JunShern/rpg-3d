@@ -543,6 +543,33 @@ def tower_dress(t, cx, cy, base, storeys, inner, taper, belfry_h):
                 K.transform(ap, translate=(xc, yc, z0 + 3.40 - rise))
                 out.append(ap)
                 voussoirs(out, M, span, rise, 0.10, z0 + 3.40 - rise, xc, cy + w + 0.03)
+            # BLIND ARCADES on the other three faces: a frame of stone with
+            # two round-headed arches, proud of the wall, so the faces the
+            # valley sees carry the same rhythm as the open one
+            for face in range(3):
+                pieces = []
+                fspan = inner - 0.30
+                frise = fspan / 2
+                zsp = z0 + 3.30 - frise
+                for sgn in (-1, 1):
+                    xo = sgn * (0.28 + fspan / 2)
+                    ap = arch_plate("tower_blind", fspan, frise + 0.02, 0.10, M["stone"], rise=frise)
+                    K.transform(ap, translate=(xo, -(w + 0.05), zsp))
+                    pieces.append(ap)
+                    voussoirs(pieces, M, fspan, frise, 0.08, zsp, xo, -(w + 0.09), n=9)
+                    # the jambs down to a sill
+                    for jx in (xo - fspan / 2 - 0.06, xo + fspan / 2 + 0.06):
+                        pieces.append(bbox("tower_bjamb", (jx, -(w + 0.05), (z0 + 0.45 + zsp) / 2),
+                                           (0.07, 0.06, (zsp - z0 - 0.45) / 2), M["stone"], bevel=0.01))
+                    pieces.append(bbox("tower_bsill", (xo, -(w + 0.08), z0 + 0.42),
+                                       (fspan / 2 + 0.16, 0.08, 0.05), M["stone"], bevel=0.01))
+                    # a narrow lancet window in each arch
+                    pieces.append(slab("tower_lancet", xo - 0.16, xo + 0.16, -(w + 0.005), -(w - 0.02),
+                                       z0 + 1.1, zsp + frise * 0.55, M["timber"]))
+                ang = (90, 180, -90)[face]
+                for pc in pieces:
+                    K.transform(pc, rotate=(0, 0, ang), around=(0, 0, 0), translate=(cx, cy, 0))
+                out += pieces
             # a clock on the two side faces of the top shaft stage
             if i == storeys - 1:
                 for sx in (-1, 1):
