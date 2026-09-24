@@ -538,6 +538,51 @@ def portico(t, x_face, y0, y1, depth=2.4, h=3.3, bays=4):
     t.add(*out)
 
 
+def bracket_lamp(t, x, y, nx, ny, z=2.55):
+    """A lantern on an iron bracket off a wall whose outward normal is (nx, ny).
+    Its glass is `lamp`, which glows at dusk; it adds no point light (every
+    light costs every painted pixel), so it is a warm point, not a pool."""
+    M, out = t.M, []
+    ax, ay = x + nx * 0.34, y + ny * 0.34
+    out.append(A.box("blamp_plate", (x + nx * 0.02, y + ny * 0.02, z + 0.35), (0.07 if nx == 0 else 0.02, 0.07 if ny == 0 else 0.02, 0.16),
+                     M["iron"], bevel=0.01, seg=1))
+    out.append(K.tube("blamp_arm", [{"p": Vector((x + nx * 0.03, y + ny * 0.03, z + 0.42)), "r": (0.018, 0.018), "n": 2.0},
+                                    {"p": Vector((ax, ay, z + 0.42)), "r": (0.018, 0.018), "n": 2.0}],
+                      seg=6, mat=M["iron"]))
+    out.append(K.tube("blamp_scroll", [{"p": Vector((x + nx * 0.03, y + ny * 0.03, z + 0.14)), "r": (0.012, 0.012), "n": 2.0},
+                                       {"p": Vector((ax - nx * 0.10, ay - ny * 0.10, z + 0.40)), "r": (0.012, 0.012), "n": 2.0}],
+                      seg=6, mat=M["iron"]))
+    out.append(A.box("blamp_glass", (ax, ay, z + 0.18), (0.09, 0.09, 0.12), M["lamp"], bevel=0.015, seg=1))
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            out.append(A.box("blamp_mull", (ax + sx * 0.09, ay + sy * 0.09, z + 0.18), (0.014, 0.014, 0.125),
+                             M["iron"], bevel=0.004, seg=1))
+    out.append(K._new_obj("blamp_roof", [Vector((ax - 0.13, ay - 0.13, z + 0.31)), Vector((ax + 0.13, ay - 0.13, z + 0.31)),
+                                         Vector((ax + 0.13, ay + 0.13, z + 0.31)), Vector((ax - 0.13, ay + 0.13, z + 0.31)),
+                                         Vector((ax, ay, z + 0.45))],
+                          [(0, 1, 4), (1, 2, 4), (2, 3, 4), (3, 0, 4), (0, 3, 2, 1)], mat=M["iron"], smooth=False))
+    t.add(*out)
+
+
+def ivy(t, x, y, nx, ny, h=5.5, spread=1.3, seed=0):
+    """Ivy up a wall: flattened `leaf` lumps in a climbing fan, which the
+    runtime dresses in leaf cards like every canopy."""
+    M, out = t.M, []
+    rnd = A._lcg_local(seed + 71)
+    tx, ty = -ny, nx                    # along the wall
+    for i in range(16):
+        u = rnd()
+        zz = 0.3 + h * (u ** 0.8)
+        width = spread * (0.35 + 0.65 * u)
+        off = (rnd() - 0.5) * 2 * width
+        r = 0.32 + 0.22 * rnd()
+        cx, cy = x + tx * off + nx * 0.12, y + ty * off + ny * 0.12
+        sx = r if nx == 0 else r * 0.35
+        sy = r if ny == 0 else r * 0.35
+        out.append(K.blob("ivy", (cx, cy, zz), (sx, sy, r * 0.9), None, M["leaf"], seg=10, rings=6))
+    t.add(*out)
+
+
 def build_life(t):
     """The square lived in: shade trees, pots by the doors, bunting, stock."""
     # an arcade along the west range's plaza face (its front is at x = -13)
@@ -557,6 +602,16 @@ def build_life(t):
             x, y = cx + lx * c - ly * s_, cy + lx * s_ + ly * c
             if _clear(x, y):
                 pot(t, x, y, s=0.9 + 0.2 * (sx > 0))
+        # a bracket lamp by the door, on the wall face (outward normal is the
+        # facade's -Y, rotated by the building's yaw)
+        wx, wy = door_x + 1.05, -d / 2 - 0.04
+        nx, ny = round(-(-1) * s_ * 1), round(-1 * c)
+        nx, ny = (s_ * 1.0, -c * 1.0)
+        bracket_lamp(t, cx + wx * c - wy * s_, cy + wx * s_ + wy * c, round(nx), round(ny))
+    # ivy up three corners the sun reaches
+    ivy(t, -13.0, 6.3, 1, 0, h=6.0, seed=1)
+    ivy(t, 13.05, -6.4, -1, 0, h=5.0, seed=2)
+    ivy(t, -4.1, 11.05, 0, -1, h=4.6, spread=1.0, seed=3)
     # bunting criss-crossing the square, high enough to clear everything
     bunting(t, -13.0, -8.0, 13.0, -4.0, 6.6, sag=0.9)
     bunting(t, -13.0, 7.0, 13.0, 3.5, 6.3, sag=0.8)
