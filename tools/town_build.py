@@ -493,9 +493,56 @@ def bunting(t, x0, y0, x1, y1, z, sag=0.7, gap=0.46):
     t.add(*out)
 
 
+def portico(t, x_face, y0, y1, depth=2.4, h=3.3, bays=4):
+    """A covered arcade along a facade that faces +X at x = x_face: arched bays
+    on square piers, a timber ceiling, and a tiled lean-to roof back to the
+    wall. The piers are walk-only collision; the walkway is open."""
+    import facade_lib as F
+    M, out = t.M, []
+    xp = x_face + depth                       # the pier line
+    span = (y1 - y0) / bays
+    pw = 0.26                                  # half pier width
+    clear = span - 2 * pw
+    rise = clear / 2
+    for i in range(bays + 1):
+        y = y0 + i * span
+        out.append(A.box("portico_pier", (xp, y, h / 2), (pw, pw, h / 2), M["stone"], bevel=0.03, seg=1))
+        out.append(A.box("portico_base", (xp, y, 0.14), (pw + 0.06, pw + 0.06, 0.14), M["stone"], bevel=0.02, seg=1))
+        out.append(A.box("portico_cap", (xp, y, h - rise - 0.04), (pw + 0.07, pw + 0.07, 0.07), M["stone"],
+                         bevel=0.02, seg=1))
+        t.solid(xp, y, pw, pw, top=h, cam=False)
+    for i in range(bays):
+        yc = y0 + (i + 0.5) * span
+        ap = F.arch_plate("portico_arch", clear, rise + 0.34, pw * 2, M["stone"], rise=rise)
+        # authored across X; this arcade runs along Y, facing +X
+        K.transform(ap, rotate=(0, 0, 90), around=(0, 0, 0), translate=(xp, yc, h - rise - 0.34 + 0.34))
+        out.append(ap)
+        F.voussoirs(out, M, clear, rise, 0.08, h - rise, 0.0, 0.0, n=9)
+        for o in out[-9:]:
+            K.transform(o, rotate=(0, 0, 90), around=(0, 0, 0), translate=(xp + pw + 0.03, yc, 0))
+    # entablature over the arches, and the ceiling of the walk
+    out.append(A.box("portico_beam", (xp, (y0 + y1) / 2, h + 0.20), (pw + 0.06, (y1 - y0) / 2 + pw, 0.20),
+                     M["stone"], bevel=0.03, seg=1))
+    out.append(A.box("portico_ceiling", ((x_face + xp) / 2, (y0 + y1) / 2, h + 0.06),
+                     (depth / 2, (y1 - y0) / 2, 0.05), M["timber"], bevel=0.01, seg=1))
+    # the lean-to: courses of tile from the pier line up to the wall
+    L = math.hypot(depth + 0.3, 0.9)
+    n = int(L / 0.28)
+    for k in range(n):
+        s0 = k * L / n
+        c = F.corrugated("portico_tile", y0 - 0.3, y1 + 0.3, s0, min(L, s0 + L / n + 0.05), M["roof_a"],
+                         depth + 0.3, 0.9, -1, lip=0.035, amp=0.045, period=0.23)
+        # authored as a front slope (eave at -Y); turn it to fall toward +X
+        K.transform(c, rotate=(0, 0, 90), around=(0, 0, 0), translate=(x_face, 0, h + 0.42))
+        out.append(c)
+    t.add(*out)
+
+
 def build_life(t):
     """The square lived in: shade trees, pots by the doors, bunting, stock."""
-    shade_tree(t, -10.6, -6.4, seed=1)
+    # an arcade along the west range's plaza face (its front is at x = -13)
+    portico(t, -13.0, -6.6, 2.6, depth=2.3, h=3.3, bays=4)
+    shade_tree(t, -8.9, -8.5, seed=1)
     shade_tree(t, 10.9, -6.6, h=4.9, seed=2)
     # pots either side of the house doors (the plan in build_buildings)
     from math import radians, cos, sin

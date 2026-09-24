@@ -113,6 +113,9 @@ def palette():
         # curtains behind the glass: warm and dim, or a sunlit curtain reads
         # through the glass as a lamp-lit room at noon
         "curtain":   (0.46, 0.30, 0.22),
+        # fruit, flowers and goods -- they were `awning`, and awning is
+        # striped canvas now
+        "fruit":     (0.78, 0.30, 0.18),
     }
     mats = {}
     for name, color in spec.items():
@@ -850,7 +853,7 @@ def stall(t, cx, cy, yaw=0.0, kind=0, w=2.4, d=1.5):
     # sells has to be readable as shape and colour from across the square.
     goods = [
         # (material, radius, rows) -- fruit, bread, cloth bolts, pots
-        ("awning", 0.115, 3), ("timber", 0.135, 2),
+        ("fruit", 0.115, 3), ("timber", 0.135, 2),
         ("door", 0.125, 2), ("stone", 0.130, 3),
     ][kind % 4]
     mat, rr, rows = goods
@@ -965,7 +968,7 @@ def flowerbox(t, x, y0, z, w=0.70):
             (0.21, 0.04, 0.080, "leaf"))):
         out.append(K.blob(f"box_bloom{i}", (x + dx * (w / 0.70), yb, z + dz),
                           (rr, rr * 0.8, rr * 0.9), None,
-                          M["awning"] if mat == "bloom" else M["leaf"],
+                          M["fruit"] if mat == "bloom" else M["leaf"],
                           seg=9, rings=6, squircle=2.2))
     return t.add(*out) and out
 
@@ -1003,7 +1006,7 @@ def shopfront(t, x, y0, z, w=1.9, h=1.45, kind=0):
         pick = (kind + i) % 3
         if pick == 0:
             out.append(K.blob(f"shop_good{i}", (x + gx, yg + 0.22, gz + 0.05),
-                              (0.10, 0.09, 0.10), None, M["awning"],
+                              (0.10, 0.09, 0.10), None, M["fruit"],
                               seg=10, rings=7, squircle=2.2))
         elif pick == 1:
             out.append(box(f"shop_good{i}", (x + gx, yg + 0.22, gz + 0.08),
@@ -2477,7 +2480,7 @@ def cart(t, x, y, yaw=0.0, load=True, z0=0.0):
                                          (0.46, -0.14, 0.25))):
             sacks.append(K.blob(f"cart_sack{k}",
                                 (x + dx, y + dy, bed_z + 0.055 + r * 0.82),
-                                (r, r * 0.86, r * 0.80), None, M["awning"],
+                                (r, r * 0.86, r * 0.80), None, M["fruit"],
                                 seg=9, rings=6, squircle=2.3))
         for o in sacks:
             if yaw:
