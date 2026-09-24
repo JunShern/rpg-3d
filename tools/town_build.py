@@ -542,7 +542,7 @@ def build_life(t):
     """The square lived in: shade trees, pots by the doors, bunting, stock."""
     # an arcade along the west range's plaza face (its front is at x = -13)
     portico(t, -13.0, -6.6, 2.6, depth=2.3, h=3.3, bays=4)
-    shade_tree(t, -8.9, -8.5, seed=1)
+    shade_tree(t, -6.8, -9.6, seed=1)
     shade_tree(t, 10.9, -6.6, h=4.9, seed=2)
     # pots either side of the house doors (the plan in build_buildings)
     from math import radians, cos, sin

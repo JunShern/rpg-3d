@@ -279,7 +279,7 @@ def rotate_face(objs, face, cx=0.0, cy=0.0):
 # ------------------------------------------------------------------ the roof
 
 def corrugated(name, x0, x1, s0, s1, mat, hd, h, side, lip=0.035, amp=0.045, period=0.24,
-               res=6):
+               res=4):
     """One course of barrel tiles on the slope `side` (-1 front, +1 back) of a
     gable whose eave is at y = side*hd, z = 0 and ridge at y = 0, z = h.
 
