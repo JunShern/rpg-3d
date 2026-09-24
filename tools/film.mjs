@@ -255,6 +255,10 @@ async function main() {
   await pg.waitForFunction("combat.enemies.some((e) => e.name === 'woolt')",
                            null, { timeout: 90000 });
   await pg.waitForTimeout(1500);
+  // NO FADES ON THE HUD. A recorded frame is ~40 ms of wall clock, so a 300 ms
+  // CSS fade spans eight film frames at 30 fps -- the opening shot came out
+  // with the command deck still dissolving over the tower.
+  await pg.addStyleTag({ content: '#party,#deck,#place,#objective,#talkprompt{transition:none !important}' });
   await pg.evaluate(async () => { await window.GS.ready; });
 
   let index = 0;

@@ -43,7 +43,33 @@ export const PAINT = {
   // reads it to know how deep it is at every pixel.
   uField: { value: null },
   uRect: { value: new THREE.Vector4(0, 0, 1, 1) },
+  // INDOORS. Image-based light is the sky, and the sky does not know there is
+  // a roof: without this the shop, the smithy and the cellar were lit as if
+  // they stood in the open square -- pale, blue and flat. The builder already
+  // records every room and stairwell as a box (manifest `shafts`); a surface
+  // in one takes almost no sky and a low warm bounce instead, and the room's
+  // own lamps do the rest.
+  uRoomLo: { value: Array.from({ length: 8 }, () => new THREE.Vector3(1, 1, 1)) },
+  uRoomHi: { value: Array.from({ length: 8 }, () => new THREE.Vector3(0, 0, 0)) },
+  uRoomW: { value: new Array(8).fill(0) },
+  uIndoorFill: { value: new THREE.Color(0.95, 0.62, 0.36) },
 };
+
+/** Hand the room boxes to every painted surface. `rooms` = manifest shafts. */
+export function setRooms(rooms) {
+  const lo = PAINT.uRoomLo.value, hi = PAINT.uRoomHi.value, w = PAINT.uRoomW.value;
+  for (let i = 0; i < 8; i++) {
+    const r = rooms[i];
+    if (!r) { lo[i].set(1, 1, 1); hi[i].set(0, 0, 0); w[i] = 0; continue; }
+    // a stairwell's pad covers the stair round the well; a room is its box.
+    // The tower is open on its plaza face, so it keeps half its sky.
+    const tall = (r.y1 - r.y0) > 6;
+    const pad = tall ? (r.pad ?? 0) : 0;
+    lo[i].set(r.x - r.hx - pad, r.y0 - 0.2, r.z - r.hz - pad);
+    hi[i].set(r.x + r.hx + pad, r.y1 + 0.4, r.z + r.hz + pad);
+    w[i] = tall ? 0.55 : 1.0;
+  }
+}
 
 // ------------------------------------------------------------ the noise
 //
@@ -226,6 +252,25 @@ uniform vec2 uHue;
 uniform vec2 uBump;
 uniform float uMapBump, uMoss, uStreak, uGrime, uGlow, uField, uFoliage, uMapFade, uWater, uForest;
 uniform sampler2D uFieldMap;
+uniform vec3 uRoomLo[8];
+uniform vec3 uRoomHi[8];
+uniform float uRoomW[8];
+uniform vec3 uIndoorFill;
+// how indoors a surface is: inside a room box, or on a wall of one facing in
+// (so the OUTSIDE face of the same wall stays in the sky)
+float pIndoor(vec3 p, vec3 n) {
+  float k = 0.0;
+  for (int i = 0; i < 8; i++) {
+    vec3 lo = uRoomLo[i], hi = uRoomHi[i];
+    if (hi.x < lo.x) continue;
+    vec3 e = vec3(0.4);
+    if (any(lessThan(p, lo - e)) || any(greaterThan(p, hi + e))) continue;
+    bool inside = all(greaterThan(p, lo)) && all(lessThan(p, hi));
+    bool facing = dot(n, (lo + hi) * 0.5 - p) > 0.0;
+    if (inside || facing) k = max(k, uRoomW[i]);
+  }
+  return k;
+}
 uniform vec4 uRect;
 uniform float uTime;
 ${NOISE_GLSL}
@@ -473,6 +518,10 @@ export function worldMaterial(name, opts = {}) {
     sh.uniforms.uFieldMap = PAINT.uField;
     sh.uniforms.uRect = PAINT.uRect;
     sh.uniforms.uTime = PAINT.uTime;
+    sh.uniforms.uRoomLo = PAINT.uRoomLo;
+    sh.uniforms.uRoomHi = PAINT.uRoomHi;
+    sh.uniforms.uRoomW = PAINT.uRoomW;
+    sh.uniforms.uIndoorFill = PAINT.uIndoorFill;
     sh.vertexShader = sh.vertexShader
       .replace('#include <common>', '#include <common>\n' + VERT_PARS)
       .replace('#include <defaultnormal_vertex>', VERT_NORMAL)
@@ -482,6 +531,13 @@ export function worldMaterial(name, opts = {}) {
       .replace('#include <map_fragment>', FRAG_COLOR)
       .replace('#include <normal_fragment_maps>', FRAG_NORMAL)
       .replace('#include <emissivemap_fragment>', FRAG_GLOW)
+      .replace('#include <lights_fragment_maps>', `#include <lights_fragment_maps>
+        {
+          float ind = pIndoor(vPW, pWN);
+          iblIrradiance *= mix(1.0, 0.10, ind);
+          radiance *= mix(1.0, 0.22, ind);
+          iblIrradiance += uIndoorFill * ind;
+        }`)
       // WATER DOES NOT BURN. A low-roughness surface under a 3.4 sun reflects
       // a highlight many times brighter than anything else in the frame, and
       // bloom turned it into a white fog over a third of the image. The glint

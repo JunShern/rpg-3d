@@ -26,12 +26,13 @@ import { createCombat, SPECIES, TUNE } from './combat.js';
 import { makeBreakables } from './breakables.js';
 import { makeTrail } from './trail.js';
 import { makeTerrain } from './terrain.js';
-import { PAINT, tune as paintTune } from './paint.js';
+import { PAINT, tune as paintTune, setRooms } from './paint.js';
 import { makeGrass } from './grass.js';
 import { makeFoliage } from './foliage.js';
 import { makeHud } from './hud.js';
 import { makeMotes } from './motes.js';
 import { makeTitle } from './title.js';
+import { CHAR_FILL } from './toon.js';
 
 // ------------------------------------------------------------------ renderer
 
@@ -450,6 +451,7 @@ Promise.all([
   }
   absorbRegion(town.scene, townMan);
   absorbRegion(meadow.scene, meadowMan);
+  setRooms(SHAFTS);
 
 
   // the meadow answers ground queries analytically; prove the port agrees
@@ -2967,6 +2969,13 @@ function frame(dt) {
   if (grass) grass.update(camera.position, cur ? cur.group.position : null, pushers());
   updateHud(dt);
   adaptResolution(dt);
+  // the cast's sky fill fades as you walk indoors, over the same stride the
+  // camera's interior blend uses
+  {
+    const v = volumeAt(pos.x, pos.y + 1.0, pos.z);
+    const want = v ? 1 - 0.6 * v.k : 1;
+    CHAR_FILL.uFillK.value += (want - CHAR_FILL.uFillK.value) * Math.min(1, dt * 6);
+  }
   if (motes) motes.update(camera.position, atmos.hour,
                           !!(terrain && terrain.owns(camera.position.x, camera.position.z)), prNow);
   atmos.render();

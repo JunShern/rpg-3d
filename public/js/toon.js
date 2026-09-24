@@ -86,6 +86,8 @@ export const CHAR_FILL = {
   uFillSky: { value: new THREE.Color(0.6, 0.65, 0.7) },
   uFillGround: { value: new THREE.Color(0.35, 0.3, 0.25) },
   uFillOn: { value: 0 },
+  // 1 outdoors, low indoors -- set per frame from where the player stands
+  uFillK: { value: 1 },
 };
 
 const RIM_UNIFORMS = [];
@@ -242,6 +244,7 @@ export function toonMaterial(color, opts = {}) {
     shader.uniforms.uFillSky = CHAR_FILL.uFillSky;
     shader.uniforms.uFillGround = CHAR_FILL.uFillGround;
     shader.uniforms.uFillOn = CHAR_FILL.uFillOn;
+    shader.uniforms.uFillK = CHAR_FILL.uFillK;
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', /* glsl */`
         #include <common>
@@ -251,12 +254,13 @@ export function toonMaterial(color, opts = {}) {
         uniform vec3 uFillSky;
         uniform vec3 uFillGround;
         uniform float uFillOn;
+        uniform float uFillK;
       `)
       .replace('#include <lights_fragment_end>', /* glsl */`
         #include <lights_fragment_end>
         if (uFillOn > 0.5) {
           vec3 fnW = (vec4(normal, 0.0) * viewMatrix).xyz;
-          vec3 fill = mix(uFillGround, uFillSky, fnW.y * 0.5 + 0.5);
+          vec3 fill = mix(uFillGround, uFillSky, fnW.y * 0.5 + 0.5) * uFillK;
           reflectedLight.indirectDiffuse += fill * BRDF_Lambert(diffuseColor.rgb);
         }
       `)
