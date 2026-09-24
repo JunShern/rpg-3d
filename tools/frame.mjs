@@ -30,6 +30,7 @@ for (const a of args) {
     // re-assert: __sim runs updateCamera and moves it back
     camera.position.set(pp[0], pp[1], pp[2]);
     camera.lookAt(ll[0], ll[1], ll[2]);
+    if (window.__lookFrame) __lookFrame();      // re-centre the grass on this camera
     __atmos.render();
   }, [pos, look, f ? Number(f) : 45]);
   await pg.waitForTimeout(200);

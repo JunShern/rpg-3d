@@ -38,6 +38,7 @@ from mathutils import Vector
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import geo_lib as K
 import arch_lib as A
+import facade_lib as F
 import surface_tex
 
 # The meadow lies SOUTH of the plaza in Blender terms (+Y), beyond the gateway
@@ -944,20 +945,41 @@ def drywall(M, t, x0, y0, x1, y1, gap_at=None, gap_w=4.2, h=0.92, on_road=False)
         # reason. Rule (a): the fault is in the joint, and here it literally
         # was. 0.80-0.94 against 0.58 leaves 0.22-0.36 m of overlap, which no
         # bevel can eat.
-        along = 0.40 + 0.07 * rnd()      # the long axis, laid down the wall
-        stone = A.box(f"wall{i}",
-                      (px, py, z + hh / 2 - 0.06),
-                      (along, 0.20 + 0.05 * rnd(), hh / 2),
-                      M["rock"], bevel=0.05, seg=1)
-        K.transform(stone, rotate=(0, 0, bearing), around=(px, py, 0))
-        t.add(stone)
+        # COURSES OF SMALL STONES, not one slab per 58 cm. A dry-stone wall
+        # is hundreds of stones; three courses of two, bonded over each other,
+        # and a row of upright copes along the top -- which is the silhouette
+        # everybody recognises. Unbevelled slabs, twelve triangles each: the
+        # shader's relief and lichen do the rest, and the wall costs a tenth of
+        # what bevelled blocks would.
+        seg_len = span / n
+        zc = z - 0.08
+        courses = 3
+        for c in range(courses):
+            th = (hh - 0.10) / courses * (0.85 + 0.3 * rnd())
+            off = (0.25 if c % 2 else -0.05) * seg_len
+            for k in range(2):
+                L = seg_len * (0.40 + 0.26 * rnd())
+                u0 = -seg_len / 2 + off + k * seg_len * 0.5
+                w = 0.21 - c * 0.025 + 0.03 * rnd()
+                st = F.slab(f"wall{i}_{c}_{k}", px + u0, px + u0 + L, py - w, py + w, zc, zc + th, M["rock"])
+                K.transform(st, rotate=(0, 0, bearing + (rnd() - 0.5) * 9), around=(px, py, 0))
+                t.add(st)
+            zc += th
+        for k in range(4):
+            u0 = -seg_len / 2 + (k + 0.5) * seg_len / 4 + (rnd() - 0.5) * 0.04
+            tilt = (rnd() - 0.5) * 22
+            tk = 0.035 + 0.035 * rnd()
+            cp = F.slab(f"wallcope{i}_{k}", px + u0 - tk, px + u0 + tk, py - 0.15 - 0.04 * rnd(), py + 0.15 + 0.04 * rnd(),
+                        zc - 0.03, zc + 0.10 + 0.08 * rnd(), M["rock"])
+            K.transform(cp, rotate=(0, tilt, bearing), around=(px, py, zc))
+            t.add(cp)
         # the collision box stays axis-aligned and takes the LARGER extent on
         # both axes, so a diagonal wall is never thinner to walk through than
         # it is to look at
         t.solid(px, py, 0.36, 0.36 if abs(math.sin(math.radians(bearing))) > 0.3
                                    else 0.24, top=z + hh)
-    # a couple of cap stones sitting proud, so the top line is not level
-    for k in range(max(1, n // 7)):
+    # (the copes replace the old cap blobs)
+    for k in range(0):
         u = (k + 0.5) / max(1, n // 7)
         px, py = x0 + (x1 - x0) * u, y0 + (y1 - y0) * u
         if gap_at is not None and abs(u * span - gap_at) < gap_w / 2:
