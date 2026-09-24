@@ -1133,6 +1133,12 @@ def arch(t, cx, cy, span=3.2, height=4.2, depth=1.4, thick=0.42, yaw=0.0):
         out.append(box("arch_plinth", (cx + s * (r + thick / 2), cy, 0.14),
                        (thick / 2 + 0.07, depth / 2 + 0.07, 0.14), M["stone"],
                        bevel=0.04, seg=1))
+        # courses: the pier is blocks, drawn as shallow proud bands
+        z = 0.62
+        while z < straight - 0.3:
+            out.append(box("arch_course", (cx + s * (r + thick / 2), cy, z),
+                           (thick / 2 + 0.012, depth / 2 + 0.012, 0.16), M["stone"], bevel=0.03, seg=1))
+            z += 0.64
     sec = []
     steps = 14
     for i in range(steps + 1):
@@ -1143,10 +1149,28 @@ def arch(t, cx, cy, span=3.2, height=4.2, depth=1.4, thick=0.42, yaw=0.0):
     # up=+Y so `ry` is the arch's DEPTH and `rx` its radial thickness; the
     # unseeded frame put them the other way round and the gate came out a fat
     # donut half a metre deep.
-    out.append(K.tube("arch_curve", sec, seg=12, mat=M["stone"], squircle=3.0,
-                      up=(0, 1, 0)))
-    out.append(box("arch_key", (cx, cy, straight + r + thick / 2),
-                   (0.16, depth / 2 + 0.05, 0.20), M["stone"], bevel=0.03, seg=1))
+    # VOUSSOIRS, not a swept tube: the arch is built of wedge stones, each its
+    # own block with a joint either side, the keystone proud and taller
+    n = 13
+    R = r + thick / 2
+    for i in range(n):
+        a0 = math.pi * (i + 0.04) / n
+        a1 = math.pi * (i + 0.96) / n
+        am = (a0 + a1) / 2
+        key = i == n // 2
+        L = (a1 - a0) * R
+        vb = box("arch_voussoir", (0, 0, 0),
+                 (L / 2, depth / 2 + (0.05 if key else 0.0), thick / 2 + (0.08 if key else 0.0)),
+                 M["stone"], bevel=0.025, seg=1)
+        # the angle is measured from -X here (x = -R cos a), so the block's
+        # tangent needs a rotation of (a - 90), not the tower's (90 - a)
+        K.transform(vb, rotate=(0, math.degrees(am) - 90, 0), around=(0, 0, 0),
+                    translate=(cx - R * math.cos(am), cy, straight + R * math.sin(am)))
+        out.append(vb)
+    # the imposts: a moulded block where the arch springs from each pier
+    for s_ in (-1, 1):
+        out.append(box("arch_impost", (cx + s_ * (r + thick / 2), cy, straight - 0.06),
+                       (thick / 2 + 0.08, depth / 2 + 0.06, 0.09), M["stone"], bevel=0.02, seg=1))
 
     for o in out:
         if yaw:

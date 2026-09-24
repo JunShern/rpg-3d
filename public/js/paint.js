@@ -477,7 +477,7 @@ vec3 pPaveTilt = vec3(0.0);
   if (uAge > 0.5) {
     float vert = 1.0 - abs(pWN.y);
     // spalled patches, with a lighter lip where the render breaks
-    float pn = pFbm(vPW * 0.95 + 13.0) + pNoise(vPW * 4.0) * 0.10;
+    float pn = pFbm(vPW * 1.25 + 13.0) + pNoise(vPW * 6.0) * 0.07 + pNoise(vPW * 17.0) * 0.035;
     // mostly low on the wall, where the damp gets in
     float low = 1.0 - smoothstep(1.5, 5.0, vPW.y) * 0.6;
     // outside only: rooms have their own weather
