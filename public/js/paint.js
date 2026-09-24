@@ -196,7 +196,7 @@ const RECIPES = {
   // silhouette with a little tone in it; the haze does the rest.
   ridge_a:   { hue: [0.12, 0.03], rough: 1.0, env: 0.5, tint: [0.20, 0.30, 0.24] },
   ridge_b:   { hue: [0.10, 0.03], rough: 1.0, env: 0.5, tint: [0.30, 0.38, 0.42] },
-  water:     { water: 1, rough: 0.26, env: 1.1 },
+  water:     { water: 1, rough: 0.34, env: 0.62 },
   // the land beyond the built world: fields and woods, seen through haze
   // painted like the meadow floor (FIELD), which is what it is: more meadow
   farfield:  { hue: [0.20, 0.02], bump: [0.10, 1.6], rough: 1.0, env: 0.6, field: 1, fieldLift: 2.3 },
@@ -574,8 +574,10 @@ vec3 pPaveTilt = vec3(0.0);
     // a line of foam where the water meets the bank, and flecks in the fast
     // shallows -- the band used to be sixteen centimetres of DEPTH, which on a
     // gently shelving bank is a metre and a half of white
-    float foam = (1.0 - smoothstep(0.0, 0.035 + fn * 0.05, dep)) * inside;
-    foam = max(foam, step(0.86, fn) * (1.0 - smoothstep(0.0, 0.2, dep)) * inside * 0.45);
+    // broken, not a ruled line: the bank foam comes and goes along the edge
+    float edgeN = smoothstep(0.35, 0.75, pNoise(vec3(vPW.x * 1.3, vPW.z * 1.3, uTime * 0.2)));
+    float foam = (1.0 - smoothstep(0.0, 0.03 + fn * 0.05, dep)) * inside * edgeN * 0.7;
+    foam = max(foam, step(0.86, fn) * (1.0 - smoothstep(0.0, 0.2, dep)) * inside * 0.35);
     diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.85, 0.90, 0.88), foam);
     diffuseColor.a = clamp(mix(0.50, 0.95, smoothstep(0.02, 0.8, dep)) + foam, 0.0, 1.0);
   }
