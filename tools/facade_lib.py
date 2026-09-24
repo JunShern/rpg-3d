@@ -598,3 +598,61 @@ def tower_dress(t, cx, cy, base, storeys, inner, taper, belfry_h):
     hip_roof(t, cx, cy, capz + 0.01, bw + 0.34, 2.5, M["roof_b"], out)
     t.add(*out)
     return out
+
+
+def hip_rect(t, cz, w, d, h, over, roof_mat, slate=False):
+    """A hipped roof over a w x d plan (ridge along X, w >= d), eaves all round,
+    laid in courses. All four slopes share one pitch, so the hips run at 45
+    degrees in plan and the ridge is w - d long. Returns the pieces."""
+    M, out = t.M, []
+    hw, hd = w / 2 + over, d / 2 + over
+    rh = max(0.0, hw - hd)                       # half the ridge's length
+    L = math.hypot(hd, h)
+    step = 0.24 if slate else 0.30
+    n = max(3, int(L / step))
+    amp = 0.008 if slate else 0.05
+    per = 0.34 if slate else 0.23
+    lip = 0.028 if slate else 0.04
+    for face in range(4):
+        long_ = face % 2 == 0                   # front/back carry the ridge
+        pieces = []
+        for k in range(n):
+            s0 = k * L / n
+            s1 = min(L, s0 + L / n + 0.05)
+            f = 1 - (s0 + s1) / 2 / L
+            half = (rh + hd * f if long_ else hd * f) + 0.02
+            c = corrugated("roof_course", -half, half, s0, s1, roof_mat, hd, h, -1,
+                           lip=lip, amp=amp, period=per)
+            pieces.append(c)
+        ang = (0, 90, 180, 270)[face]
+        for c in pieces:
+            # the short faces are authored on the same depth-hd slope, then
+            # pushed out to the end of the ridge
+            if not long_:
+                K.transform(c, translate=(0, -rh, 0))
+            K.transform(c, rotate=(0, 0, ang), around=(0, 0, 0), translate=(0, 0, cz))
+        out += pieces
+    # hips and ridge capping
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            out.append(K.tube("roof_hip", [
+                {"p": Vector((sx * hw, sy * hd, cz + 0.03)), "r": (0.08, 0.06), "n": 2.0},
+                {"p": Vector((sx * rh, 0, cz + h + 0.04)), "r": (0.08, 0.06), "n": 2.0}],
+                seg=8, mat=roof_mat, up=(0, 0, 1)))
+    if rh > 0.01:
+        out.append(K.tube("roof_ridge", [
+            {"p": Vector((-rh, 0, cz + h + 0.04)), "r": (0.09, 0.07), "n": 2.0},
+            {"p": Vector((rh, 0, cz + h + 0.04)), "r": (0.09, 0.07), "n": 2.0}],
+            seg=10, mat=roof_mat, up=(0, 0, 1)))
+    # a dark underlay so no gap between courses ever shows sky
+    uv = [Vector((-hw, -hd, cz - 0.02)), Vector((hw, -hd, cz - 0.02)), Vector((hw, hd, cz - 0.02)),
+          Vector((-hw, hd, cz - 0.02)), Vector((-rh, 0, cz + h - 0.02)), Vector((rh, 0, cz + h - 0.02))]
+    out.append(K._new_obj("roof_deck", uv, [(0, 1, 5, 4), (2, 3, 4, 5), (1, 2, 5), (3, 0, 4)],
+                          mat=M["timber"], smooth=False, recalc=False))
+    for side in (-1, 1):
+        nr = max(4, int(w / 0.62))
+        for i in range(nr + 1):
+            x = -w / 2 + w * i / nr
+            out.append(bbox("rafter", (x, side * (d / 2 + over * 0.5), cz - 0.07),
+                            (0.045, over * 0.5, 0.055), M["timber"], bevel=0.01))
+    return out

@@ -1519,7 +1519,11 @@ def building(t, cx, cy, w, d, storeys=2, yaw=0.0, plaster="plaster_a",
     # THE ROOF: tiles, not a prism. Same pitch, overhang and ridge height as the
     # prism it replaces, so the roof route and every lead on it still lines up.
     slate = roof == "roof_b"
-    if gable_front:
+    # A HIP ON EVERY THIRD HOUSE: nine gables in a ring is one roof nine times
+    hip = not gable_front and seed % 3 == 0 and w >= d
+    if hip:
+        rp = F.hip_rect(t, h + 0.27, w, d, roof_h * 0.95, 0.30, M[roof], slate=slate)
+    elif gable_front:
         rp = F.tiled_roof(t, h + 0.27, d, w, roof_h * 1.25, 0.26, 0.30, M[roof], M[plaster], slate=slate)
         for o in rp:
             K.transform(o, rotate=(0, 0, 90), around=(0, 0, 0))
