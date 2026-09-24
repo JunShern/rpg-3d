@@ -160,6 +160,8 @@ export function makeCine({ camera, scene }) {
   return {
     play, step, stop, caption,
     get active() { return active; },
+    /** Where the shot is looking now -- what a depth of field should hold sharp. */
+    get look() { return _l; },
     get shot() { return shotI; },
     /** Total running time, so a recorder knows how many frames to take. */
     duration: (shots) => shots.reduce((a, s) => a + s.secs, 0),

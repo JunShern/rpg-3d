@@ -3201,6 +3201,14 @@ function frame(dt) {
   // is the correct order -- trying to suppress the gameplay camera instead
   // means every future change to it has to remember this feature exists.
   if (cine.active) cine.step(dt);
+  // CINEMATIC FOCUS: while a cutscene has the camera, the frame holds what
+  // the shot is looking at sharp and lets the rest go soft
+  {
+    const a = atmos.air.uniforms;
+    const want = cine.active ? 1.0 : 0.0;
+    a.uAperture.value += (want - a.uAperture.value) * Math.min(1, dt * 4);
+    if (cine.active) a.uFocus.value = camera.position.distanceTo(cine.look);
+  }
   if (title.active) title.update(dt);
   if (grass) grass.update(camera.position, cur ? cur.group.position : null, pushers());
   updateHud(dt);

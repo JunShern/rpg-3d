@@ -38,6 +38,7 @@ uniform float uRays;
 uniform vec2 uSunUv;
 uniform float uSunVis;
 uniform vec2 uRes;
+uniform float uFocus, uAperture;
 varying vec2 vUv;
 
 vec3 viewPos(vec2 uv, float d) {
@@ -46,9 +47,42 @@ vec3 viewPos(vec2 uv, float d) {
 }
 float ign(vec2 p) { return fract(52.9829189 * fract(dot(p, vec2(0.06711056, 0.00583715)))); }
 
+float linDepth(vec2 uv) {
+  float dd = texture2D(tDepth, uv).x;
+  vec4 v = uProjInv * vec4(uv * 2.0 - 1.0, dd * 2.0 - 1.0, 1.0);
+  return -(v.z / v.w);
+}
+// circle of confusion in pixels for a view depth
+float coc(float z) {
+  return clamp(abs(z - uFocus) / max(z, 0.1) * uAperture * uRes.y * 0.022, 0.0, 14.0);
+}
+
 void main() {
   vec3 col = texture2D(tDiffuse, vUv).rgb;
   float d = texture2D(tDepth, vUv).x;
+  // DEPTH OF FIELD, cutscenes only (uAperture > 0). A gather over a golden
+  // spiral whose radius is this pixel's circle of confusion; a sample only
+  // contributes as far as its OWN blur reaches, so a sharp subject does not
+  // smear into the soft background behind it.
+  if (uAperture > 0.0) {
+    float z0 = linDepth(vUv);
+    float c0 = coc(z0);
+    if (c0 > 0.8) {
+      vec3 acc = col; float wsum = 1.0;
+      float rot = ign(gl_FragCoord.xy) * 6.2831853;
+      for (int i = 0; i < 24; i++) {
+        float t = (float(i) + 0.5) / 24.0;
+        float a = rot + float(i) * 2.39996323;
+        vec2 off = vec2(cos(a), sin(a)) * sqrt(t) * c0 / uRes;
+        vec2 suv = vUv + off;
+        float cs = coc(linDepth(suv));
+        float w = smoothstep(0.0, 1.0, cs / max(c0 * sqrt(t), 0.5));
+        acc += texture2D(tDiffuse, suv).rgb * w;
+        wsum += w;
+      }
+      col = acc / wsum;
+    }
+  }
   bool sky = d >= 0.99999;
   vec3 vp = viewPos(vUv, d);
   vec3 wp = (uViewInv * vec4(vp, 1.0)).xyz;
@@ -132,6 +166,7 @@ export class AirPass extends Pass {
       uRays: { value: 0.22 },
       uSunUv: { value: new THREE.Vector2() }, uSunVis: { value: 0 },
       uRes: { value: new THREE.Vector2(1, 1) },
+      uFocus: { value: 10 }, uAperture: { value: 0 },
     };
     this.material = new THREE.ShaderMaterial({
       uniforms: this.uniforms,
