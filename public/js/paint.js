@@ -158,10 +158,11 @@ const RECIPES = {
   // PAVING IS PROCEDURAL: see PAVE below. The builder's Voronoi texture drew
   // stones a third of a metre across in one blue-grey, tiled every 3.2 m --
   // toy bricks, not a street.
-  cobble:    { hue: [0.08, 0.35], rough: 0.82, env: 0.85, pave: 1 },
-  cobble_b:  { hue: [0.08, 0.35], rough: 0.82, env: 0.85, pave: 1 },
-  flagstone: { hue: [0.10, 0.40], rough: 0.80, env: 0.85, pave: 2 },
-  ring:      { hue: [0.10, 0.40], rough: 0.78, env: 0.85, pave: 2 },
+  // env 0.55: stone underfoot mirrored enough sky to read as blue ice
+  cobble:    { hue: [0.08, 0.35], rough: 0.9, env: 0.6, pave: 1 },
+  cobble_b:  { hue: [0.08, 0.35], rough: 0.9, env: 0.6, pave: 1 },
+  flagstone: { hue: [0.10, 0.40], rough: 0.92, env: 0.38, pave: 2 },
+  ring:      { hue: [0.10, 0.40], rough: 0.92, env: 0.38, pave: 2 },
   stone:     { hue: [0.22, 0.55], bump: [0.70, 1.4], mapBump: 0.7, mapFade: 0.35, moss: 0.45, grime: 0.25, rough: 0.88, env: 0.85, lichen: 0.5 },
   rock:      { hue: [0.30, 0.30], bump: [2.2, 0.8], mapBump: 0.4, mapFade: 0.85, moss: 0.55, rough: 0.92, env: 0.8, tint: [0.62, 0.60, 0.56], lichen: 1 },
   // the far ranges: dark forested hills that the air pass turns blue
@@ -280,7 +281,9 @@ float pIndoor(vec3 p, vec3 n) {
   for (int i = 0; i < 8; i++) {
     vec3 lo = uRoomLo[i], hi = uRoomHi[i];
     if (hi.x < lo.x) continue;
-    vec3 e = vec3(0.4);
+    // 0.8: a room's box is inset from its walls (it is the CAMERA's box, kept
+    // clear of them), so the walls themselves sit up to ~0.6 m outside it
+    vec3 e = vec3(0.8, 0.4, 0.8);
     if (any(lessThan(p, lo - e)) || any(greaterThan(p, hi + e))) continue;
     bool inside = all(greaterThan(p, lo)) && all(lessThan(p, hi));
     bool facing = dot(n, (lo + hi) * 0.5 - p) > 0.0;
@@ -416,7 +419,7 @@ vec3 pPaveTilt = vec3(0.0);
     // flags have tight joints and sandstone faces; cobbles have wide earthy ones
     float stoneK = uPave < 1.5 ? smoothstep(0.06, 0.13, gap) : smoothstep(0.012, 0.03, gap);
     vec3 warm = vec3(0.36, 0.31, 0.25), cool = vec3(0.31, 0.30, 0.29), dark = vec3(0.22, 0.20, 0.17);
-    if (uPave > 1.5) { warm = vec3(0.48, 0.42, 0.33); cool = vec3(0.42, 0.39, 0.34); dark = vec3(0.34, 0.30, 0.25); }
+    if (uPave > 1.5) { warm = vec3(0.52, 0.44, 0.33); cool = vec3(0.46, 0.41, 0.34); dark = vec3(0.36, 0.31, 0.25); }
     vec3 sc = mix(mix(cool, warm, smoothstep(0.2, 0.7, id)), dark, step(0.82, id) * 0.8);
     sc *= 0.86 + 0.28 * pNoise(vPW * 2.3 + id * 17.0);
     // wear: stones on the walked line are polished paler; the edges of the
@@ -464,8 +467,10 @@ vec3 pPaveTilt = vec3(0.0);
     float pn = pFbm(vPW * 0.95 + 13.0) + pNoise(vPW * 4.0) * 0.10;
     // mostly low on the wall, where the damp gets in
     float low = 1.0 - smoothstep(1.5, 5.0, vPW.y) * 0.6;
-    float spall = smoothstep(0.64, 0.655, pn * low + 0.04) * vert;
-    float lip = smoothstep(0.62, 0.64, pn * low + 0.04) * (1.0 - spall) * vert;
+    // outside only: rooms have their own weather
+    float outside = 1.0 - pIndoor(vPW, pWN);
+    float spall = smoothstep(0.64, 0.655, pn * low + 0.04) * vert * outside;
+    float lip = smoothstep(0.62, 0.64, pn * low + 0.04) * (1.0 - spall) * vert * outside;
     float course = abs(fract(vPW.y / 0.22) - 0.5);
     vec3 rubble = mix(vec3(0.46, 0.41, 0.34), vec3(0.62, 0.56, 0.46), pNoise(vPW * 5.0))
                 * mix(0.55, 1.0, smoothstep(0.03, 0.08, course));
