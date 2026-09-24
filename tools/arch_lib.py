@@ -1073,11 +1073,17 @@ def lantern(t, x, y, z0=0.0, h=3.1, wall=False, kind='accent'):
     if not wall:
         out.append(box("lamp_base", (x, y, z0 + 0.09), (0.17, 0.17, 0.09),
                        M["stone"], bevel=0.03, seg=1))
+        # CAST IRON: a flared foot, a collar, a slim shaft and a ring under
+        # the head -- the silhouette of a street lamp rather than a broom
         out.append(K.tube("lamp_post", K.dome([
-            {"p": Vector((x, y, z0 + 0.12)), "r": (0.065, 0.065), "n": 2.6},
-            {"p": Vector((x, y, z0 + h * 0.62)), "r": (0.052, 0.052), "n": 2.6},
-            {"p": Vector((x, y, z0 + h - 0.30)), "r": (0.048, 0.048), "n": 2.6},
-        ], at="both", steps=2, height=0.04), seg=10, mat=M["timber"], squircle=2.6))
+            {"p": Vector((x, y, z0 + 0.16)), "r": (0.15, 0.15), "n": 2.0},
+            {"p": Vector((x, y, z0 + 0.42)), "r": (0.075, 0.075), "n": 2.0},
+            {"p": Vector((x, y, z0 + 0.52)), "r": (0.10, 0.10), "n": 2.0},
+            {"p": Vector((x, y, z0 + 0.60)), "r": (0.058, 0.058), "n": 2.0},
+            {"p": Vector((x, y, z0 + h - 0.42)), "r": (0.045, 0.045), "n": 2.0},
+            {"p": Vector((x, y, z0 + h - 0.36)), "r": (0.085, 0.085), "n": 2.0},
+            {"p": Vector((x, y, z0 + h - 0.30)), "r": (0.05, 0.05), "n": 2.0},
+        ], at="both", steps=2, height=0.03), seg=12, mat=M["iron"], squircle=2.0))
     zz = z0 + h
     # THE HEAD IS A CAGE, NOT A CARTON. It was a single bevelled box of the
     # unlit `lamp` material: at any distance a plain cream cube on a stick, and
@@ -1088,14 +1094,18 @@ def lantern(t, x, y, z0=0.0, h=3.1, wall=False, kind='accent'):
     out.append(box("lamp_glass", (x, y, zz - 0.12), (0.125, 0.125, 0.150),
                    M["lamp"], bevel=0.02, seg=1))
     out.append(box("lamp_sill", (x, y, zz - 0.28), (0.155, 0.155, 0.032),
-                   M["brass"], bevel=0.02, seg=1))
+                   M["iron"], bevel=0.02, seg=1))
     for sx in (-1, 1):
         for sy in (-1, 1):
             out.append(box("lamp_mullion",
                            (x + sx * 0.128, y + sy * 0.128, zz - 0.12),
-                           (0.022, 0.022, 0.152), M["brass"], bevel=0.006, seg=1))
+                           (0.022, 0.022, 0.152), M["iron"], bevel=0.006, seg=1))
     out.append(box("lamp_cap", (x, y, zz + 0.07), (0.175, 0.175, 0.045),
-                   M["brass"], bevel=0.025, seg=1))
+                   M["iron"], bevel=0.025, seg=1))
+    out.append(K._new_obj("lamp_roof", [Vector((x - 0.2, y - 0.2, zz + 0.10)), Vector((x + 0.2, y - 0.2, zz + 0.10)),
+                                        Vector((x + 0.2, y + 0.2, zz + 0.10)), Vector((x - 0.2, y + 0.2, zz + 0.10)),
+                                        Vector((x, y, zz + 0.30))],
+                          [(0, 1, 4), (1, 2, 4), (2, 3, 4), (3, 0, 4), (0, 3, 2, 1)], mat=M["iron"], smooth=False))
     out.append(K.blob("lamp_finial", (x, y, zz + 0.15), (0.055, 0.055, 0.075),
                       None, M["brass"], seg=10, rings=7))
     t.add(*out)
@@ -1495,6 +1505,38 @@ def building(t, cx, cy, w, d, storeys=2, yaw=0.0, plaster="plaster_a",
     ch = F.chimney(t, chx, 0.10 * d, h + 0.27 + roof_h * 0.35, roof_h * 0.95 + 0.45)
     out += ch
     t.add(*ch)
+
+    # RAINWATER: a half-round gutter along each eave and an iron downpipe to
+    # the ground at one corner of the front and back -- the plumbing is most
+    # of what tells the eye that a wall is a building's and not a set's
+    rain = []
+    if not gable_front:
+        for sy in (-1, 1):
+            ey = sy * (d / 2 + 0.30)
+            rain.append(K.tube("gutter", [
+                {"p": Vector((-w / 2 - 0.26, ey, h + 0.20)), "r": (0.065, 0.05), "n": 2.0},
+                {"p": Vector((w / 2 + 0.26, ey, h + 0.20)), "r": (0.065, 0.05), "n": 2.0}],
+                seg=8, mat=M["iron"], up=(0, 0, 1)))
+    for sy in (-1, 1):
+        px = (w / 2 - 0.62) * (1 if (seed + (sy > 0)) % 2 else -1)
+        py = sy * (d / 2 + 0.07)
+        rain.append(K.tube("downpipe", [
+            {"p": Vector((px, py, 0.08)), "r": (0.055, 0.055), "n": 2.0},
+            {"p": Vector((px, py, h + 0.02)), "r": (0.045, 0.045), "n": 2.0}],
+            seg=8, mat=M["iron"], up=(0, 1, 0)))
+        rain.append(box("pipe_hopper", (px, py, h + 0.08), (0.10, 0.08, 0.09), M["iron"], bevel=0.015, seg=1))
+        rain.append(box("pipe_shoe", (px, sy * (d / 2 + 0.14), 0.10), (0.07, 0.10, 0.05), M["iron"], bevel=0.01, seg=1))
+        for k in range(1, int(h / 1.6) + 1):
+            rain.append(box("pipe_clip", (px, sy * (d / 2 + 0.035), k * 1.6), (0.07, 0.035, 0.025), M["iron"],
+                            bevel=0.006, seg=1))
+    # the flagstone apron where a building meets the street
+    # (each at its own hair of height: two aprons meet in every alley, and
+    # coplanar they would z-fight)
+    rain.append(F.slab("apron", -w / 2 - 0.62, w / 2 + 0.62, -d / 2 - 0.62, d / 2 + 0.62, 0.0,
+                       0.016 + 0.003 * (seed % 5),
+                       M["flagstone_tex"] if "flagstone_tex" in M else M["stone"]))
+    out += rain
+    t.add(*rain)
 
     # the ground floor's trade, and what hangs off the upper storeys
     for o in face_ops['front']:
