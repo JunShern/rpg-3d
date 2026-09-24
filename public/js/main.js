@@ -358,7 +358,9 @@ function applyTownLook(root) {
     // THE FAR RIDGES ARE PAINTED TOO in the painted look -- they were flat
     // colour so a cel ramp could not band them; lit and hazed by the air pass
     // they become the layered blue hills a valley should end in
-    const flat = TOWN_FLAT.has(name) && !(LOOK.painted && /^ridge_/.test(name));
+    // ...and GLASS is real glass in the painted look: dark, reflecting the sky
+    // (it was a flat pale blue -- a sticker where a window should be)
+    const flat = TOWN_FLAT.has(name) && !(LOOK.painted && (/^ridge_/.test(name) || name === 'glass'));
     SURFACES.push({ mesh: m, flat, color: base, opts });
     m.material = flat ? flatMaterial(base) : surfaceMaterial(LOOK, base, opts);
     // WINDOWS LIGHT UP AT DUSK -- see the hour loop. Kept by reference so a
@@ -3078,7 +3080,8 @@ function frame(dt) {
     for (const g of WINDOWS) {
       const mat = g.mesh.material;
       if (!mat || !mat.color) continue;
-      mat.color.copy(g.day).lerp(_winLit, w);
+      if (mat.emissive) mat.emissive.copy(_winLit).multiplyScalar(w * 0.55);
+      else mat.color.copy(g.day).lerp(_winLit, w);
     }
     const lk = 0.28 + 1.9 * THREE.MathUtils.smoothstep(hr, 0.35, 0.9);
     for (const g of LAMP_HEADS) {

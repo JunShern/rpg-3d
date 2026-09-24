@@ -22,7 +22,19 @@ const ONLY = process.env.ONLY ? process.env.ONLY.split(',').map(Number) : null;
 
 // Gameplay-camera views use the player's own rig (warp + orbit); `cam` views
 // are free cameras for vistas the rig cannot reach.
-export const VIEWS = [
+// SET=town swaps in the town views, for the town rebuild
+const TOWN_VIEWS = [
+  { name: 'plaza',        warp: [0.6, 0, 5.6], az: 0, polar: 1.14, dist: 7.0, hour: 0.15 },
+  { name: 'facade-east',  warp: [6.0, 0, 2.0], az: -1.2, polar: 1.32, dist: 6.5, hour: 0.15 },
+  { name: 'facade-west',  warp: [-6.0, 0, 0.0], az: 1.4, polar: 1.32, dist: 6.5, hour: 0.15 },
+  { name: 'tower-foot',   warp: [-1.0, 0, 6.0], az: 3.14, polar: 1.40, dist: 8.0, hour: 0.15 },
+  { name: 'town-high',    cam: [[16, 14, -12], [-2, 3, 8], 50], warp: [0, 0, 0], hour: 0.15 },
+  { name: 'gate-in',      warp: [-1.0, 0, -14.0], az: 3.14, polar: 1.30, dist: 7.0, hour: 0.15 },
+  { name: 'street-low',   cam: [[8, 1.6, -6], [-4, 3.5, 4], 55], warp: [8, 0, -6], hour: 0.15 },
+  { name: 'plaza-dusk',   warp: [0.6, 0, 5.6], az: 0.6, polar: 1.20, dist: 8.0, hour: 0.93 },
+  { name: 'roofs',        cam: [[-14, 12, 14], [4, 5, -4], 50], warp: [0, 0, 0], hour: 0.15 },
+];
+export const VIEWS_ALL = [
   { name: 'meadow-ford',  warp: [-1.0, 0, -41.0], az: -0.55, polar: 1.30, dist: 9.0, hour: 0.15 },
   { name: 'ruin',         warp: [-14.0, 6, -50.0], az: 0.0, polar: 1.28, dist: 9.5, hour: 0.15 },
   { name: 'plaza',        warp: [0.6, 0, 5.6], az: 0, polar: 1.14, dist: 7.0, hour: 0.15 },
@@ -38,6 +50,7 @@ export const VIEWS = [
 // -- which made every capture take 100 s and made frame rates meaningless.
 // ANGLE-on-Metal gives it the machine's actual GPU.
 export const GPU_ARGS = ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'];
+const VIEWS = process.env.SET === 'town' ? TOWN_VIEWS : VIEWS_ALL;
 const b = await chromium.launch({ args: GPU_ARGS });
 const pg = await b.newPage({ viewport: { width: W, height: H } });
 pg.setDefaultTimeout(180000);

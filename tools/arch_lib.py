@@ -23,6 +23,7 @@ import math
 from mathutils import Vector
 
 import geo_lib as K
+import facade_lib as F
 
 FLOOR_H = 3.05          # storey height
 ROOM_WALL = 0.34        # wall thickness where a building is hollow
@@ -46,15 +47,23 @@ def palette():
     ramp's MIDTONE, so they run brighter and more saturated than a PBR albedo
     would: the ramp darkens the shadow band hard and mud is unrecoverable."""
     spec = {
-        "plaster_a": (0.95, 0.87, 0.73),
-        "plaster_b": (0.93, 0.75, 0.58),
-        "plaster_c": (0.80, 0.84, 0.86),
-        "plaster_d": (0.88, 0.70, 0.66),
-        "timber":    (0.40, 0.26, 0.18),
-        "roof_a":    (0.80, 0.36, 0.26),
-        "roof_b":    (0.36, 0.44, 0.58),
-        "roof_c":    (0.72, 0.44, 0.30),
-        "stone":     (0.78, 0.75, 0.70),
+        # WEATHERED, NOT PASTEL. These were toon midtones -- candy cream, pink,
+        # powder blue -- and under real light the town read as a toy shop.
+        # Lime plaster that has seen weather: cream, ochre, grey, faded rose.
+        "plaster_a": (0.88, 0.80, 0.66),
+        "plaster_b": (0.84, 0.64, 0.44),
+        "plaster_c": (0.76, 0.75, 0.69),
+        "plaster_d": (0.82, 0.60, 0.52),
+        "timber":    (0.34, 0.22, 0.15),
+        "roof_a":    (0.64, 0.29, 0.19),
+        "roof_b":    (0.34, 0.36, 0.42),
+        "roof_c":    (0.70, 0.43, 0.27),
+        "stone":     (0.74, 0.70, 0.63),
+        # painted shutters and doors: each building takes one
+        "shutter_a": (0.22, 0.36, 0.27),
+        "shutter_b": (0.21, 0.31, 0.44),
+        "shutter_c": (0.47, 0.19, 0.15),
+        "shutter_d": (0.30, 0.40, 0.40),
         # paving runs DARKER than instinct suggests: it fills most of the frame,
         # and a light grey ground under a strong key blows to white and drags
         # every facade toward pastel with it
@@ -1376,39 +1385,35 @@ def building(t, cx, cy, w, d, storeys=2, yaw=0.0, plaster="plaster_a",
     # painted door leaf standing in the wall beside it.
     door_x = -w / 2 + w * (bays // 2 + 0.5) / bays
 
-    out.append(box("bld_plinth", (0, 0, 0.16), (w / 2 + 0.10, d / 2 + 0.10, 0.16),
-                   M["stone"], bevel=0.05, seg=2))
+    FT = F.FT
+    hw, hd = w / 2, d / 2
+    top_z = h + 0.16                                  # the eave line
+    gz1 = 0.16 + GROUND_H
+    shutter = M[("shutter_a", "shutter_b", "shutter_c", "shutter_d")[seed % 4]]
     if not room:
-        out.append(box("bld_body", (0, 0, h / 2 + 0.16), (w / 2, d / 2, h / 2),
-                       M[plaster], bevel=0.06, seg=2))
+        # THE CORE, inset by the wall thickness on every side: the facades
+        # below are a skin with real holes, and this is what you see through
+        # them (see facade_lib)
+        out.append(F.slab("bld_core", -hw + FT, hw - FT, -hd + FT, hd - FT, 0.0, top_z, M[plaster]))
     else:
         # THE GROUND STOREY IS HOLLOW, and only the ground storey. Everything
-        # above it stays one solid block, which is most of the mass and all of
-        # the silhouette -- nine facades do not change because one of them has
-        # a room behind its door.
-        #
-        # The belltower is the template for all of this: four walls with a gap
-        # in one of them, a floor declared as a platform, wall solids instead of
-        # one footprint box, and a lamp near enough to matter. What is different
-        # here is the size. The tower's shaft is 4.9 m across and the camera had
-        # to be confined to a well; this room is 9.4 x 7.4, which is wider than
-        # the boom is long, so the ordinary solve works.
-        gz0, gz1 = 0.16, 0.16 + GROUND_H
+        # above it is the core and the skin, like every other building.
+        gz0 = 0.16
         th = ROOM_WALL
         ix, iy = w / 2 - th, d / 2 - th          # the interior, in local space
-        out.append(box("bld_body", (0, 0, (gz1 + h + 0.16) / 2),
-                       (w / 2, d / 2, (h + 0.16 - gz1) / 2),
-                       M[plaster], bevel=0.06, seg=2))
+        out.append(F.slab("bld_core", -hw + FT, hw - FT, -hd + FT, hd - FT, gz1, top_z, M[plaster]))
+        out.append(box("bld_ceiling", (0, 0, gz1 - 0.08), (ix, iy, 0.08), M["timber"], bevel=0.02, seg=1))
+        out.append(box("bld_plinth", (0, 0, 0.16), (w / 2 + 0.10, d / 2 + 0.10, 0.16),
+                       M["stone"], bevel=0.05, seg=2))
         for sx in (-1, 1):                        # the two side walls
             out.append(box("bld_wall_x", (sx * (ix + w / 2) / 2, 0, (gz0 + gz1) / 2),
                            (th / 2, d / 2, (gz1 - gz0) / 2), M[plaster],
                            bevel=0.05, seg=2))
         out.append(box("bld_wall_back", (0, (iy + d / 2) / 2, (gz0 + gz1) / 2),
                        (ix, th / 2, (gz1 - gz0) / 2), M[plaster], bevel=0.05, seg=2))
-        # the front wall, split around the doorway
         for sgn in (-1, 1):
-            edge = sgn * ix                      # the wall's own end
-            near = door_x + sgn * ROOM_DOOR      # the near side of the opening
+            edge = sgn * ix
+            near = door_x + sgn * ROOM_DOOR
             out.append(box("bld_wall_front", ((edge + near) / 2, -(iy + d / 2) / 2,
                                               (gz0 + gz1) / 2),
                            (abs(edge - near) / 2, th / 2, (gz1 - gz0) / 2),
@@ -1417,112 +1422,90 @@ def building(t, cx, cy, w, d, storeys=2, yaw=0.0, plaster="plaster_a",
         out.append(box("bld_lintel", (door_x, -(iy + d / 2) / 2, (lz + gz1) / 2),
                        (ROOM_DOOR, th / 2, (gz1 - lz) / 2), M[plaster],
                        bevel=0.05, seg=2))
-        for sxx in (-1, 1):                       # a cut-stone surround
-            out.append(box("bld_jamb", (door_x + sxx * (ROOM_DOOR + 0.09),
-                                        -d / 2 + 0.02, (ROOM_FLOOR + lz) / 2),
-                           (0.09, 0.07, (lz - ROOM_FLOOR) / 2), M["stone"],
-                           bevel=0.03, seg=1))
-        out.append(box("bld_jamb", (door_x, -d / 2 + 0.02, lz + 0.11),
-                       (ROOM_DOOR + 0.18, 0.07, 0.14), M["stone"], bevel=0.03, seg=1))
-        # THE FLOOR SITS ON THE PLINTH, at 0.32, not at the wall foot at 0.16 --
-        # the plinth is a solid course 32 cm deep under the whole footprint, so
-        # a floor at 0.16 would be buried in it. One step outside brings the
-        # plaza up in two 16 cm rises instead of one 32 cm one, which the
-        # runtime would allow and nobody would have authored.
+        # a cut-stone surround with a keystone, as on every other door
+        F.surround(out, M, door_x - ROOM_DOOR, door_x + ROOM_DOOR, ROOM_FLOOR, lz, d / 2,
+                   keystone=True, sill=False, head=0.24)
+        # and the stone base course round the hollow storey, as round the rest
+        for sgn in (-1, 1):
+            edge = sgn * (ix + th)
+            near = door_x + sgn * ROOM_DOOR
+            out.append(F.slab("base", edge + sgn * 0.05, near, -hd - 0.05, -hd + 0.10, 0.0, 0.95, M["stone"]))
+        out.append(F.slab("base", -hw - 0.05, hw + 0.05, hd - 0.10, hd + 0.05, 0.0, 0.95, M["stone"]))
+        for sx in (-1, 1):
+            out.append(F.slab("base", sx * (hw - 0.10), sx * (hw + 0.05), -hd - 0.05, hd + 0.05, 0.0, 0.95,
+                              M["stone"]))
         out.append(box("bld_floor", (0, 0, ROOM_FLOOR - 0.035), (ix, iy, 0.035),
                        M["flagstone_tex"] if "flagstone_tex" in M else M["stone"],
                        bevel=0.02, seg=1))
         out.append(box("bld_step", (door_x, -(d / 2 + 0.34), 0.08),
                        (ROOM_DOOR + 0.22, 0.24, 0.08), M["stone"], bevel=0.03, seg=1))
 
-    # storey bands: a shadow line every floor keeps a tall facade from reading
-    # as one undifferentiated slab under flat toon shading
+    # FOUR FACES, each a skin with its openings cut through it. The side faces
+    # stop short of the corners, which the front and back skins own.
+    door_bay = bays // 2
+    z_lo = gz1 if room else 0.0
+    face_ops = {}
+    for face, fw, fd in (('front', w, d), ('back', w, d), ('left', d, w), ('right', d, w)):
+        kind = face if face in ('front', 'back') else 'side'
+        ops = F.facade_plan(kind, fw, storeys, GROUND_H, FLOOR_H,
+                            bays if kind != 'side' else 1, seed, shop, room, door_bay)
+        ops = [o for o in ops if o['zb'] >= z_lo - 1e-3]
+        span = fw / 2 if kind != 'side' else fw / 2 - FT
+        pieces = []
+        F.build_face(pieces, M, face, span, fd / 2, z_lo, top_z, plaster, ops, shutter)
+        F.quoins(pieces, M, fw / 2, fd / 2, max(0.95, z_lo), top_z - 0.1)
+        F.rotate_face(pieces, face)
+        out += pieces
+        face_ops[face] = ops
+        t.add(*pieces)
+
+    # string courses between storeys: a thin projecting stone band
     for f in range(1, storeys):
         z = 0.16 + GROUND_H + FLOOR_H * (f - 1)
-        out.append(box("bld_band", (0, 0, z), (w / 2 + 0.06, d / 2 + 0.06, 0.075),
-                       M["timber"], bevel=0.025, seg=1))
+        out.append(box("bld_band", (0, 0, z), (w / 2 + 0.055, d / 2 + 0.055, 0.06),
+                       M["stone"], bevel=0.02, seg=1))
 
-    # cornice + roof
-    out.append(box("bld_cornice", (0, 0, h + 0.16), (w / 2 + 0.16, d / 2 + 0.16, 0.11),
-                   M["stone"], bevel=0.04, seg=1))
-    # GABLE TO THE STREET on some of them. A reviewer counted one building
-    # recipe used nine times, and the roof ridge running the same way every time
-    # is most of why: turn the prism a quarter and the same building has a
-    # completely different silhouette from the square.
+    # a stepped cornice under the eaves
+    out.append(box("bld_cornice", (0, 0, top_z - 0.04), (w / 2 + 0.08, d / 2 + 0.08, 0.07),
+                   M["stone"], bevel=0.02, seg=1))
+    out.append(box("bld_cornice", (0, 0, top_z + 0.07), (w / 2 + 0.16, d / 2 + 0.16, 0.05),
+                   M["stone"], bevel=0.02, seg=1))
+
+    # THE ROOF: tiles, not a prism. Same pitch, overhang and ridge height as the
+    # prism it replaces, so the roof route and every lead on it still lines up.
+    slate = roof == "roof_b"
     if gable_front:
-        out.append(prism("bld_roof", (0, 0, h + 0.27), d, w, roof_h * 1.25,
-                         M[roof], over_y=0.26, over_x=0.30))
-        K.transform(out[-1], rotate=(0, 0, 90), around=(0, 0, 0))
+        rp = F.tiled_roof(t, h + 0.27, d, w, roof_h * 1.25, 0.26, 0.30, M[roof], M[plaster], slate=slate)
+        for o in rp:
+            K.transform(o, rotate=(0, 0, 90), around=(0, 0, 0))
     else:
-        out.append(prism("bld_roof", (0, 0, h + 0.27), w, d, roof_h, M[roof],
-                         over_y=0.30, over_x=0.26))
+        rp = F.tiled_roof(t, h + 0.27, w, d, roof_h, 0.26, 0.30, M[roof], M[plaster], slate=slate)
+    out += rp
+    t.add(*rp)
 
-    # chimney, offset so the roofline is never symmetrical
     chx = (0.22 if seed % 2 else -0.28) * w
-    out.append(box("bld_chimney", (chx, 0.10 * d, h + 0.30 + roof_h * 0.72),
-                   (0.24, 0.24, roof_h * 0.62), M["stone"], bevel=0.04, seg=1))
+    ch = F.chimney(t, chx, 0.10 * d, h + 0.27 + roof_h * 0.35, roof_h * 0.95 + 0.45)
+    out += ch
+    t.add(*ch)
 
-    # ground floor: a door, or a shopfront with an awning
-    door_bay = bays // 2
-    for b in range(bays):
-        bx = -w / 2 + w * (b + 0.5) / bays
-        if b == door_bay:
-            # a hollow building has a real opening here, not a painted leaf
-            if not room:
-                out += doorway(t, bx, y0, 0.16)
-            if shop:
-                out += awning(t, bx, y0, 0.16 + 2.35, w=min(1.9, w / bays * 0.95))
-                out += shopsign(t, bx + min(1.5, w / bays * 0.8), y0,
-                                0.16 + 3.05, kind=seed)
-        elif shop:
-            out += shopfront(t, bx, y0, 0.16 + 1.55,
-                             w=min(2.0, w / bays * 0.86), kind=seed)
-            continue
-        else:
-            out += window(t, bx, y0, 0.16 + 1.75)
-
-    # UPPER STOREYS. Every one of these used to be `window(t, bx, y0, z)` --
-    # the same pane at the same spacing on every floor of all nine buildings,
-    # which is the single thing that makes a town read as one recipe run nine
-    # times no matter how much the ground floors differ. Three rules, all keyed
-    # off the building's seed and the bay index so they are stable per building
-    # and different between buildings:
-    #
-    #   * ONE BAY PER BUILDING gets a balcony, on the first floor only. It is
-    #     the only thing above the string course that PROJECTS, and a facade
-    #     needs something breaking its plane or the storey bands are doing all
-    #     the work alone.
-    #   * a couple of bays get a flower box -- four pixels of warm colour, and
-    #     the only warm accent above the ground floor.
-    #   * the TOP storey of a tall building gets short attic panes with no
-    #     shutters, because the floor under a roof is a loft and lofts have
-    #     smaller windows. This is what actually breaks the vertical repeat.
-    for f in range(1, storeys):
-        z = 0.16 + GROUND_H + FLOOR_H * (f - 1) + FLOOR_H * 0.52
-        attic = (f == storeys - 1) and storeys >= 3
-        wh = 0.66 if attic else 0.92
-        balc_bay = (seed + 1) % bays
-        for b in range(bays):
-            bx = -w / 2 + w * (b + 0.5) / bays
-            out += window(t, bx, y0, z, h=wh, shutters=not attic)
-            if not attic and b == balc_bay and f == 1:
-                out += balcony(t, bx, y0, z - wh / 2 - 0.10,
-                               w=min(1.15, w / bays * 0.82))
-            elif not attic and (b + seed) % 3 == 1:
-                out += flowerbox(t, bx, y0, z - wh / 2 - 0.08,
-                                 w=min(0.72, w / bays * 0.5))
-            # the rear elevation is an alley: plainer, and no balcony over it
-            out += window(t, bx, d / 2, z, h=wh, shutters=False)
-        # side elevations get one window per storey so alleys are not blank
-        for s in (-1, 1):
-            wob = window(t, 0, -d * 0, z, w=0.5, h=0.8, shutters=False)
-            for o in wob:
-                K.transform(o, rotate=(0, 0, 90 * s), around=(0, 0, 0),
-                            translate=(s * (w / 2), 0, 0))
-            out += wob
+    # the ground floor's trade, and what hangs off the upper storeys
+    for o in face_ops['front']:
+        cxo = (o['x0'] + o['x1']) / 2
+        if o['kind'] == 'door' and shop:
+            out += awning(t, cxo, y0, 3.12, w=min(1.9, w / bays * 0.95))
+            out += shopsign(t, cxo + min(1.5, w / bays * 0.8), y0, 3.35, kind=seed)
+        elif o['kind'] == 'shop':
+            out += awning(t, cxo, y0, 3.30, w=o['x1'] - o['x0'] + 0.35)
+        elif o.get('balcony'):
+            out += balcony(t, cxo, y0, o['zb'], w=min(1.35, o['x1'] - o['x0'] + 0.45))
+        elif o.get('flowers'):
+            out += flowerbox(t, cxo, y0 - 0.06, o['zb'] - 0.02, w=o['x1'] - o['x0'] + 0.08)
+    if room and shop:
+        out += awning(t, door_x, y0, 3.12, w=min(1.9, w / bays * 0.95))
+        out += shopsign(t, door_x + min(1.5, w / bays * 0.8), y0, 3.35, kind=seed)
 
     if storeys >= 2:
-        out += banner(t, w * 0.30, y0, 0.16 + GROUND_H + 0.55,
+        out += banner(t, w * 0.30, y0 - 0.02, 0.16 + GROUND_H + 0.55,
                       mat="awning" if seed % 2 else "roof_b")
 
     for o in out:

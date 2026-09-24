@@ -155,9 +155,13 @@ float pFbm(vec3 x) {
 //   rough, metal, env         the BRDF and how much sky light it takes
 const RECIPES = {
   // --- stone and ground -------------------------------------------------
-  cobble:    { hue: [0.16, 0.45], bump: [0.10, 5.0], mapBump: 1.4, moss: 0.10, rough: 0.82, env: 0.9 },
-  flagstone: { hue: [0.14, 0.40], bump: [0.10, 4.0], mapBump: 1.2, moss: 0.08, rough: 0.80, env: 0.9 },
-  ring:      { hue: [0.12, 0.40], bump: [0.08, 4.0], mapBump: 1.2, rough: 0.78, env: 0.9 },
+  // PAVING IS PROCEDURAL: see PAVE below. The builder's Voronoi texture drew
+  // stones a third of a metre across in one blue-grey, tiled every 3.2 m --
+  // toy bricks, not a street.
+  cobble:    { hue: [0.08, 0.35], rough: 0.82, env: 0.85, pave: 1 },
+  cobble_b:  { hue: [0.08, 0.35], rough: 0.82, env: 0.85, pave: 1 },
+  flagstone: { hue: [0.10, 0.40], rough: 0.80, env: 0.85, pave: 2 },
+  ring:      { hue: [0.10, 0.40], rough: 0.78, env: 0.85, pave: 2 },
   stone:     { hue: [0.22, 0.55], bump: [0.70, 1.4], mapBump: 0.7, mapFade: 0.35, moss: 0.45, grime: 0.25, rough: 0.88, env: 0.85 },
   rock:      { hue: [0.30, 0.30], bump: [1.5, 0.55], mapBump: 0.4, mapFade: 0.7, moss: 0.70, rough: 0.92, env: 0.8, tint: [0.62, 0.60, 0.56] },
   // the far ranges: dark forested hills that the air pass turns blue
@@ -183,11 +187,18 @@ const RECIPES = {
   roof_c:    { hue: [0.18, 0.35], bump: [0.06, 5.0], mapBump: 1.6, moss: 0.22, rough: 0.72, env: 1.0 },
   timber:    { hue: [0.16, 0.9], bump: [0.30, 2.2], mapBump: 0.8, streak: 1, grime: 0.2, rough: 0.78, env: 0.9 },
   door:      { hue: [0.10, 0.9], bump: [0.20, 2.2], streak: 1, rough: 0.6, env: 1.0 },
-  awning:    { hue: [0.08, 1.5], bump: [0.04, 9.0], rough: 0.9, env: 1.0, glow: 0.35 },
+  // striped canvas, stripes running down the fall of the cloth
+  awning:    { hue: [0.08, 1.5], bump: [0.04, 9.0], rough: 0.9, env: 0.9, glow: 0.35, stripe: 1,
+               tint: [0.82, 0.72, 0.70] },
   cloth:     { hue: [0.08, 1.5], bump: [0.04, 9.0], rough: 0.9, env: 1.0, glow: 0.3 },
   brass:     { hue: [0.08, 3.0], rough: 0.32, metal: 0.85, env: 1.4 },
   iron:      { hue: [0.12, 3.0], bump: [0.10, 6.0], rough: 0.55, metal: 0.7, env: 1.2 },
-  glass:     { rough: 0.08, metal: 0.0, env: 2.0 },
+  // dark and reflective: what a window is from outside in daylight
+  glass:     { rough: 0.10, metal: 0.0, env: 0.9, tint: [0.12, 0.12, 0.13] },
+  shutter_a: { hue: [0.12, 1.4], bump: [0.18, 5.0], streak: 1, grime: 0.2, rough: 0.7, env: 0.9 },
+  shutter_b: { hue: [0.12, 1.4], bump: [0.18, 5.0], streak: 1, grime: 0.2, rough: 0.7, env: 0.9 },
+  shutter_c: { hue: [0.12, 1.4], bump: [0.18, 5.0], streak: 1, grime: 0.2, rough: 0.7, env: 0.9 },
+  shutter_d: { hue: [0.12, 1.4], bump: [0.18, 5.0], streak: 1, grime: 0.2, rough: 0.7, env: 0.9 },
   // --- growing ----------------------------------------------------------
   bark:      { hue: [0.18, 0.8], bump: [0.60, 3.2], streak: 1, moss: 0.35, rough: 0.9, env: 0.7 },
   bark_dead: { hue: [0.14, 0.8], bump: [0.60, 3.2], streak: 1, moss: 0.15, rough: 0.9, env: 0.7 },
@@ -252,7 +263,7 @@ uniform vec3 uSunDir;
 uniform vec3 uSunCol;
 uniform vec2 uHue;
 uniform vec2 uBump;
-uniform float uMapBump, uMoss, uStreak, uGrime, uGlow, uField, uFoliage, uMapFade, uWater, uForest;
+uniform float uMapBump, uMoss, uStreak, uGrime, uGlow, uField, uFoliage, uMapFade, uWater, uForest, uPave, uStripe;
 uniform sampler2D uFieldMap;
 uniform vec3 uRoomLo[8];
 uniform vec3 uRoomHi[8];
@@ -277,6 +288,21 @@ uniform vec4 uRect;
 uniform float uTime;
 ${NOISE_GLSL}
 
+// 2D cellular noise: (F1, F2, cell id, and the vector to the nearest centre)
+vec4 pVor(vec2 x, out vec2 toC) {
+  vec2 n = floor(x), f = fract(x);
+  float F1 = 8.0, F2 = 8.0, id = 0.0;
+  toC = vec2(0.0);
+  for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) {
+    vec2 g = vec2(float(i), float(j));
+    vec2 o = vec2(pHash(vec3(n + g, 1.7)), pHash(vec3(n + g, 7.3))) * 0.8 + 0.1;
+    vec2 r = g + o - f;
+    float d = dot(r, r);
+    if (d < F1) { F2 = F1; F1 = d; id = pHash(vec3(n + g, 3.1)); toC = r; }
+    else if (d < F2) { F2 = d; }
+  }
+  return vec4(sqrt(F1), sqrt(F2), id, 0.0);
+}
 // three's arbitrary-surface bump (bumpmap_pars_fragment), for the texture's
 // own height field -- the one place a screen-space derivative is the right tool
 vec3 pPerturb(vec3 surf_pos, vec3 surf_norm, vec2 dHdxy, float faceDir) {
@@ -309,6 +335,7 @@ vec3 pWN = normalize(vPN) * (gl_FrontFacing ? 1.0 : -1.0);
 vec3 pQ = vPW * vec3(1.0, mix(1.0, 0.18, uStreak), 1.0);
 float pH0 = 0.5;
 float pBumpK = 1.0;
+vec3 pPaveTilt = vec3(0.0);
 {
   // BROAD VARIATION. Two scales: patches the size of the hue scale, and a
   // finer mottle at 4x. Applied as a multiply around 1 so it varies the value
@@ -360,6 +387,51 @@ float pBumpK = 1.0;
               * (1.0 - smoothstep(10.0, 28.0, pDist));
     vec3 fc = mix(vec3(1.0, 0.95, 0.75), vec3(0.95, 0.55, 0.75), step(0.5, pNoise(vPW * 0.7)));
     diffuseColor.rgb = mix(diffuseColor.rgb, fc, flw * 0.85);
+  }
+
+  // PAVING. Cobbles (pave 1): fist-sized stones in a spread of warm greys and
+  // browns, each with its own tone, set in dark earth that grows moss where
+  // nobody walks. Flags (pave 2): large rectangular slabs in running bond.
+  if (uPave > 0.5 && pWN.y > 0.6) {
+    vec2 q = vPW.xz;
+    float gap, id;
+    vec2 toC = vec2(0.0);
+    if (uPave < 1.5) {
+      vec4 v = pVor(q / 0.16, toC);
+      gap = v.y - v.x;
+      id = v.z;
+    } else {
+      vec2 g = q / vec2(0.78, 0.52);
+      float row = floor(g.y);
+      g.x += row * 0.5 + pHash(vec3(row, 2.0, 5.0)) * 0.3;
+      vec2 c = fract(g) - 0.5;
+      id = pHash(vec3(floor(g), 9.0));
+      gap = min(0.5 - abs(c.x), (0.5 - abs(c.y)) * 0.67) * 1.3;
+      toC = -c * vec2(0.78, 0.52);
+    }
+    float stoneK = smoothstep(0.06, 0.13, gap);
+    vec3 warm = vec3(0.36, 0.31, 0.25), cool = vec3(0.31, 0.30, 0.29), dark = vec3(0.22, 0.20, 0.17);
+    vec3 sc = mix(mix(cool, warm, smoothstep(0.2, 0.7, id)), dark, step(0.82, id) * 0.8);
+    sc *= 0.86 + 0.28 * pNoise(vPW * 2.3 + id * 17.0);
+    // wear: stones on the walked line are polished paler; the edges of the
+    // square, where nobody walks, collect moss in the joints
+    float traffic = 1.0 - smoothstep(4.0, 12.0, length(vPW.xz - vec2(0.0, -0.5)));
+    sc = mix(sc, sc * 1.12 + 0.02, traffic * 0.5);
+    float mossy = smoothstep(0.35, 0.8, pFbm(vPW * 0.6 + 4.0)) * (1.0 - traffic);
+    vec3 joint = mix(vec3(0.10, 0.085, 0.07), vec3(0.16, 0.22, 0.09), mossy);
+    diffuseColor.rgb = mix(joint, sc, stoneK);
+    pH0 = stoneK;
+    pPaveTilt = vec3(toC.x, 0.0, toC.y) / max(0.05, length(toC)) * (1.0 - smoothstep(0.05, 0.28, gap)) * 0.55;
+  }
+
+  // CANVAS STRIPES: across the cloth's width, which is the horizontal line
+  // lying in its surface -- so on an awning they run down the slope
+  if (uStripe > 0.5) {
+    vec3 tng = cross(vec3(0.0, 1.0, 0.0), pWN);
+    tng = length(tng) < 0.2 ? vec3(1.0, 0.0, 0.0) : normalize(tng);
+    float u = dot(vPW, tng) / 0.26;
+    float st = smoothstep(0.46, 0.54, abs(fract(u) - 0.5) * 2.0);
+    diffuseColor.rgb = mix(vec3(0.80, 0.75, 0.64), diffuseColor.rgb * 0.85, st);
   }
 
   // THE FAR HILLS: stripes of forest and clearing, too far off to model
@@ -441,6 +513,8 @@ const FRAG_NORMAL = /* glsl */`
     grad -= dot(grad, nW) * nW;              // tangential part only
     nW = normalize(nW - grad * uBump.x * pBumpK * 0.35 * fade);
   }
+  // each cobble is domed: its normal leans away from its centre at the edges
+  if (uPave > 0.5) nW = normalize(nW - pPaveTilt * (1.0 - smoothstep(10.0, 30.0, pDist)));
   normal = normalize((viewMatrix * vec4(nW, 0.0)).xyz);
   // THE TEXTURE AS A HEIGHT FIELD. The cobble and tile images are dark in the
   // gaps and light on the stones -- which is exactly a height map -- so the
@@ -512,6 +586,8 @@ export function worldMaterial(name, opts = {}) {
     uMapFade: { value: map ? (r.mapFade || 0) : 0 },
     uWater: { value: r.water || 0 },
     uForest: { value: r.forest || 0 },
+    uPave: { value: r.pave || 0 },
+    uStripe: { value: r.stripe || 0 },
     uSway: { value: sway },
   };
   mat.userData.paint = { name, recipe: r, uniforms: u };
