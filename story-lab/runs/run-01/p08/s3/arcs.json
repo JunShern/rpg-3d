@@ -1,0 +1,56 @@
+{
+  "arcs": [
+    {
+      "id": "a1", "title": "The Bowl",
+      "summary": "Harvest festival at Ashby Low. The lot falls on Wynn. A week of preparation follows in which everyone is very kind: a ham on the step, a fitting for the horns, a lesson in scowling from the priest. The party leaves by the lych-gate with the parish lining the lane, and on the first mile of road something comes out of the hedge, goes for Jory and kneels to Wynn.",
+      "places": "Ashby Low, the Ring Road",
+      "party": "Edda, Wynn, Father Penhallow, Jory.",
+      "play": "Combat tutorial with one party member nothing will attack. Wynn's status page, with its list of skills to come.",
+      "turn": "Wynn's first level. Scowl gains a line of description it did not have."
+    },
+    {
+      "id": "a2", "title": "The Foundling Sword",
+      "summary": "The game cuts to the capital. Izzy Farrant wins a lottery at the Foundling House, is given a sword by a bishop and an instructor who drinks, and sets out to save the realm. Her first quest is a village beset by things from the hedges. She clears them out, is thanked, levels up and sleeps well. It is the opening hour of every game of this kind and it is played without a wink.",
+      "places": "The Foundling House, the Ring Road",
+      "party": "Izzy, Sir Garrick, and two cheerful companions from the capital.",
+      "play": "A second party with a brighter, more generous skill tree. The first shop. The first real boss, which the player will recognise from Edda's road.",
+      "turn": "The player opens the menu and finds both parties' levels on one screen, feeding one bar."
+    },
+    {
+      "id": "a3", "title": "The Hero's Rest",
+      "summary": "A blizzard closes the road and puts both parties in the same inn for two nights. The adults recognise each other at once and say nothing. The girls meet in the stable loft over a cat. Garrick tells Edda what the end is like. Something comes up through the cellar after Wynn, and for one fight the two parties are one.",
+      "places": "The Ring Road, the Hero's Rest",
+      "party": "For a single dungeon, a combined party drawn from both.",
+      "play": "Control passes between Edda, Wynn and Izzy scene by scene. One fight with the Hero and the Demon King on the same side of the screen.",
+      "turn": "The girls know. They make a promise in the way children do, and the adults agree that nothing happened."
+    },
+    {
+      "id": "a4", "title": "Tribute",
+      "summary": "Netherby stages its tribute with relish: the crowd jeers the little Demon King the way it would a pantomime villain, and somebody throws something. The Loud One arrives early. A man is hurt. Jory, who has been enjoying himself, stops. Izzy's party comes through a day later to deal with what rose in the lanes that night, and hears a description of the monster responsible.",
+      "places": "Netherby, the Ring Road",
+      "party": "Jory wavers and may leave. One of Izzy's companions goes home.",
+      "play": "A staged, harmless battle that stops being staged. As Izzy, a dungeon whose enemies were all raised by the previous chapter.",
+      "turn": "Wynn stops asking questions. Izzy has a picture of her enemy now, and it is accurate."
+    },
+    {
+      "id": "a5", "title": "Installation",
+      "summary": "The keep. It opens for Wynn and arranges itself around her. Edda's party walks her in and, room by room, sets the guardians and locks the doors, because the compact says the Demon King must be defended. At the last door Penhallow, unable to carry it further, tells Edda about the second bowl. The compact says the family goes home now.",
+      "places": "The Black Keep, the Vestry (in Penhallow's telling)",
+      "party": "Penhallow breaks. Edda stays or leaves; Jory decides for himself.",
+      "play": "Build the final dungeon: place what guards each floor, knowing you may be the one who has to climb it.",
+      "turn": "The doors close with Wynn inside, and the player has made what stands in front of her."
+    },
+    {
+      "id": "a6", "title": "Midwinter",
+      "summary": "Izzy's ascent through the keep the player furnished, against the levels the player gave it. Garrick stops on the stairs. In the top room is something large with horns that are its own, and, if she stayed, a farm woman with a billhook. The game asks whose turn it is.",
+      "places": "The Black Keep",
+      "party": "Both.",
+      "play": "The last dungeon and a final battle in which the player chooses their side at the door. Under a level threshold on both parties, a third command appears for each girl.",
+      "turn": "Thirty good harvests, or the first hosting year that ended some other way."
+    }
+  ],
+  "pick": {
+    "id": "a3",
+    "why": "The hinge. Before it the two halves are an irony only the player holds; after it the characters hold it too. It is also where the idea is most likely to go soft, since it puts two children in a hayloft and asks them to be charming."
+  }
+}

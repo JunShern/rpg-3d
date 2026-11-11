@@ -1,0 +1,56 @@
+{
+  "arcs": [
+    {
+      "id": "a1", "title": "Rounds",
+      "summary": "A week on the Fell in late autumn. Sol does the morning rounds and learns thirty animals by their habits. The oldest, an ember hound, dies in his sleep and is given a cairn. Then Captain Dessen rides up with a list of six and a seal. Bede refuses and is overruled; Sol volunteers to go so the beasts are not led by strangers, and brings a seventh nobody asked for.",
+      "places": "Skarn Fell, the Burial Hill, the Hot Spring",
+      "party": "Sol, with Bede as a guest. Dessen joins at the end. Bede stays behind.",
+      "play": "The care loop, the ledger, the cairn and its keepsake. No real fights; a fox in the feed store.",
+      "turn": "The list is read. Six names leave the hill, and Brine follows Sol out of the gate."
+    },
+    {
+      "id": "a2", "title": "The Drovers' Stair",
+      "summary": "Four days down the mountain at the pace of an arthritic drake. Dessen wants to make time and Sol wants to make camp. Wolves, rockfall, and at the bottom a river in flood with the only bridge gone. The player can fight downstream to a ford for a hard hour or spend one of Brine's calls and walk across.",
+      "places": "The Drovers' Stair",
+      "party": "Sol and Dessen, with the six on the list and Brine.",
+      "play": "Combat proper, the beasts' free habits, and the first real offer of a call. Boss: the river.",
+      "turn": "Whatever the player did at the river, they now know what a call looks like and what the ledger does afterwards."
+    },
+    {
+      "id": "a3", "title": "Carrow Cheers",
+      "summary": "The city turns out for its legends. Children throw flowers at a drake who sneezes them black. Marshal Glass comes to see Thunder and is not recognised. The general staff ask for one Skybreak over the river, at nothing, for morale. That night the outer wall is raided and the party holds it with crooks and a sabre.",
+      "places": "Carrow",
+      "party": "No change. Dessen stops calling Sol 'Keeper' at some point and neither of them remarks on it.",
+      "play": "Rounds in a strange place, a call requested for no military purpose at all, then a wall defence where the temptation is real.",
+      "turn": "Sol has said yes or no to the army once, on the record, and Dessen has put her name beside it."
+    },
+    {
+      "id": "a4", "title": "Sedge Flats",
+      "summary": "The battle the campaign was for. A long crossing of the marsh under fire with nowhere to rest. The party goes down, properly, and Lady Ash is there. Later, with Sol under a fallen engine and nobody near enough to help, the sky breaks. Nobody called it. Thunder has two left, and Bede, who has walked down the mountain after them, sees it happen.",
+      "places": "Sedge Flats",
+      "party": "Lady Ash's fate is decided here. Bede rejoins.",
+      "play": "An endurance dungeon without saves between stages. The first party wipe in the game is scripted to be survivable only one way, and the player may refuse it.",
+      "turn": "Thunder has acted without being asked. Everyone present now believes they know what he wants, and they do not agree."
+    },
+    {
+      "id": "a5", "title": "Ledger",
+      "summary": "The night after. The staff conclude that the drake is willing and the keeper is the obstacle, and move the beasts to the remount lines under handlers who will call on order. Bede tells Sol about the Karst. Dessen has to decide whether she is an officer or whatever she has become, and the three of them go into the stockade.",
+      "places": "Carrow, the Remount Lines",
+      "party": "Bede, Sol and, if she has been dealt with honestly, Dessen.",
+      "play": "A stealth dungeon solved with the beasts' harmless habits: static, puddles, a phoenix's warmth on a cold lock.",
+      "turn": "Sol holds Thunder's tether herself, unlawfully. Whatever happens at the gate will be her doing and nobody's order."
+    },
+    {
+      "id": "a6", "title": "The Gate",
+      "summary": "The assault on Carrow's river gate, and the last case for a call, which is the best one anybody has made. Call, refuse, or let go of the rope. Then the Drovers' Stair in the other direction, one cairn or several, and a morning's rounds.",
+      "places": "Carrow, the Drovers' Stair, Skarn Fell",
+      "party": "Whoever is left.",
+      "play": "A final battle that can be won without a call, barely, by a player who has learned every free habit. Then twenty minutes with no combat at all.",
+      "turn": "The ledger is closed. The last thing the player does is cut up somebody's breakfast."
+    }
+  ],
+  "pick": {
+    "id": "a3",
+    "why": "It is the arc with the least fighting and the most at stake: the first call anyone asks for is for a parade. It also holds the Glass scene, which decides whether the game is sentimental or sad."
+  }
+}

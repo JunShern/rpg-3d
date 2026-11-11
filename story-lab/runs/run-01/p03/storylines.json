@@ -1,0 +1,32 @@
+{
+  "storylines": [
+    {
+      "id": "s1", "title": "The Road to Callow Ford",
+      "summary": "The circuit ends at Callow Ford on the tenth anniversary, so every town is a rehearsal for the one audience that matters. Each house shows the company a piece of the night that the script gets wrong, and Ines works out that she knows the real version better than the author does, because she relayed the order. By the last town there are three plays in the wagon, the one Clew wrote, the one the censor will allow and the one that happened, and a company too small to stage any of them.",
+      "question": "When they finally play it at the Ford, which play will it be, and will the town let them finish?",
+      "antagonist": "Sir Anselm Dray, who will license anything except the truth and offers the company a roof to stop. He was there too, and believes a town that has stopped bleeding should not be asked to look.",
+      "ending": "The player assembles the final script scene by scene from the versions performed along the way. Callow Ford hears a martyrdom, a reconciliation or a plain account, and what it builds on the meadow afterwards is the epilogue. Ines either walks on as herself or stays on book.",
+      "agency": "Every performance is a choice of version, and the towns behind you change accordingly. The last script can only use scenes you actually dared to play somewhere."
+    },
+    {
+      "id": "s2", "title": "Command Performance",
+      "summary": "Instead of banning them, Dray invites the company to play before the court at the Reconciliation jubilee. The circuit becomes a climb: better houses, better money, a new costume trunk, and a set of small requested changes, each reasonable. The company that arrives at the palace can afford to stage the play properly for the first time, and has agreed to cut most of what it was for.",
+      "question": "Is being asked to court a victory or a capture, and at what point did it become one?",
+      "antagonist": "Success. Dray is its agent, and he is never anything but generous.",
+      "ending": "On the palace stage with the king in the box, the player may restore any cut line, each at the cost of something the company gained to get there. A full restoration ends the night in the cells with the best notices of anyone's career.",
+      "agency": "A ledger of concessions. Each one buys a concrete upgrade, and the last act lets you buy them back."
+    },
+    {
+      "id": "s3", "title": "The Other Company",
+      "summary": "A touring war. The Crown's Company plays each town the night after you with twenty actors, a flying rig and the approved Masque, and what the town believes on the third morning is whatever it saw best. Hesper Vane leads them and is better than anyone you have. The two companies leapfrog down the circuit stealing each other's actors, audiences and jokes until Saltmarket's festival puts them on the same stage.",
+      "question": "Is good theatre in the service of a lie worth more than bad theatre in the service of the truth?",
+      "antagonist": "Hesper, who thinks the Masque is a lie too, and thinks an audience deserves a competent evening more than a history lesson.",
+      "ending": "One night, one stage, both casts. The player merges the companies, breaks them, or loses to her honestly; in the best ending Hesper plays the Widow in the real play and is extraordinary.",
+      "agency": "Poaching and being poached. Who is in your company by the end is a record of what you offered people."
+    }
+  ],
+  "pick": {
+    "id": "s1",
+    "why": "It is the one where the mechanic pays off as an ending: the final script is built only from versions the player risked on stage. It also gives Ines's secret somewhere to land, in front of the only audience entitled to hear it."
+  }
+}

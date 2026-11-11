@@ -1,0 +1,111 @@
+{
+  "cast": [
+    {
+      "id": "c1", "name": "Ines Varrow",
+      "role": "Stage manager and prompter of Pask's Players, thirty-four. The player character.",
+      "want": "To get the company to the end of the circuit fed, paid and together.",
+      "flaw": "Believes she is not an artist, and hides behind the prompt book so she never has to say what she thinks a scene means.",
+      "voice": "Lists, cue calls, flat understatement. 'Two minutes. If you are going to be sick, be sick stage left.'",
+      "battle": "The Prompter. Takes no role; feeds lines from the wings (buffs, turn order), and can go on in any role with the book in her hand at a penalty.",
+      "secret": "She was a regimental signaller on the crown's side. The order the play is about went down the line through her hands."
+    },
+    {
+      "id": "c2", "name": "Aurelio Pask",
+      "role": "Actor-manager and leading man, sixty. The company carries his name.",
+      "want": "One more great house before his voice goes.",
+      "flaw": "Can only play a part the way he has always played it.",
+      "voice": "Grand, wounded, misquotes the classics. 'As the poet says, the readiness is... most of it.'",
+      "battle": "Enormous in the Tyrant, a liability in anything else. His power scales with applause and collapses in silence.",
+      "secret": "He played the licensed version at court for six years and still draws the pension."
+    },
+    {
+      "id": "c3", "name": "Mother Clew",
+      "role": "Wardrobe mistress, seventy. Sews, mends and remembers everybody's lines.",
+      "want": "To see the play done word for word, once, in the right place.",
+      "flaw": "Would rather it be beautiful than accurate. In her text the rebels are saints.",
+      "voice": "Pins in her mouth. Short, practical, never answers the question asked. 'Hold this. No, taut.'",
+      "battle": "Costume. Changes a role's properties between acts; can sew two roles into one for a single scene.",
+      "secret": "She is Dessa Marl, who wrote the play and is supposed to have been hanged for it."
+    },
+    {
+      "id": "c4", "name": "Fenn",
+      "role": "Apprentice, seventeen. Plays the Fool and every part with fewer than ten lines.",
+      "want": "To find out what happened to their mother at Callow Ford.",
+      "flaw": "Believes whichever version they saw last.",
+      "voice": "Questions, one after another, deadpan. 'Why would she book us? Is that good? It doesn't feel good.'",
+      "battle": "Quick-change. The only actor who can swap roles in the middle of a scene.",
+      "secret": "They were seven and at the Ford that night, and what they remember matches none of the three versions."
+    },
+    {
+      "id": "c5", "name": "Corvin Hale",
+      "role": "Licenser of the Revels Office, assigned to ride with the company and approve each performance.",
+      "want": "To finish the circuit with nothing on his record.",
+      "flaw": "A frustrated critic. Cannot stop giving notes on a play he is supposed to be suppressing.",
+      "voice": "Fussy, formal, passionate about metre. 'I am striking the line. I also think it has a foot too many.'",
+      "battle": "The Blue Pencil. Strikes an enemy's line (silence) or one of yours. Joins the party as the Messenger once he stops pretending he does not want to.",
+      "secret": "His reports to the capital have been getting shorter and kinder since the second town."
+    },
+    {
+      "id": "c6", "name": "Hesper Vane",
+      "role": "The lead who ran off with the takings; now first lady of the Crown's Company, touring the approved Reconciliation Masque one town behind you.",
+      "want": "A theatre with a roof and a company that can afford rehearsals.",
+      "flaw": "Would rather be good than right.",
+      "voice": "Quick, amused, unkind in a way that is usually accurate. 'Darling, you were on book. In a bucket.'",
+      "battle": "Rival performer. Steals the audience's mood rather than attacking the cast.",
+      "secret": "She took the takings to pay the fine that kept Pask out of prison, and has never told him."
+    },
+    {
+      "id": "c7", "name": "Sir Anselm Dray",
+      "role": "Master of the Revels. Licenses every play in the kingdom. Commanded the crown's line at Callow Ford.",
+      "want": "For the war to be over, which to him means nobody mentioning it.",
+      "flaw": "Sincerely thinks forgetting is mercy.",
+      "voice": "Courteous, tired, never raises it. 'I have read your play. I thought the second act rather hard on everyone.'",
+      "battle": "Does not fight. He closes theatres, withdraws licences and buys the front row.",
+      "secret": "The order was his, it was three words long, and he sent it twice."
+    }
+  ],
+  "places": [
+    {
+      "id": "l1", "name": "The Wagon", "kind": "hub",
+      "look": "Two carts, a folding stage, a costume trunk that is older than the war, washing on the prop rail.",
+      "play": "Cast roles, rehearse scenes (which is how skills level), mend costumes, and hold the camp conversations.",
+      "change": "The cast list on the tailboard gets crossed out and rewritten until it is mostly Ines's handwriting."
+    },
+    {
+      "id": "l2", "name": "Pellam Barn", "kind": "town",
+      "look": "A tithe barn with hay bales for a gallery and swallows in the roof.",
+      "play": "The first performance. A forgiving house that teaches the audience meter.",
+      "change": "By the end they have put on the play themselves, badly, with a pig as the Tyrant."
+    },
+    {
+      "id": "l3", "name": "The Dark House at Marrow", "kind": "dungeon",
+      "look": "A playhouse that burned on the last night before the war. The last performance is still running inside without its actors.",
+      "play": "Fight the Uncast, roles with nobody in them, and recover the missing third act from the prompt corner.",
+      "change": "Once you have played its final scene through to the end, it is only a ruin."
+    },
+    {
+      "id": "l4", "name": "Greywether", "kind": "town",
+      "look": "A garrison town of slate and whitewash. The playhouse is the drill hall with the musket racks pushed back.",
+      "play": "Perform for three hundred soldiers who were at the Ford. The hardest house on the circuit.",
+      "change": "The regiment starts holding its own evening on the anniversary, with no officers invited."
+    },
+    {
+      "id": "l5", "name": "Saltmarket", "kind": "town",
+      "look": "A rich port. The Rose-and-Anchor has gilt boxes, a flying rig and a real sea that floods the pit for the finale.",
+      "play": "Share a bill with the Crown's Company and compete for the same audience over three nights.",
+      "change": "Whichever company loses the house plays the inn yard afterwards."
+    },
+    {
+      "id": "l6", "name": "The Revels Office", "kind": "dungeon",
+      "look": "A library of every play ever licensed, shelved with every play ever refused, which is the larger collection.",
+      "play": "A stealth-and-paperwork dungeon. Find the Callow Ford file, and the forty other scripts with the same hand's corrections.",
+      "change": "What is on its shelves at the end depends on what you carried out."
+    },
+    {
+      "id": "l7", "name": "Callow Ford", "kind": "town",
+      "look": "A mill, a rebuilt street that stops halfway, and a meadow where the playhouse was. Nobody has put anything on it.",
+      "play": "The last performance, on bare grass, for the people it happened to.",
+      "change": "The meadow gets a stage, a stone, or nothing, depending on the play you gave it."
+    }
+  ]
+}

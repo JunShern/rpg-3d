@@ -1,0 +1,63 @@
+{
+  "scenes": [
+    {
+      "id": "sc1", "title": "Snow on the Ring Road", "type": "battle",
+      "place": "The Ring Road, dusk", "cast": "Edda, Wynn, Penhallow, Jory",
+      "summary": "The blizzard catches Edda's party in the open. They are attacked by hedge-wights, and when Jory goes down in a drift the wights that will not touch Wynn stand round her in a ring, which keeps the wind off. She asks if they can come too.",
+      "play": "A fight in failing visibility. Standing next to Wynn is the safest square on the field, and the game lets the player notice that.",
+      "turn": "The party owes its lives to the thing it is delivering her to."
+    },
+    {
+      "id": "sc2", "title": "Not Under This Roof", "type": "choice",
+      "place": "The Hero's Rest, the porch", "cast": "Edda, Penhallow, the innkeeper, Wynn",
+      "summary": "The innkeeper holds a crown pension to lodge Heroes and will not have a Demon King indoors. Penhallow argues, from the text, that she is not one until installed. The compromise is that the horns stay outside. There is one room left because a party from the capital has the rest.",
+      "play": "Argue it by liturgy, by money or by the weather. Wynn must be told to take the horns off, and the player chooses who tells her.",
+      "turn": "Both parties are under one roof and only the adults know it."
+    },
+    {
+      "id": "sc3", "title": "Two Girls and a Cat", "type": "talk",
+      "place": "The stable loft", "cast": "Wynn, Izzy",
+      "summary": "Wynn, sent out of the way, finds an older girl trying to get a cat off a beam with the flat of a sword. They compare notes. Each has been picked from a bowl. Each has somewhere to be at midwinter.",
+      "play": "The player controls Wynn for the first time. One small wait-and-do-nothing prompt, one chance to use a battle skill in conversation.",
+      "turn": "They know. Izzy's sword has a name."
+    },
+    {
+      "id": "sc4", "title": "The Pensioner", "type": "talk",
+      "place": "The common room, after midnight", "cast": "Edda, Sir Garrick",
+      "summary": "Edda comes down for water and finds the last Hero by the fire. He tells her what the pictures leave out, because hers is twelve and he has to teach his to do it.",
+      "play": "The player can leave by the stairs at any point. Staying costs nothing and removes Edda's best excuse.",
+      "turn": "Edda can no longer say that only the Office dies."
+    },
+    {
+      "id": "sc5", "title": "What the Cellar Wants", "type": "dungeon",
+      "place": "Under the inn", "cast": "Edda, Izzy, Jory, Garrick, Wynn",
+      "summary": "Things come up through the cellar floor in the night, drawn to Wynn. Whoever is awake goes down. For one short dungeon the billhook and the bright sword are in the same line, and they work well together.",
+      "play": "A combined party with both skill sets. Izzy's best attacks auto-target the largest enemy present, and in the last room the largest thing present is not an enemy.",
+      "turn": "Izzy has had Wynn under her cursor and moved it."
+    },
+    {
+      "id": "sc6", "title": "On the Stairs", "type": "cutscene",
+      "place": "The inn's back stair, before dawn", "cast": "Wynn, Izzy",
+      "summary": "The girls sit on the stairs with the cat between them and make a plan. It is not a good plan. It consists of both of them simply not doing it, and a spit-handshake.",
+      "play": "None. The player is given a button to shake on it and may withhold it.",
+      "turn": "A promise exists that both parties' levels will now be measured against."
+    },
+    {
+      "id": "sc7", "title": "Separate Gates", "type": "talk",
+      "place": "The inn yard, morning", "cast": "Edda, Garrick, Penhallow, Izzy, Wynn",
+      "summary": "The road is open. The adults agree, in four polite sentences, that the two parties were never here together. Garrick gives Edda his Hero's token and does not say what it is for. The parties leave by different gates and the cat follows the wrong one.",
+      "play": "Choose which party the cat goes with. It is a party member of no use whatever.",
+      "turn": "The game returns to alternating chapters, and neither half is innocent now."
+    }
+  ],
+  "picks": [
+    {
+      "id": "sc3",
+      "why": "Everything depends on whether these two can talk like children and still carry the scene. It should be funny until one line, and then it should not recover."
+    },
+    {
+      "id": "sc4",
+      "why": "The adult counterpart to the loft, and the scene that states plainly what the folk-tale language has been covering. Garrick has to be honest without being let off."
+    }
+  ]
+}

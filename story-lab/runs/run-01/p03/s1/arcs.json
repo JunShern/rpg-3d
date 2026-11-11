@@ -1,0 +1,56 @@
+{
+  "arcs": [
+    {
+      "id": "a1", "title": "Bucket Crown",
+      "summary": "Opening night in Pellam. Hesper has gone with the takings and the company's only complete set of parts is for a play in the bottom of Clew's trunk that nobody remembers packing. Ines goes on with the book. A fight breaks out in the pit and a farmer walks four miles the next morning to thank them. The Revels Office assigns a licenser.",
+      "places": "Pellam Barn, the Wagon",
+      "party": "Ines, Pask, Clew, Fenn. Hale attaches himself at the end as an obstacle, not yet a member.",
+      "play": "Roles as jobs, the audience meter, and the three ways to play a scene. Boss: the Heckler, a drunk veteran who knows the next line better than Pask does.",
+      "turn": "They have performed it once. It cannot be unperformed, and the next town has heard."
+    },
+    {
+      "id": "a2", "title": "Notes from the Licenser",
+      "summary": "Hale rides in the wagon striking lines. The company learns to play around the cuts, and Hale learns that he has opinions about the second act. The script turns out to be missing its ending, so they go into the burned playhouse at Marrow to take it from the performance still running there.",
+      "places": "The road, the Dark House at Marrow",
+      "party": "Hale becomes castable as the Messenger. Fenn admits where they are from.",
+      "play": "First dungeon: fights against the Uncast, where you win by filling the empty role. Hale's Strike command, usable on either side.",
+      "turn": "The third act is in a different hand from the first two. Somebody rewrote the ending, and Clew will not say who."
+    },
+    {
+      "id": "a3", "title": "A Soldier's House",
+      "summary": "Greywether's garrison books the company on purpose and buys every seat. Hale orders the massacre scene cut for this town. Halfway through the second act a sergeant-major stands up and says, politely, that it did not go like that, and tells the house how it did. Ines knows the words before she says them.",
+      "places": "Greywether",
+      "party": "Pask refuses to go on and has to be talked round or replaced. Sergeant-Major Calder takes the stage as a one-scene guest.",
+      "play": "A performance boss where the correct move is to give up the stage. Guest roles: an audience member can be cast.",
+      "turn": "Ines knows the play is wrong and that she is in it. Fenn saw her know."
+    },
+    {
+      "id": "a4", "title": "The Rose-and-Anchor",
+      "summary": "Saltmarket. Hesper's company plays the Masque on a stage that floods. Dray comes to the inn in person with an offer: a licence, a winter theatre, and the anniversary at Callow Ford, provided it is the Masque they play there. Hale works out who Clew is and does not report it. Pask takes the offer.",
+      "places": "Saltmarket, the Revels Office",
+      "party": "Pask leaves for the Crown's Company. Hale joins properly and is dismissed from his post the same night.",
+      "play": "Three-night audience contest against Hesper, then the paperwork dungeon to steal the Callow Ford file.",
+      "turn": "The company is four people with a seven-hander, and the file contains the order, with the time of its second sending."
+    },
+    {
+      "id": "a5", "title": "Rewrites",
+      "summary": "The road to the Ford with no leading man. Rehearsals in fields, in which the player rebuilds the play scene by scene and Clew fights every change. Ines tells Fenn what she was. Clew tells Ines what she is. On the old battlefield the Uncast are not roles but the dead of the night itself, still waiting for the scene to end.",
+      "places": "The Wagon, the water-meadows below Callow Ford",
+      "party": "Ines must take a role for the first time. Clew can be cast, as the Widow she wrote for herself forty years too old.",
+      "play": "The script table: choose a version for each of the five acts from those you have performed. Second dungeon, fought by playing the real night through.",
+      "turn": "Fenn remembers. Their version supplies the one scene nobody else could have written: what the town was doing."
+    },
+    {
+      "id": "a6", "title": "The Night at Callow Ford",
+      "summary": "The anniversary. The town council would like them to leave. Dray has taken the front bench, and the Crown's Company is setting up in the next field. They play it on bare grass at dusk, five acts, the player's own script, to an audience that contains survivors, soldiers and the man who gave the order. Pask arrives in the Tyrant's costume during Act Two, and whose Tyrant he is depends on how you parted.",
+      "places": "Callow Ford",
+      "party": "Everyone who is still with you, and anyone from earlier towns who walked here to see it.",
+      "play": "The final performance: five linked scenes with one audience meter that never resets, and three factions in the house to hold at once.",
+      "turn": "The town does something with the meadow. Ines closes the book or leaves it open on the grass."
+    }
+  ],
+  "pick": {
+    "id": "a3",
+    "why": "The midpoint, and the scene where the game teaches its real rule: sometimes the winning move in a performance is to stop performing. It also needs the three voices I am least sure of, Ines, Clew and Hale, to work in the same room."
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "scenes": [
+    {
+      "id": "sc1", "title": "Through the Drovers' Gate", "type": "cutscene",
+      "place": "Carrow, the north gate and high street", "cast": "Sol, Dessen, Thunder, Brine, Lady Ash, the city",
+      "summary": "The column comes in at a drake's walking pace through a crowd that has waited since dawn. A band plays. Children throw flowers; Thunder sneezes and the flowers come down as ash, which gets the biggest cheer of the day. Brine rides in a wheelbarrow.",
+      "play": "Lead Thunder on the tether through the crowd. Go too fast and he stumbles; the crowd does not notice, and Sol does.",
+      "turn": "The player has seen what the city thinks these animals are."
+    },
+    {
+      "id": "sc2", "title": "Stabling Legends", "type": "explore",
+      "place": "A requisitioned tannery yard", "cast": "Sol, Dessen, townsfolk",
+      "summary": "Rounds, in the wrong place, with the wrong feed. Townspeople queue at the gate with offerings: sugar buns for the drake, a knitted blanket for the phoenix, a bucket of live eels that turns out to be exactly right for Brine.",
+      "play": "The care loop under pressure: find turnips in a city on rations, accept or turn away gifts, keep the phoenix warm without a stove.",
+      "turn": "The yard is home for now. The ledger from the lodge wall is nailed up by the gate."
+    },
+    {
+      "id": "sc3", "title": "The Summoner Emeritus", "type": "talk",
+      "place": "The tannery yard", "cast": "Sol, Dessen, Marshal Glass, Thunder",
+      "summary": "Tobiah Glass arrives in a dress uniform forty years out of date to see his drake. Thunder does not know him. Glass feeds him anyway, learns what the paper he signed last month was, and decides that Thunder would want to go.",
+      "play": "Two small choices about how honest to be with an old man, and a feeding the game takes out of the player's hands.",
+      "turn": "Sol admits, once, to one person, that she does not know what Thunder wants."
+    },
+    {
+      "id": "sc4", "title": "A Small Demonstration", "type": "choice",
+      "place": "The tannery yard, next morning", "cast": "Sol, Dessen, Brine",
+      "summary": "The staff want Skybreak at noon tomorrow, over the river, at nothing, so that both armies can see it. Dessen brings the order and does something she is not required to do, which is ask.",
+      "play": "Agree, refuse, or offer a cheaper call from a different beast. Each changes the ledger, the wall fight and what Dessen risks.",
+      "turn": "A call has been committed or a refusal has been filed, with Dessen's name on it."
+    },
+    {
+      "id": "sc5", "title": "The Outer Wall", "type": "battle",
+      "place": "Carrow's outer wall, night", "cast": "Sol, Dessen, bakers and apprentices of the watch",
+      "summary": "A raiding party comes over the wall at the tannery end. The beasts are fifty yards away. The party fights with what it has, and the call button is on screen the whole time.",
+      "play": "A defence in three waves. Harder if the town's morale was not raised that day. Winnable without a call.",
+      "turn": "The player knows what they do when the option is right there."
+    },
+    {
+      "id": "sc6", "title": "Three", "type": "camp",
+      "place": "The tannery roof, before dawn", "cast": "Sol, Dessen, Thunder",
+      "summary": "Sol sits against Thunder's side for the warmth. Dessen comes up with two cups and the marching order for Sedge Flats. She tells Sol about Garnet, in numbers, because she cannot yet tell it any other way.",
+      "play": "A camp conversation. The only input is whether to let her finish.",
+      "turn": "Orders for the Flats. The two of them are on the same side of something, though not yet of the same thing."
+    }
+  ],
+  "picks": [
+    {
+      "id": "sc3",
+      "why": "Thunder cannot speak, so the scene is three people each telling you what he means. It needs to stay unresolved without feeling evasive."
+    },
+    {
+      "id": "sc4",
+      "why": "The premise's question asked in its purest and least heroic form, with a third option the player has to think of the mechanic to see."
+    }
+  ]
+}

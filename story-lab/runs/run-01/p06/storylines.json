@@ -1,0 +1,32 @@
+{
+  "storylines": [
+    {
+      "id": "s1", "title": "The Last Muster",
+      "summary": "Six beasts are named on the recall list and Sol goes down the mountain with them so that they are at least handled by someone who knows them. The campaign to relieve Carrow is four engagements, and each one makes an honest case for spending a call. Halfway through, Thunder answers a call that nobody made. The army reads that as willingness, Bede reads it as reflex, and the last decision at the city gate is what Sol reads it as.",
+      "question": "How many come back up the mountain, and did the one who mattered most want to go?",
+      "antagonist": "The arithmetic. A city of forty thousand against the last days of six animals is not a hard sum, and Captain Dessen, who makes it out loud, is the most decent person in the army.",
+      "ending": "At the gate Sol can call Thunder, refuse, or, if she has cared for him well enough to have earned it, drop the tether and let him choose. Then the walk home, the cairns, and rounds.",
+      "agency": "Every call is the player's, and the ledger is permanent. Which beasts are alive for the epilogue is entirely their doing."
+    },
+    {
+      "id": "s2", "title": "The Contract",
+      "summary": "The recall order works because the old bindings were never dissolved; retirement was a courtesy, and any officer with a summoner's seal can compel a beast off the hill. Sol and Bede go to the ruined college where the first bindings were made to learn the terms, and find that a contract can be ended only by the beast, and only if someone asks it in the form it was bound in. It becomes a race to ask thirty animals a question before the army takes them.",
+      "question": "If you finally ask them what they want, what will you do when you dislike the answer?",
+      "antagonist": "Bede, more than the army. He has kept them safe for forty years by never asking.",
+      "ending": "Each beast answers. Some stay, some leave the Fell for good, and a few go down to the war of their own will. Thunder's answer depends on how the player treated his restlessness all game.",
+      "agency": "The asking itself: the player chooses the order, and who is asked last may not get asked."
+    },
+    {
+      "id": "s3", "title": "Yearlings",
+      "summary": "The enemy is winning because it has done what the kingdom stopped doing: it binds new summons, young, by force, and burns through them. The old beasts are sent down to face creatures that are in some cases their own get. Sol takes a wounded yearling off the field, and the pasture for the old becomes, against every rule, a place where something young is learning from them.",
+      "question": "What do the old owe the young, when the young are on the other side?",
+      "antagonist": "Ivo Tarn, the enemy's master binder, who argues that a short life of use is the only life anyone ever offered these animals, and points at Skarn Fell to prove it.",
+      "ending": "The yearlings are taught the one thing no binding anticipated, which is how to decline a call. Whether that ends the war or only the summoning depends on how many the player reached.",
+      "agency": "Which yearlings to pull off the field, at the cost of calls from the old ones to do it."
+    }
+  ],
+  "pick": {
+    "id": "s1",
+    "why": "The other two are better plots. This one is the better game: it keeps the whole story inside the single decision the mechanic poses, and it refuses to answer the question about Thunder, which is what will make players argue."
+  }
+}

@@ -1,0 +1,111 @@
+{
+  "cast": [
+    {
+      "id": "c1", "name": "Edda Marsh",
+      "role": "Elder sister, twenty-two. Has run the smallest holding in Ashby Low and raised Wynn since their mother died. The player character on the parish side.",
+      "want": "To get her sister through this alive, by the rules if there is any way to do it by the rules.",
+      "flaw": "Obedient. Believes that if you do everything properly, nobody can blame you, and what happens next is not yours.",
+      "voice": "Practical, clipped, turns every feeling into a chore. 'Eat that. I didn't carry it nine miles to look at it.'",
+      "battle": "Billhook. Her command is Cover: she takes the hit meant for someone else, and it is almost always the same someone.",
+      "secret": "She put her own name in the bowl twice that morning, and it still was not her."
+    },
+    {
+      "id": "c2", "name": "Wynn Marsh",
+      "role": "Younger sister, twelve. This year's Demon King.",
+      "want": "To be good at it. She has been given a part in something the whole parish cares about and means to do it well.",
+      "flaw": "Wants to please, and cannot tell who is worth pleasing.",
+      "voice": "Bright, literal, asks what adults step round. 'If it's an honour, why did Mrs Pike cry?'",
+      "battle": "Begins with Scowl, which does nothing. Her skills arrive on a list the player can read ahead, named in her words: The Loud One, Too Many Stairs, Don't Look.",
+      "secret": "She can already hear the keep. It sounds like their kitchen."
+    },
+    {
+      "id": "c3", "name": "Father Aldous Penhallow",
+      "role": "Parish priest of Ashby Low. Drew the lot, and travels as chaplain to see the compact properly kept.",
+      "want": "For it to be done decently and in order.",
+      "flaw": "Mistakes procedure for mercy.",
+      "voice": "Gentle, liturgical, all euphemism. 'The incumbent will wish to rest before her installation.'",
+      "battle": "Rites. Wards the party and, because the compact requires it, blesses the Demon King.",
+      "secret": "The lot is not drawn blind. The vestry meets the night before. The Marshes have no father and nine acres."
+    },
+    {
+      "id": "c4", "name": "Jory Pike",
+      "role": "The miller's son, nineteen. Volunteered as the Demon King's Guard for the stipend and the hat.",
+      "want": "To have been part of something.",
+      "flaw": "Treats it as a festival for longer than anyone should.",
+      "voice": "Cheerful, loud, narrates himself. 'Jory Pike, Dread Sentinel. That'll look well on a mill.'",
+      "battle": "Sling and flail. Hits hard, misses often, and gets steadier the worse things become.",
+      "secret": "His father sits on the vestry. He does not know what that means yet."
+    },
+    {
+      "id": "c5", "name": "Isolde 'Izzy' Farrant",
+      "role": "This generation's Hero, sixteen. A capital foundling chosen by a lottery of her own. The player character on the crown side.",
+      "want": "To deserve the sword.",
+      "flaw": "Believes the story she has been given, completely, because it is the first one that had her in it.",
+      "voice": "Earnest, self-correcting, trails off. 'I'm the, I'm with Sir Garrick. I'm learning.'",
+      "battle": "The conventional JRPG lead: sword, a guard stance, a growing list of bright skills that all work best against one large enemy.",
+      "secret": "Nobody has told her the Demon King is a person from a village. The pictures do not show one."
+    },
+    {
+      "id": "c6", "name": "Sir Garrick Lowe",
+      "role": "The last Hero, fifty-five. Killed the Netherby Demon King thirty years ago and has been dined out on it since. Now Izzy's instructor.",
+      "want": "To be told by somebody who knows the whole of it that he did right.",
+      "flaw": "Tells the truth only late at night and only to people who cannot use it.",
+      "voice": "Dry, tired, north-country. 'There's a plate of me in your church. The engraver added the foot.'",
+      "battle": "A fading master. Teaches Izzy skills and then, on the day, cannot bring himself to come up the stairs.",
+      "secret": "At the end the thing went small again, and a man in his shirt asked if he could go home."
+    },
+    {
+      "id": "c7", "name": "The Office",
+      "role": "Whatever lives in the black keep and fills the one who is marked. Not a character so much as a draught.",
+      "want": "An incumbent.",
+      "flaw": "It can only use what the person already is.",
+      "voice": "It has none of its own. In Wynn it sounds like a child being very, very good.",
+      "battle": "It is the reason monsters rise in a hosting year, and the reason they will not touch her.",
+      "secret": "No record says what happens to the parishes if it is refused. Every record says what happens if it is fed."
+    }
+  ],
+  "places": [
+    {
+      "id": "l1", "name": "Ashby Low", "kind": "town",
+      "look": "A church, a mill, a green and forty roofs. The lot bowl is the same one used for the harvest pig.",
+      "play": "The opening week: gifts left on the step, the fitting of the horns by the woman who makes the May crown, neighbours who stop meeting your eye.",
+      "change": "If you come back, your nine acres have been ploughed for you. It is meant kindly."
+    },
+    {
+      "id": "l2", "name": "The Ring Road", "kind": "field",
+      "look": "A lane joining the seven parishes in a circle, hedged, with the keep always somewhere on the left.",
+      "play": "The procession. Each parish owes the Demon King a staged tribute and each stretch of road has things that rise in a hosting year, attack the party and kneel to Wynn.",
+      "change": "Walked by both parties at different times. The second to pass finds what the first one left."
+    },
+    {
+      "id": "l3", "name": "Netherby", "kind": "town",
+      "look": "The parish that hosted last time and prospered: new slate, a fat church, a statue of their Demon King with the face chiselled off.",
+      "play": "A tribute scene that turns real when the crowd enjoys itself too much.",
+      "change": "They take the statue down, or put a second one beside it."
+    },
+    {
+      "id": "l4", "name": "The Hero's Rest", "kind": "town",
+      "look": "A coaching inn kept on a crown pension for the use of Heroes, with thirty years of dust on the best room.",
+      "play": "The one place both parties are under a roof together. Played from both sides.",
+      "change": "Its sign shows a knight with his foot on something. By the end someone has painted the something out."
+    },
+    {
+      "id": "l5", "name": "The Vestry", "kind": "dungeon",
+      "look": "A locked room under Ashby church: a century of parish books, and a second, smaller bowl.",
+      "play": "A short investigation dungeon. No monsters. Each ledger read removes an excuse.",
+      "change": "Burned, published, or locked again with you on the right side of the door."
+    },
+    {
+      "id": "l6", "name": "The Black Keep", "kind": "dungeon",
+      "look": "Nobody built it. Inside it becomes whatever the incumbent's mind is like. Wynn's has too many stairs, a kitchen the wrong size, and a room that is entirely the underside of a table.",
+      "play": "Played twice. Edda's party furnishes it, placing the guardians and choosing which doors are locked. Then Izzy's party has to get through what you made.",
+      "change": "At the end it is a hill, or it is occupied."
+    },
+    {
+      "id": "l7", "name": "The Foundling House", "kind": "town",
+      "look": "A tall cold building in the capital with a hundred identical beds and a bowl for who washes up.",
+      "play": "Izzy's opening. A conventional hero's send-off, played completely straight.",
+      "change": "Seen once more in the epilogue, with or without a plate of her on the wall."
+    }
+  ]
+}

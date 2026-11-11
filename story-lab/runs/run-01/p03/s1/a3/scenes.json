@@ -1,0 +1,63 @@
+{
+  "scenes": [
+    {
+      "id": "sc1", "title": "Load-In", "type": "explore",
+      "place": "Greywether, the drill hall", "cast": "Ines, Fenn, Sergeant-Major Calder",
+      "summary": "The company arrives to find their own playbills already pasted up along the barracks wall, neatly, at regulation intervals. Calder shows them the hall, signs the chit herself and asks only one question: whether they do the whole of the second act.",
+      "play": "Walk the hall and place the stage; where you put it sets the sightlines for the boss fight.",
+      "turn": "Ines understands they were sent for."
+    },
+    {
+      "id": "sc2", "title": "Hale's Blue Pencil", "type": "choice",
+      "place": "The Wagon", "cast": "Ines, Hale, Pask",
+      "summary": "Hale delivers the cuts for a military audience: the volley scene is struck entire. Pask is outraged, since it is his best scene. Ines has to decide how to obey.",
+      "play": "Choose: cut it clean, mime it in silence, or have the Fool describe it. Each leaves a different set of role skills available tonight.",
+      "turn": "Hale has, for the first time, asked not to be told something."
+    },
+    {
+      "id": "sc3", "title": "Half Price for Uniforms", "type": "explore",
+      "place": "Greywether streets and the box office", "cast": "Fenn, Ines, Pask, soldiers",
+      "summary": "Every seat is sold by noon. Fenn, on the box, overhears two corporals arguing about which of them was in the front rank. Pask learns who the audience is and locks himself in the costume cart, refusing to play a butcher to butchers.",
+      "play": "Sell tickets as Fenn and gather overheard fragments, which become usable lines later. Talk Pask out, or recast the Tyrant.",
+      "turn": "The house is full and all of it was there."
+    },
+    {
+      "id": "sc4", "title": "Five Minutes", "type": "talk",
+      "place": "Backstage", "cast": "Ines, Clew, Fenn, Pask, Hale",
+      "summary": "The last minutes before curtain. Ines checks the props, the cast and the licenser. Clew, sewing, tells her to play it exactly as written. Ines's left hand will not keep still.",
+      "play": "Walk the wings and speak to each of them in any order, then raise the curtain yourself.",
+      "turn": "Ines goes into the show already afraid of the right thing."
+    },
+    {
+      "id": "sc5", "title": "The Volley Scene", "type": "boss",
+      "place": "The drill hall stage", "cast": "Pask, Fenn, Ines, Hale, Calder, the house",
+      "summary": "Act Two meets a silent house. At the order to fire, Calder stands and corrects it. The player can silence her, play over her or give her the Messenger's part. She tells the hall what the order was, and Ines says it with her.",
+      "play": "A performance fight against an audience mood that no role skill moves. Strike, Play Through or Give the Stage.",
+      "turn": "The true order has been said aloud in public, and Fenn heard Ines say it first."
+    },
+    {
+      "id": "sc6", "title": "Strike", "type": "talk",
+      "place": "The drill hall after the house has gone", "cast": "Ines, Hale, Calder, soldiers",
+      "summary": "Taking the set down. Soldiers carry the flats out without being asked and stack them like tents. Hale sits with a blank report and asks Ines what, in her professional opinion, he saw tonight. Calder leaves a regimental button on the prompt book.",
+      "play": "Decide what goes in Hale's report. He will write what you tell him and sign it.",
+      "turn": "Hale has falsified a document for them and knows it."
+    },
+    {
+      "id": "sc7", "title": "Left Hand", "type": "camp",
+      "place": "The Wagon, on the road out", "cast": "Ines, Fenn",
+      "summary": "Fenn waits until the others are asleep and then taps the drum call on the tailboard. Ines's hand finishes it. Fenn asks one question and Ines does not answer it, which is an answer.",
+      "play": "A camp scene with a single prompt, and the option to say nothing.",
+      "turn": "Somebody in the company knows, and it is the one who was at the Ford."
+    }
+  ],
+  "picks": [
+    {
+      "id": "sc4",
+      "why": "A quiet scene with five voices and no plot. If the characters are distinct it will show here, and if they are not there is nowhere to hide."
+    },
+    {
+      "id": "sc5",
+      "why": "The scene the arc exists for. It has to work as a boss fight and as a confession at once, and the important line is spoken by two people."
+    }
+  ]
+}

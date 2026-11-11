@@ -1,0 +1,138 @@
+{
+  "premises": [
+    {
+      "id": "p01",
+      "title": "Dead Letter Office",
+      "logline": "Thirty years after the empire fell, its last three postal clerks set out to deliver the sack of mail that was in the sorting room the day it happened.",
+      "theme": "What do we owe a promise made by someone who is gone, to someone who has changed?",
+      "setting": "The Nine Circuits: former imperial provinces, now a patchwork of toll-lords, free towns and regrown forest, stitched together by a ruined post road with a waystation every day's walk.",
+      "tone": "Wry, autumnal road story. Small human stakes that add up.",
+      "player_role": "Route-walker. You choose which letter to carry next, walk the road, fight what has moved into the waystations, and decide at each door whether to hand the letter over, read it aloud, or keep it.",
+      "mechanic": "The mailbag is the equipment screen. Every undelivered letter is an equippable whose boon comes from its sender's intent: a love letter wards, a summons compels, a debt notice bites. Delivering it removes the boon for good and changes the town instead. The strongest party is the one that never does its job.",
+      "hook": "A sorting room under thirty years of dust, one pigeonhole per town on the map, and a clerk stamping today's date on a letter addressed to a dead man.",
+      "why_game": "The cost of each delivery lands in the player's own hands: the letter leaves the bag, the number goes down, and the town they just changed is the only reward."
+    },
+    {
+      "id": "p02",
+      "title": "Highwater",
+      "logline": "A survey crew has one year to empty a valley before the new dam drowns it, and the water is already rising behind them.",
+      "theme": "Who pays for progress, and can a home be moved?",
+      "setting": "The Sorrel valley: seven villages, a monastery, a mine, a river whose spirit is older than all of them, and at the bottom the white wall of the dam the lowland cities need.",
+      "tone": "Elegiac and practical. No villains, only budgets.",
+      "player_role": "Relocation officer. Walk into a village, learn what holds it there, and get its people, graves, bells and gods uphill before the season turns.",
+      "mechanic": "The water line is the world clock. Each chapter it rises one contour: the lowest village becomes a diving dungeon, its shop closes, roads become boat routes, field pests give way to drowned things. Nothing you left behind can be fetched dry again.",
+      "hook": "Painting a white line on a church wall at the height the water will reach, while the congregation watches.",
+      "why_game": "A map the player has learned by heart is taken away one contour at a time. Only a game can make you lose a place you know how to walk."
+    },
+    {
+      "id": "p03",
+      "title": "The Understudies",
+      "logline": "A third-rate touring company is the only troupe left willing to stage the banned history play, and every town that sees it starts remembering the war differently.",
+      "theme": "Who gets to say what happened, and is a kind lie better than a true play?",
+      "setting": "The Marches of Oster: twelve market towns on a touring circuit, ten years after a civil war the crown has renamed the Reconciliation. Every town has a playhouse, a censor, and something it would rather not recall.",
+      "tone": "Backstage comedy with teeth. Farce in the wagon, dread at curtain-up.",
+      "player_role": "Stage manager. Cast your players, rehearse on the road, put on the show, and deal with what the town does once it has seen it.",
+      "mechanic": "Battles are performances and jobs are roles. Any actor can be cast as the Tyrant, the Widow, the Fool or the Messenger, and each role is a moveset. The audience's mood is the battlefield. A scene can be won as written, as the censor wants it, or as it really happened, and each leaves a different town behind.",
+      "hook": "Opening night in a barn. The lead has run off with the takings, and the stage manager walks on holding the prompt book, wearing a crown made from a bucket.",
+      "why_game": "The player chooses, line by line and in front of an audience meter, which version of the war this town will go home believing."
+    },
+    {
+      "id": "p04",
+      "title": "The Line Commission",
+      "logline": "After a war nobody won, two exhausted kingdoms send one joint party of surveyors to walk the frontier and draw the border, a stone at a time.",
+      "theme": "A line on a map is a decision about people. Who are you to make it?",
+      "setting": "The Debatable Hills: two hundred miles of sheep country, mixed-tongue villages, old battlefields, and one silver mine both crowns want.",
+      "tone": "Dry, humane, political. A walking procedural.",
+      "player_role": "Chief surveyor. Walk the ground, hear both claims, set the marker, and live with what the line does next.",
+      "mechanic": "You draw the world map. Each boundary stone decides which kingdom a village, well or shrine falls in, and that changes its shops, its language, its garrison, and which of your own party can walk into it unarmed.",
+      "hook": "A village that has already chalked a line down the middle of its own tavern and would like you to make it official and leave.",
+      "why_game": "Authorship. The player cannot blame the plot for the border, because the pen was in their hand."
+    },
+    {
+      "id": "p05",
+      "title": "The Long Way Back",
+      "logline": "The Dark Lord is dead, the hero died killing him, and the four who are left have to walk home through every place they wrecked on the way in.",
+      "theme": "What does a victory owe the people it happened to?",
+      "setting": "The road from the Black Gate to the home village: the whole world map of a conventional epic, travelled in reverse the autumn after it was won.",
+      "tone": "Rueful, warm, sometimes very funny. A wake that lasts a continent.",
+      "player_role": "The hero's surviving companions. Retrace the quest backwards and answer for it: the bridge you dropped, the dragon you orphaned, the town you promised to come back to.",
+      "mechanic": "You start at level 99 with the legendary gear and nothing left worth using it on. Each place can be mended by leaving something behind: the sword to brace the bridge, a spell tier to relight a lighthouse, levels to a village militia. You arrive home at level 1.",
+      "hook": "The victory feast is ending, and somebody has to carry the hero's boots home to his mother.",
+      "why_game": "It spends the one thing JRPG players hoard. Choosing to give away a maxed character is a feeling no cutscene can have for you."
+    },
+    {
+      "id": "p06",
+      "title": "Pasture of Old Thunder",
+      "logline": "At the mountain pasture where the great heroes' summoned beasts are sent to grow old, a new war begins and the army wants its legends back.",
+      "theme": "What do we owe those who fought for us, once they have nothing left to give?",
+      "setting": "Skarn Fell: a high cold pasture with a keepers' lodge, a hot spring, a burial hill and thirty retired summons, from a half-blind storm drake to a tidal horse that now fits in a trough. Below it, a lowland kingdom calling up its reserves.",
+      "tone": "Gentle, funny about old age, quietly devastating.",
+      "player_role": "Junior keeper. Feed, walk and doctor the old beasts, and when the remount officers come, decide who goes down the mountain, and go with them.",
+      "mechanic": "Every summon has a fixed number of calls left in it, shown on screen and never restored. Their signature attacks still end a fight outright, and each use is gone for good. The rest of the time you fight with keepers' crooks and salves, and the beasts help in small tired ways that cost nothing.",
+      "hook": "Morning rounds. You carry warm mash to a creature that once levelled a fortress and now needs its food cut up.",
+      "why_game": "The player holds the button. Every boss asks the same question a new way: is this worth one of Old Thunder's last three?"
+    },
+    {
+      "id": "p07",
+      "title": "One Seat",
+      "logline": "Five friends spend a year in the examination city cramming for the imperial magistracy, knowing their province is granted exactly one seat.",
+      "theme": "Can a friendship survive a contest only one of you can win, and is the contest worth winning?",
+      "setting": "Lanting, a canal city that exists for the triennial exam: boarding houses, ink markets, hired essay-ghosts, cram temples, and the walled compound with its nine thousand cells.",
+      "tone": "Coming of age, warm and competitive, with a slow political chill.",
+      "player_role": "A candidate. Plan each week across study, paid work, friends and the city's troubles. In this empire rhetoric is literally magic, so a debate is a battle.",
+      "mechanic": "A calendar game in which your party members are also your rivals. Helping a friend study raises their rank against yours on a public board. The ending turns on who takes the seat, and you can spend the whole year making sure it is not you.",
+      "hook": "Arrival day. Five strangers split the last room in the boarding house and pin one shared timetable to the wall.",
+      "why_game": "The ranking board is real and the player moves it. Generosity has a number attached, and so does ambition."
+    },
+    {
+      "id": "p08",
+      "title": "The Year It Was Our Turn",
+      "logline": "Every generation a different village must provide the Demon King. This year the lot fell on yours, and the mark came up on your little sister.",
+      "theme": "What a community will do to one person so that everyone else can stay good.",
+      "setting": "The Seven Parishes: a ring of farming villages around a black keep nobody built. By a compact a century old, one parish hosts the Demon King, the capital sends a Hero, and the harvests are blessed for thirty years.",
+      "tone": "A folk tale turning slowly to dread, held together by sibling warmth.",
+      "player_role": "The elder sister. You escort her to the keep as the compact demands, with the neighbours who volunteered, and you get stronger the way JRPG parties do.",
+      "mechanic": "Your sister is in the party and shares your experience. Every level you gain, she gains as the final boss: new forms and new phases, listed on her status page in advance. Grinding is safe today and paid for at the end. Somewhere on the same road, the Hero is levelling too.",
+      "hook": "Harvest festival. The lot is drawn from the church bowl the way it is every year for the pig, and the children are laughing until the priest reads the name.",
+      "why_game": "The player builds the last boss out of their own habits. Every optional fight is a decision about how the ending will go."
+    },
+    {
+      "id": "p09",
+      "title": "A Grammar of Blows",
+      "logline": "First contact with a people whose only language is combat, and you are the interpreter at the peace talks.",
+      "theme": "Understanding someone is not the same as agreeing with them.",
+      "setting": "The Strand, a neutral tidal citadel where the mainland league meets the Vhar, armoured sea-nomads for whom a duel is a sentence and a war is an argument. Six weeks until the tide closes the causeway.",
+      "tone": "Diplomatic thriller, precise and strange. Violence as etiquette.",
+      "player_role": "Junior interpreter to the delegation. Spar to converse, translate for your ambassadors, and find out who is mistranslating on purpose.",
+      "mechanic": "Battle commands are vocabulary. You learn a word by being hit with it, and a fight is graded on what you managed to say, so a win can be a diplomatic blunder and a well-chosen loss a courtesy. Party members are dialects: the fencer speaks court Vhar, the brawler speaks dockside.",
+      "hook": "The Vhar envoy greets your ambassador by breaking his nose. Your first job is to explain that this was polite.",
+      "why_game": "Only a combat system can make the player fluent, and only fluency lets them catch the lie at the centre of the talks."
+    },
+    {
+      "id": "p10",
+      "title": "Shift Change",
+      "logline": "In a mining town inside a hollow moon, a cave-in the company will not investigate turns one night-shift crew into the start of a strike.",
+      "theme": "What people can do together that none of them can do alone, and what it costs to hold a line.",
+      "setting": "Tallow, a company town built down the inner wall of a mined-out moon: tiered galleries, one lift everybody depends on, lamp-lit gardens, company scrip, and the Deep, where the ore sings and something answers.",
+      "tone": "Industrial folk ballad. Grimy, funny, stubborn.",
+      "player_role": "Shift lead turned organiser. Dig, fight what the Deep sends up, and talk gallery after gallery into walking out with you.",
+      "mechanic": "The party is a picket line that grows. Fights are fought in a formation of up to twelve whose strength comes from adjacency: who stands next to whom, and who trusts whom. Bosses are negotiation rounds, the company's offers are status effects, and a member who takes the deal leaves a gap.",
+      "hook": "The shift whistle blows for a crew that has not come up, and the lift operator is told to keep the lift running.",
+      "why_game": "Solidarity as a formation. The player feels the line get stronger with each person, and feels exactly where it breaks."
+    }
+  ],
+  "picks": [
+    {
+      "id": "p03",
+      "why": "The role system and the theme are one object: recasting a scene is both the job system and the argument about history. It is also the comedy of the set, and the lower levels should show whether the jokes and the dread can share a wagon."
+    },
+    {
+      "id": "p06",
+      "why": "The smallest idea and the one I would most want to play. A counter that only goes down gives every fight a moral weight without a single line of dialogue, so the writing can stay quiet."
+    },
+    {
+      "id": "p08",
+      "why": "The strongest hook, and the riskiest to sustain: a child as the final boss can turn mawkish or cruel. Worth expanding to find out whether it holds up past the pitch."
+    }
+  ]
+}

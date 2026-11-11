@@ -1,0 +1,249 @@
+<title>Story Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Mono:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
+<style>
+/* Layout: a prompt book. One reading column you drill down through; the trail
+   back up is always pinned at the top. Blue pencil marks the model's own picks,
+   amber marks the reader's. */
+:root {
+  --paper: #f2f4f7; --card: #ffffff; --ink: #16202b; --muted: #5a6775; --rule: #d3dae2;
+  --pencil: #1d4ed0; --pencil-soft: #e2e9fc; --mark: #a86b12; --mark-soft: #fbefd6;
+  --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --read: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --paper: #0f141a; --card: #171f29; --ink: #e5eaf0; --muted: #94a1ae; --rule: #2a3542;
+  --pencil: #8fadff; --pencil-soft: #1b2947; --mark: #e2b457; --mark-soft: #33290f; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --paper: #0f141a; --card: #171f29; --ink: #e5eaf0; --muted: #94a1ae; --rule: #2a3542;
+  --pencil: #8fadff; --pencil-soft: #1b2947; --mark: #e2b457; --mark-soft: #33290f; color-scheme: dark }
+
+body { background: var(--paper); color: var(--ink); font-family: var(--read); font-size: 17px; line-height: 1.55; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--paper); }
+button, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--pencil); outline-offset: 2px; }
+
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--paper); border-bottom: 1px solid var(--rule); }
+.wrap { max-width: 46rem; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.wrap.wide { max-width: 90rem; }
+.bar .wrap { display: flex; flex-direction: column; gap: 6px; padding-block: 10px 8px; }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.brand { font-family: var(--display); font-weight: 700; font-size: 1.05rem; margin-right: 6px; }
+.tab, .tool { font-family: var(--mono); font-size: .78rem; padding: 4px 10px; border: 1px solid var(--rule); background: transparent; border-radius: 3px; }
+.tab[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.tool { margin-left: auto; } .tool + .tool { margin-left: 0; }
+.trail { font-family: var(--mono); font-size: .76rem; color: var(--muted); }
+.trail button { background: none; border: 0; padding: 2px 0; color: var(--pencil); text-align: left; }
+.trail span { padding: 0 2px; }
+
+main { padding-block: 22px 80px; display: flex; flex-direction: column; gap: 22px; }
+.kicker { font-family: var(--mono); font-size: .76rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+h1 { font-family: var(--display); font-weight: 700; font-size: clamp(1.7rem, 5vw, 2.4rem); line-height: 1.08; margin: 4px 0 0; text-wrap: balance; }
+h2 { font-family: var(--display); font-weight: 500; font-size: 1.15rem; margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+h2 small { font-family: var(--mono); font-size: .74rem; color: var(--muted); font-weight: 400; }
+.lead { font-size: 1.2rem; line-height: 1.45; margin: 0; }
+.pickwhy { background: var(--pencil-soft); border-left: 3px solid var(--pencil); padding: 8px 12px; font-size: .95rem; }
+.pickwhy b { font-family: var(--mono); font-size: .74rem; font-weight: 500; color: var(--pencil); text-transform: uppercase; letter-spacing: .05em; display: block; }
+
+dl.fields { margin: 0; display: grid; grid-template-columns: 9.5rem minmax(0, 1fr); gap: 10px 16px; border-top: 1px solid var(--rule); padding-top: 14px; }
+dl.fields dt { font-family: var(--mono); font-size: .74rem; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); padding-top: .3em; }
+dl.fields dd { margin: 0; }
+@media (max-width: 34rem) { dl.fields { grid-template-columns: minmax(0, 1fr); gap: 2px; } dl.fields dd { margin-bottom: 10px; } }
+
+.list { display: flex; flex-direction: column; gap: 8px; list-style: none; margin: 0; padding: 0; }
+.card { display: grid; grid-template-columns: 2.6rem minmax(0, 1fr); gap: 2px 10px; width: 100%; text-align: left; background: var(--card); border: 1px solid var(--rule); border-radius: 4px; padding: 12px 14px; }
+.card:hover { border-color: var(--pencil); }
+.card .id { font-family: var(--mono); font-size: .78rem; color: var(--muted); padding-top: .25em; }
+.card .t { font-family: var(--display); font-weight: 700; font-size: 1.08rem; line-height: 1.25; }
+.card .s { grid-column: 2; font-size: .97rem; color: var(--ink); }
+.card .tags { grid-column: 2; display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.tag { font-family: var(--mono); font-size: .7rem; padding: 1px 7px; border-radius: 2px; border: 1px solid var(--rule); color: var(--muted); }
+.tag.pick { background: var(--pencil-soft); border-color: transparent; color: var(--pencil); }
+.tag.star { background: var(--mark-soft); border-color: transparent; color: var(--mark); }
+.card.thin { background: transparent; }
+
+details.world { border: 1px solid var(--rule); border-radius: 4px; background: var(--card); }
+details.world summary { cursor: pointer; padding: 10px 14px; font-family: var(--display); font-weight: 500; }
+details.world .in { padding: 4px 14px 14px; display: flex; flex-direction: column; gap: 16px; }
+.who { border-top: 1px solid var(--rule); padding-top: 12px; }
+.who h3 { font-family: var(--display); font-size: 1.02rem; margin: 0 0 2px; }
+.who p { margin: 0 0 4px; font-size: .97rem; }
+.who p b { font-family: var(--mono); font-size: .7rem; font-weight: 500; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-right: 6px; }
+
+.script { background: var(--card); border: 1px solid var(--rule); border-radius: 4px; padding: 18px clamp(14px, 4vw, 30px); display: flex; flex-direction: column; gap: 9px; }
+.script .dir { font-style: italic; color: var(--muted); font-size: .95rem; margin: 5px 0; }
+.script .say { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr); gap: 0 12px; }
+.script .say b { font-family: var(--mono); font-weight: 500; font-size: .74rem; letter-spacing: .04em; color: var(--muted); padding-top: .42em; overflow-wrap: anywhere; }
+.script .choice { align-self: flex-start; font-family: var(--display); font-weight: 500; font-size: .95rem; border: 1px solid var(--pencil); color: var(--pencil); border-radius: 3px; padding: 3px 10px; margin-top: 6px; }
+.script .in1 { margin-left: clamp(12px, 4vw, 28px); border-left: 2px solid var(--pencil-soft); padding-left: 12px; }
+@media (max-width: 34rem) { .script .say { grid-template-columns: minmax(0, 1fr); } .script .say b { padding-top: 0; } }
+
+.mine { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--rule); padding-top: 14px; }
+.mine .row button { font-family: var(--mono); font-size: .78rem; padding: 4px 10px; border: 1px solid var(--rule); border-radius: 3px; background: transparent; }
+.mine .row button[aria-pressed="true"] { background: var(--mark-soft); color: var(--mark); border-color: var(--mark); }
+textarea { width: 100%; box-sizing: border-box; min-height: 4.2em; background: var(--card); border: 1px solid var(--rule); border-radius: 4px; padding: 8px 10px; font-size: .97rem; resize: vertical; }
+.sibs { display: flex; justify-content: space-between; gap: 10px; }
+.sibs button { background: none; border: 0; color: var(--pencil); font-family: var(--mono); font-size: .8rem; padding: 6px 0; text-align: left; max-width: 48%; }
+.sibs button:last-child { text-align: right; margin-left: auto; }
+.meta { font-family: var(--mono); font-size: .78rem; color: var(--muted); margin: 0; }
+.cols { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(17rem, 1fr); gap: 14px; overflow-x: auto; padding-bottom: 10px; }
+.cols > div { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.cols h2 { position: sticky; top: 0; }
+.empty { color: var(--muted); font-style: italic; }
+</style>
+
+<div class="bar"><div class="wrap" id="bar"></div></div>
+<main class="wrap" id="main"></main>
+
+<script>
+const DATA = /*__DATA__*/null;
+const LABEL = { logline: 'Logline', theme: 'Theme', setting: 'Setting', tone: 'Tone', player_role: 'You play',
+  mechanic: 'Mechanic', hook: 'First hour', why_game: 'Why a game', summary: 'Summary', question: 'Question',
+  antagonist: 'Opposition', ending: 'Ending', agency: 'Player choice', places: 'Where', party: 'Party',
+  play: 'Play', turn: 'Turn', type: 'Type', place: 'Where', cast: 'On stage' };
+const HIDE = new Set(['id', 'title', 'kind', 'pick', 'children', 'world', 'dialogue', 'name']);
+const KIDS = { premise: ['Storylines', 'alternatives: different games on this premise'],
+  storyline: ['Arcs', 'in order'], arc: ['Scenes', 'in order'] };
+
+const state = { run: 0, path: [], compare: false };
+let mine = {};
+try { mine = JSON.parse(localStorage.getItem('storylab-notes') || '{}'); } catch (e) {}
+const save = () => { try { localStorage.setItem('storylab-notes', JSON.stringify(mine)); } catch (e) {} };
+
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const runs = DATA ? DATA.runs : [];
+const runName = r => r.label || r.id;
+const key = (r, path) => [r.id, ...path].join('/');
+const text = v => Array.isArray(v) ? v.join(', ') : typeof v === 'object' && v ? JSON.stringify(v) : v;
+
+function walk(run, path) {
+  let list = run.premises, chain = [];
+  for (const id of path) { const n = list.find(x => x.id === id); if (!n) break; chain.push(n); list = n.children || []; }
+  return chain;
+}
+const depthOf = n => n.dialogue ? 'dialogue' : n.children && n.children.length ? `${n.children.length} ${n.kind === 'premise' ? 'storylines' : n.kind === 'storyline' ? 'arcs' : 'scenes'}` : '';
+
+function card(run, path, n) {
+  const m = mine[key(run, path)] || {};
+  const deep = depthOf(n);
+  return `<li><button class="card${deep ? '' : ' thin'}" data-go='${esc(JSON.stringify(path))}'>
+    <span class="id">${esc(n.id)}</span><span class="t">${esc(n.title)}</span>
+    <span class="s">${esc(n.logline || n.summary || '')}</span>
+    <span class="tags">${n.pick !== undefined ? '<span class="tag pick">model’s pick</span>' : ''}${deep ? `<span class="tag">${deep} →</span>` : ''}${n.type ? `<span class="tag">${esc(n.type)}</span>` : ''}${m.star ? '<span class="tag star">starred</span>' : ''}${m.note ? '<span class="tag star">note</span>' : ''}</span>
+  </button></li>`;
+}
+
+function fields(n, skip = []) {
+  const rows = Object.keys(n).filter(k => !HIDE.has(k) && !skip.includes(k) && n[k] !== '' && n[k] != null)
+    .map(k => `<dt>${esc(LABEL[k] || k.replace(/_/g, ' '))}</dt><dd>${esc(text(n[k]))}</dd>`);
+  return rows.length ? `<dl class="fields">${rows.join('')}</dl>` : '';
+}
+
+function people(list, heading) {
+  return `<div><h2>${heading} <small>${list.length}</small></h2>${list.map(c => `<div class="who">
+    <h3>${esc(c.name || c.title)}</h3>${Object.keys(c).filter(k => !HIDE.has(k) && c[k]).map(k =>
+      `<p><b>${esc(LABEL[k] || k.replace(/_/g, ' '))}</b>${esc(text(c[k]))}</p>`).join('')}</div>`).join('')}</div>`;
+}
+
+function script(src) {
+  const out = [];
+  for (const raw of src.split('\n')) {
+    const line = raw.trim();
+    if (!line || line.startsWith('#')) continue;
+    const ind = /^\s{2,}/.test(raw) ? ' in1' : '';
+    let m;
+    if (line.startsWith('[') && line.endsWith(']')) out.push(`<p class="dir${ind}">${esc(line.slice(1, -1))}</p>`);
+    else if (line.startsWith('> ')) out.push(`<span class="choice">▸ ${esc(line.slice(2))}</span>`);
+    else if ((m = line.match(/^([A-Z][A-Z0-9 .'’\-]{0,24}):\s+(.*)$/))) out.push(`<div class="say${ind}"><b>${esc(m[1])}</b><span>${esc(m[2])}</span></div>`);
+    else out.push(`<p class="dir${ind}">${esc(line)}</p>`);
+  }
+  return `<div class="script">${out.join('')}</div>`;
+}
+
+function nodePage(run, chain) {
+  const n = chain[chain.length - 1], path = state.path, k = key(run, path), m = mine[k] || {};
+  const parentList = chain.length > 1 ? chain[chain.length - 2].children : run.premises;
+  const i = parentList.indexOf(n), prev = parentList[i - 1], next = parentList[i + 1];
+  const up = path.slice(0, -1);
+  let h = `<header><div class="kicker">${n.kind} ${esc(n.id)}${n.type ? ' · ' + esc(n.type) : ''}</div><h1>${esc(n.title)}</h1></header>`;
+  const lead = n.logline || n.summary;
+  if (lead) h += `<p class="lead">${esc(lead)}</p>`;
+  if (n.pick !== undefined) h += `<div class="pickwhy"><b>Why the model picked this</b>${esc(n.pick) || 'No reason given.'}</div>`;
+  h += fields(n, ['logline', 'summary', 'type']);
+  if (n.world) h += `<details class="world"><summary>World: ${(n.world.cast || []).length} cast, ${(n.world.places || []).length} places</summary>
+    <div class="in">${people(n.world.cast || [], 'Cast')}${people(n.world.places || [], 'Places')}</div></details>`;
+  if (n.kind === 'scene') h += n.dialogue ? `<h2>Dialogue</h2>${script(n.dialogue)}` : '<p class="empty">No dialogue written for this scene. Ask for “expand ' + esc(path.join('/')) + '”.</p>';
+  else if (n.children.length) h += `<h2>${KIDS[n.kind][0]} <small>${KIDS[n.kind][1]}</small></h2><ol class="list">${n.children.map(c => card(run, [...path, c.id], c)).join('')}</ol>`;
+  else h += `<p class="empty">Not expanded. Ask for “expand ${esc(path.join('/'))}”.</p>`;
+  h += `<div class="mine"><div class="row"><button id="star" aria-pressed="${!!m.star}" data-star>${m.star ? '★ Starred' : '☆ Star'}</button></div>
+    <textarea id="note" placeholder="Your note on this ${n.kind}" aria-label="Your note">${esc(m.note || '')}</textarea></div>`;
+  h += `<nav class="sibs">${prev ? `<button data-go='${esc(JSON.stringify([...up, prev.id]))}'>← ${esc(prev.id)} ${esc(prev.title)}</button>` : ''}${next ? `<button data-go='${esc(JSON.stringify([...up, next.id]))}'>${esc(next.id)} ${esc(next.title)} →</button>` : ''}</nav>`;
+  return h;
+}
+
+function runPage(run) {
+  const picked = run.premises.filter(p => p.pick !== undefined).length;
+  return `<header><div class="kicker">run</div><h1>${esc(runName(run))}</h1></header>
+    <p class="meta">${[run.label && run.id !== run.label ? run.id : '', run.date, run.brief_version != null ? 'brief v' + run.brief_version : '',
+      `${run.premises.length} premises, ${picked} expanded`].filter(Boolean).map(esc).join(' · ')}</p>
+    ${run.notes ? `<p>${esc(run.notes)}</p>` : ''}
+    <h2>Premises <small>alternatives, written as one set</small></h2>
+    <ol class="list">${run.premises.map(p => card(run, [p.id], p)).join('')}</ol>`;
+}
+
+function comparePage() {
+  return `<header><div class="kicker">side by side</div><h1>Every run’s premises</h1></header>
+    <div class="cols">${runs.map((r, ri) => `<div><h2>${esc(runName(r))}</h2><ol class="list">${
+      r.premises.map(p => card(r, [p.id], p).replace('data-go=', `data-run="${ri}" data-go=`)).join('')}</ol></div>`).join('')}</div>`;
+}
+
+function allNotes() {
+  const lines = [];
+  for (const r of runs) for (const k of Object.keys(mine).filter(k => k.startsWith(r.id + '/')).sort()) {
+    const m = mine[k]; if (!m.star && !m.note) continue;
+    const chain = walk(r, k.split('/').slice(1));
+    lines.push(`${m.star ? '★ ' : ''}${k} — ${chain.map(c => c.title).join(' › ')}${m.note ? '\n  ' + m.note.replace(/\n/g, '\n  ') : ''}`);
+  }
+  return lines.join('\n') || 'No stars or notes yet.';
+}
+
+function render(keepScroll) {
+  const bar = document.getElementById('bar'), main = document.getElementById('main');
+  if (!runs.length) { bar.innerHTML = '<div class="row"><span class="brand">Story Lab</span></div>'; main.innerHTML = '<p class="empty">No runs yet. See story-lab/INSTRUCTIONS.md.</p>'; return; }
+  const run = runs[state.run], chain = walk(run, state.path);
+  state.path = chain.map(c => c.id);
+  bar.innerHTML = `<div class="row"><span class="brand">Story Lab</span>${runs.map((r, i) =>
+      `<button class="tab" data-run="${i}" data-go="[]" aria-pressed="${!state.compare && i === state.run}">${esc(runName(r))}</button>`).join('')}
+      ${runs.length > 1 ? `<button class="tool" data-compare aria-pressed="${state.compare}">Side by side</button>` : ''}
+      <button class="tool" data-copy>Copy my notes</button></div>
+    ${state.compare ? '' : `<div class="trail row"><button data-go="[]">${esc(runName(run))}</button>${chain.map((c, i) =>
+      `<span>›</span><button data-go='${esc(JSON.stringify(state.path.slice(0, i + 1)))}'>${esc(c.title)}</button>`).join('')}</div>`}`;
+  main.className = 'wrap' + (state.compare ? ' wide' : '');
+  main.innerHTML = state.compare ? comparePage() : chain.length ? nodePage(run, chain) : runPage(run);
+  if (!keepScroll) window.scrollTo(0, 0);
+}
+
+document.addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.go !== undefined) {
+    if (b.dataset.run !== undefined) state.run = +b.dataset.run;
+    state.path = JSON.parse(b.dataset.go); state.compare = false; render();
+  } else if ('compare' in b.dataset) { state.compare = !state.compare; render(); }
+  else if ('star' in b.dataset) {
+    const k = key(runs[state.run], state.path); mine[k] = { ...mine[k], star: !(mine[k] || {}).star }; save(); render(true);
+  } else if ('copy' in b.dataset) {
+    const t = allNotes();
+    const done = () => { b.textContent = 'Copied'; setTimeout(() => (b.textContent = 'Copy my notes'), 1500); };
+    const fallback = () => { const ta = document.createElement('textarea'); ta.id = 'notes-out'; ta.value = t; ta.style.minHeight = '12em';
+      document.getElementById('main').prepend(ta); ta.select(); };
+    try { navigator.clipboard.writeText(t).then(done, fallback); } catch (err) { fallback(); }
+  }
+});
+document.addEventListener('input', e => {
+  if (e.target.id !== 'note') return;
+  const k = key(runs[state.run], state.path); mine[k] = { ...mine[k], note: e.target.value }; save();
+});
+render();
+</script>

@@ -1,0 +1,111 @@
+{
+  "cast": [
+    {
+      "id": "c1", "name": "Sol Karrow",
+      "role": "Junior keeper at Skarn Fell, nineteen. The player character.",
+      "want": "To belong somewhere that will not be taken away.",
+      "flaw": "Cannot let anything go. Over-nurses, hoards, and mistakes keeping a thing alive for doing right by it.",
+      "voice": "Plain and dry, easier with animals than people. 'He's not sulking. He's a drake. That's his face.'",
+      "battle": "Crook and salves. Her command is Tend: small heals, and coaxing a free minor effect out of whichever beast is beside her.",
+      "secret": "Her father was a soldier who died waiting for a summon that had been spent on a parade."
+    },
+    {
+      "id": "c2", "name": "Bede Orrin",
+      "role": "Head keeper, sixty-eight. Was once a summoner's squire.",
+      "want": "For every beast on the Fell to die on the hill in its own time.",
+      "flaw": "Has decided on the beasts' behalf what they want, and has never checked.",
+      "voice": "Gruff, agricultural, allergic to feelings. 'She's had a good morning. Don't make a hymn of it.'",
+      "battle": "Old campaigner. Knows every beast's tells, so he can make a call land harder; never makes one himself.",
+      "secret": "At the Karst he called Thunder once more than his master ordered. It won the battle and cost the drake his eye and his wing."
+    },
+    {
+      "id": "c3", "name": "Old Thunder",
+      "role": "Storm drake, half blind, arthritic. The most famous summon alive. Three calls left.",
+      "want": "Nobody knows. He watches the south sky and lifts his head at drums, and also at the dinner gong.",
+      "flaw": "He comes when called. He always has.",
+      "voice": "Does not speak. Sneezes static, leans on things, and makes one low sound that Sol says is contentment and Bede says is his chest.",
+      "battle": "Skybreak ends any encounter outright. For free: his static sometimes stuns whatever is standing too close.",
+      "secret": "Nothing he does settles whether he wants to fight. The game never tells you."
+    },
+    {
+      "id": "c4", "name": "Captain Rook Dessen",
+      "role": "Remount officer, thirty. Arrives with a list of six names and the authority to take them.",
+      "want": "To bring enough power down the mountain to keep Carrow, where her family is, from falling.",
+      "flaw": "Counts in calls, because counting in creatures is how she lost her nerve once.",
+      "voice": "Brisk, exact, formally polite to the beasts. 'Good morning, sir. I'm told you bite. I'd take it as a kindness if you didn't.'",
+      "battle": "Sabre and orders. Her command, Direct, gives another party member an immediate turn.",
+      "secret": "Her regiment's summon, Garnet, was used to nothing in a single afternoon. She was the one relaying the calls."
+    },
+    {
+      "id": "c5", "name": "Brine",
+      "role": "Tidal horse, once the size of a harbour wave, now small enough to sleep in a trough. Five calls left.",
+      "want": "To be wherever Sol is, preferably wet.",
+      "flaw": "Follows her into places he should not go.",
+      "voice": "Blows bubbles. Stamps when ignored.",
+      "battle": "Spring Tide washes the whole enemy line back and off its feet. For free: douses fires and fills the party's flasks.",
+      "secret": "He is the only beast on the list who was not asked for. Sol brought him because she could not leave him."
+    },
+    {
+      "id": "c6", "name": "Lady Ash",
+      "role": "A phoenix that no longer rekindles. One call left, and everyone knows what it is.",
+      "want": "Warmth. She sleeps on the lodge stove.",
+      "flaw": "None. She is a very old bird.",
+      "voice": "A dry click of the beak. Sheds one feather when displeased; there are not many.",
+      "battle": "Last Ember restores the entire party from anything, and is her death. For free: nobody near her can be frozen or frightened.",
+      "secret": "She has started building a nest out of the lodge's kindling, which the books say a phoenix does only once."
+    },
+    {
+      "id": "c7", "name": "Marshal Tobiah Glass",
+      "role": "The last of the great summoners, eighty. Thunder was bound to him. Lives in honoured retirement in Carrow.",
+      "want": "To see his drake again and be recognised.",
+      "flaw": "Remembers the wars as the best years of two lives, his and Thunder's.",
+      "voice": "Loud, charming, repeats himself. 'We won the Karst, you know. Did I say? We won it.'",
+      "battle": "None now. His seal is what makes a recall order lawful.",
+      "secret": "He signed the recall without understanding what the paper was."
+    }
+  ],
+  "places": [
+    {
+      "id": "l1", "name": "Skarn Fell and the Keepers' Lodge", "kind": "hub",
+      "look": "Tussock grass, drystone pens built for creatures three times the size of the ones now in them, a lodge with a stove and a ledger nailed to the wall.",
+      "play": "Morning rounds: feed, walk and doctor each beast. Care raises what a beast will do for free; it never raises the number in the ledger.",
+      "change": "Fewer pens in use each time you come back. At the end you do rounds again, and it takes half as long."
+    },
+    {
+      "id": "l2", "name": "The Burial Hill", "kind": "field",
+      "look": "A round green hill above the lodge covered in cairns, each with a brass tag and something left on top: a bit, a bell, a child's drawing.",
+      "play": "Build a cairn for each beast that dies and choose the keepsake; a keepsake is the only permanent equipment in the game.",
+      "change": "It grows. The player chooses where on the hill each one goes, and who is next to whom."
+    },
+    {
+      "id": "l3", "name": "The Drovers' Stair", "kind": "dungeon",
+      "look": "Four days of switchback down the mountain: scree, a rope bridge, a river in spate, weather that changes at each turn.",
+      "play": "An escort dungeon at the pace of the slowest beast. Wolves, rockfall and the first choice between a hard fight and a call.",
+      "change": "Going back up it at the end, lighter, is the last playable stretch."
+    },
+    {
+      "id": "l4", "name": "Carrow", "kind": "town",
+      "look": "A river city behind an old wall, bunting over sandbags, toy drakes in the shop windows, bakers on the parapet with pikes.",
+      "play": "Stable legends in a tannery yard, deal with a city that adores them, and hold the wall at night.",
+      "change": "The bunting comes down in stages. By the last arc the toy drakes are gone from the windows, one way or the other."
+    },
+    {
+      "id": "l5", "name": "Sedge Flats", "kind": "dungeon",
+      "look": "Miles of reed and standing water, causeways of planks, siege engines sunk to their axles, smoke.",
+      "play": "A battlefield crossed in stages with no rest point. The game's hardest fights, and its most reasonable arguments for calling.",
+      "change": "Lady Ash's last call happens here or it does not, and the Flats are remembered by her name if it does."
+    },
+    {
+      "id": "l6", "name": "The Remount Lines", "kind": "dungeon",
+      "look": "The army's stockade for bound beasts: numbered stalls, binding posts, handlers who are not unkind and do not know anyone's name.",
+      "play": "A night infiltration to get your own beasts back out, in which the beasts' free habits are the stealth tools.",
+      "change": "Empty at the end, by your doing or the war's."
+    },
+    {
+      "id": "l7", "name": "The Hot Spring", "kind": "camp",
+      "look": "A steaming pool in the rocks behind the lodge, worn smooth on one side by a hundred years of large animals getting in.",
+      "play": "The camp scenes. Whoever is in the water talks; whoever is missing is noticed.",
+      "change": "The same shot at the start and the end, with a different count of heads above the steam."
+    }
+  ]
+}

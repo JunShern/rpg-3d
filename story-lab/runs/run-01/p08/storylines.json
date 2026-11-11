@@ -1,0 +1,32 @@
+{
+  "storylines": [
+    {
+      "id": "s1", "title": "By the Book",
+      "summary": "Edda does everything right. The procession is walked, the tributes are taken, the installation is performed, and she stays at the keep as her sister's warden through the autumn, clinging to the reading of the compact in which only the Office dies. The reading narrows a week at a time. At midwinter a Hero she has never met climbs the stairs.",
+      "question": "How long can you keep obeying before it becomes your doing?",
+      "antagonist": "Father Penhallow, who is kind at every step and has a form of words for each one.",
+      "ending": "In the top room Edda stands aside, or stands in front of her. The first keeps the compact and the second makes her the last boss's last guard.",
+      "agency": "Small refusals. Each ritual step can be done properly, done badly or skipped, and the Office is weaker for every one that was not done right."
+    },
+    {
+      "id": "s2", "title": "The Fixed Lot",
+      "summary": "Edda finds the second bowl. The lot was arranged, as it has been every time, to fall on whoever the parish could best spare. She turns the procession round and takes Wynn home. But the Office goes where the incumbent goes, and Ashby Low, with its church and its green and its forty roofs, starts to become the keep.",
+      "question": "What do you owe a community that chose you to lose?",
+      "antagonist": "The neighbours, who are frightened, ashamed and still sure they were being fair.",
+      "ending": "The Hero comes to a village instead of a castle. The final dungeon is the player's own starting town, with every house they shopped in turned strange.",
+      "agency": "Who in the village you expose, spare or win over decides which doors open on the last night."
+    },
+    {
+      "id": "s3", "title": "Two Girls on a Road",
+      "summary": "The game alternates. One chapter you are Edda, walking Wynn round the parishes toward the keep. The next you are Izzy, a foundling handed a sword and sent the same way round to end a monster. Both parties gain experience, and all of it goes to the same room at midwinter. The girls meet once, at an inn in a blizzard, before either understands who the other is.",
+      "question": "When the two parties you have raised meet at the top of the stairs, which will you be holding?",
+      "antagonist": "The story itself, which everyone the girls trust has learned by heart, and which has worked every time.",
+      "ending": "In the last room the game asks which party the player will control. Either girl can win. A third ending exists only if both parties arrive weak enough, which means the player chose for twenty hours not to do what the genre rewards.",
+      "agency": "Levelling. Every fight on either side is a contribution to an ending, and the kindest route is the under-levelled one."
+    }
+  ],
+  "pick": {
+    "id": "s3",
+    "why": "It makes the player the author of both halves of the tragedy. Playing Izzy's chapters as a perfectly ordinary heroic JRPG, while knowing who is at the end of it, is the cruellest and clearest use of the form I can think of."
+  }
+}
