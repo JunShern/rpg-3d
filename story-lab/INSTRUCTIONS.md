@@ -1,6 +1,6 @@
 # Story Lab: the brief
 
-Brief version: 1
+Brief version: 2
 
 You are being asked to show how well you can invent a JRPG's story, from the
 premise down to spoken lines. A person will read everything you write, next to
@@ -26,10 +26,17 @@ Read this whole file before writing anything.
 
 ## What kind of game
 
-A story-led, party-based JRPG that a small team could build: roughly 15 to 25
-hours, a party of three to five, towns, dungeons and a world to cross, battles
-(turn-based or action), and scenes carried by dialogue boxes. Any setting, any
-tone.
+A story-led, party-based action/adventure JRPG in the Final Fantasy tradition,
+at a size a small team could build: roughly 15 to 25 hours, a party of three to
+five, towns, dungeons and a world to cross, battles, and scenes carried by
+dialogue boxes. Any setting, any tone.
+
+That tradition means an **adventure**: the party travels, the stakes grow well
+past where they started, somebody pushes back, and around the middle the player
+learns something that changes what the story was about. An interesting
+situation is not yet a premise. Every premise must come with a sketch of the
+whole adventure, and the sketch must not be the one a reader could have
+guessed from the logline.
 
 The story has to work **as a game**. At every level, be able to say what the
 player is doing with their hands, and why this could not simply be a novel.
@@ -100,14 +107,26 @@ Leave `label` as the user gave it, or empty.
       "player_role": "who you are and what you do minute to minute",
       "mechanic": "the one system that carries the theme",
       "hook": "the image or moment of the first hour",
-      "why_game": "what the player feels here that a reader could not"
+      "why_game": "what the player feels here that a reader could not",
+      "party": "who travels together",
+      "antagonist": "who or what pushes back, and why they think they are right",
+      "arc": [
+        { "title": "", "text": "act one: where it starts and what sets the party moving" },
+        { "title": "", "text": "act two: the journey widens; new places, new enemies" },
+        { "title": "", "text": "act three: the reversal that changes what the story is about" },
+        { "title": "", "text": "act four: the cost; what breaks, who leaves" },
+        { "title": "", "text": "act five: the finale, and what the player decides in it" }
+      ]
     }
   ],
   "picks": [ { "id": "p03", "why": "" } ]
 }
 ```
 
-Ten premises, three picks.
+Ten premises, three picks. The arc is exactly five acts, two to four sentences
+each. Act three is the test: if the reversal is one the reader saw coming, or
+one that could be bolted onto any premise, find a better one. The finale should
+use the premise's mechanic, not just its setting.
 
 ### Step 2: `pNN/world.json`
 

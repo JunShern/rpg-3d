@@ -60,6 +60,9 @@ function loadRun(run) {
   const premises = checkList(run, 'premises.json', top.premises, 'premises', 'p');
   const pPicks = pickMap(run, 'premises.json', top.picks, premises.map(p => p.id), 'picks');
 
+  if ((meta.brief_version ?? 1) >= 2) for (const p of premises)
+    if (!Array.isArray(p.arc) || p.arc.length !== 5) say(run, 'warn', `premises.json: ${p.id} needs a five-act arc`);
+
   const out = premises.map(p => {
     const node = { kind: 'premise', ...p, pick: pPicks[p.id], children: [] };
     const world = readJson(run, `${p.id}/world.json`);

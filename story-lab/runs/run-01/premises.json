@@ -10,7 +10,31 @@
       "player_role": "Route-walker. You choose which letter to carry next, walk the road, fight what has moved into the waystations, and decide at each door whether to hand the letter over, read it aloud, or keep it.",
       "mechanic": "The mailbag is the equipment screen. Every undelivered letter is an equippable whose boon comes from its sender's intent: a love letter wards, a summons compels, a debt notice bites. Delivering it removes the boon for good and changes the town instead. The strongest party is the one that never does its job.",
       "hook": "A sorting room under thirty years of dust, one pigeonhole per town on the map, and a clerk stamping today's date on a letter addressed to a dead man.",
-      "why_game": "The cost of each delivery lands in the player's own hands: the letter leaves the bag, the number goes down, and the town they just changed is the only reward."
+      "why_game": "The cost of each delivery lands in the player's own hands: the letter leaves the bag, the number goes down, and the town they just changed is the only reward.",
+      "party": "Three clerks who never left their desks: the postmistress who kept stamping, a courier who deserted and knows the roads, and a boy born in the mail room. They are joined by people the letters were for, including a toll-lord's runaway heir and a girl addressed in a letter written before she was born.",
+      "antagonist": "The Receiver-General, the last imperial officer still in post, who has spent thirty years buying and burning old mail circuit by circuit. One item in that sack would end the peace his toll-lords live on, and he is the reason it was never sent.",
+      "arc": [
+        {
+          "title": "First Circuit",
+          "text": "Deliveries in the home province teach the cost: each letter handed over weakens the party and wakes a town. At the bottom of the sack is a registered packet under the imperial seal, addressed to a place on no map: the Terminus."
+        },
+        {
+          "title": "The Roads Open",
+          "text": "Word spreads that the post is running. Towns that got their letters write replies and ask you to carry them, so the bag refills with new boons. Toll-lords close the roads, a rival service starts delivering forgeries, and riders in old imperial grey begin intercepting you at the waystations."
+        },
+        {
+          "title": "The Packet",
+          "text": "The seal is broken. It is the Emperor's last order, written the day before the fall: a recall of all nine legions to the capital. It never went out. The empire did not fall, it was left waiting, and the legions are still at their posts in the far marches, three generations deep, keeping watch for a message that is in your bag."
+        },
+        {
+          "title": "Return to Sender",
+          "text": "The Receiver-General was the clerk on duty that day. He held the order back on purpose, to let the empire die, and he still thinks he was right. The party splits over whether to finish the delivery, the sack is taken, and the towns you gave letters to come out onto the road for you: every boon you gave away returns as a person."
+        },
+        {
+          "title": "The Terminus",
+          "text": "The dead sorting hall under the capital, where the Post itself, the empire's will that every message arrive, is the last thing still working. Deliver the order and bring nine armies home down these roads, burn it, or do what no clerk has ever done and write a new letter under the old seal."
+        }
+      ]
     },
     {
       "id": "p02",
@@ -22,7 +46,31 @@
       "player_role": "Relocation officer. Walk into a village, learn what holds it there, and get its people, graves, bells and gods uphill before the season turns.",
       "mechanic": "The water line is the world clock. Each chapter it rises one contour: the lowest village becomes a diving dungeon, its shop closes, roads become boat routes, field pests give way to drowned things. Nothing you left behind can be fetched dry again.",
       "hook": "Painting a white line on a church wall at the height the water will reach, while the congregation watches.",
-      "why_game": "A map the player has learned by heart is taken away one contour at a time. Only a game can make you lose a place you know how to walk."
+      "why_game": "A map the player has learned by heart is taken away one contour at a time. Only a game can make you lose a place you know how to walk.",
+      "party": "A relocation crew of four: a lowland-born officer, an engineer who believes in the dam, a valley guide who does not, and a novice from the monastery sent to see the bells moved properly. The river's spirit, Sorrel, travels with them in a jar.",
+      "antagonist": "Chief Engineer Maud Verrin, who knows what is under the valley floor and decided thirty years ago that water is more reliable than faith.",
+      "arc": [
+        {
+          "title": "The White Line",
+          "text": "The first village. Persuade the people, carry the bell, fight what comes out of the fields as the ground gets wet. Every village has one small holy thing, a well, a bell, a boundary oak, and you move those uphill too, with care."
+        },
+        {
+          "title": "Rising",
+          "text": "The water climbs. You dive the first drowned village for what was left, and the things down there are not river creatures; they are older and they are coming up from underneath. Sorrel, who has helped you from the start, gets weaker with every village you empty."
+        },
+        {
+          "title": "What the Bells Were For",
+          "text": "At the monastery the plan of the valley is on the wall. The seven villages stand in a ring. The bells, wells and oaks are a ward, kept for nine hundred years over something asleep under the valley floor, and you have dismantled it one stone at a time. The dam's builders always knew: the lake is meant as a permanent lid, because the lowlands will not trust their safety to peasants ringing bells."
+        },
+        {
+          "title": "Low Water",
+          "text": "It wakes before the lake is deep enough, and the dam cracks. The engineer wants the upper sluices opened now, with the last two villages still occupied. The guide wants the ward put back, which means diving every place you emptied, now deep dungeons, to hang bells under water."
+        },
+        {
+          "title": "The Wall",
+          "text": "On the dam with the sleeper rising and the cities below. Seal it with the water, and the valley is gone for good. Seal it with the ring, and somebody has to live on that shore and ring those bells for another nine hundred years. Or do what nobody has done since the first bell was cast, and let it finish waking, and speak to it."
+        }
+      ]
     },
     {
       "id": "p03",
@@ -34,7 +82,31 @@
       "player_role": "Stage manager. Cast your players, rehearse on the road, put on the show, and deal with what the town does once it has seen it.",
       "mechanic": "Battles are performances and jobs are roles. Any actor can be cast as the Tyrant, the Widow, the Fool or the Messenger, and each role is a moveset. The audience's mood is the battlefield. A scene can be won as written, as the censor wants it, or as it really happened, and each leaves a different town behind.",
       "hook": "Opening night in a barn. The lead has run off with the takings, and the stage manager walks on holding the prompt book, wearing a crown made from a bucket.",
-      "why_game": "The player chooses, line by line and in front of an audience meter, which version of the war this town will go home believing."
+      "why_game": "The player chooses, line by line and in front of an audience meter, which version of the war this town will go home believing.",
+      "party": "Stage manager Ines, the ageing lead Pask, the wardrobe mistress Clew, the apprentice Fenn, and in time the censor sent to stop them.",
+      "antagonist": "Sir Anselm Dray, Master of the Revels, who licenses every play in the kingdom and commanded at the massacre the play is about. He believes forgetting is mercy.",
+      "arc": [
+        {
+          "title": "Bucket Crown",
+          "text": "The lead absconds, and the only play the company has full parts for is a banned one from the bottom of the costume trunk. They stage it in a barn to save the night. The town is different in the morning, and the Revels Office assigns them a licenser."
+        },
+        {
+          "title": "The Circuit",
+          "text": "Town to town with a censor in the wagon. The play does more than change minds: in burned and shuttered playhouses, roles from unfinished performances walk without actors, and staging the war is waking them. The Crown's Company, lavish and approved, follows one town behind, repairing the official story."
+        },
+        {
+          "title": "A Soldier's House",
+          "text": "A garrison audience that was there corrects the play from the stalls. The script is wrong, because its author wrote saints. Ines knows the true version to the word, because she was the signaller who relayed the order. Now there are three plays in one wagon."
+        },
+        {
+          "title": "Rewrites",
+          "text": "Dray buys the leading man and offers the rest a roof. A break-in at the Revels Office finds forty other histories corrected in the same hand: the kingdom's whole memory is licensed. On the old battlefield the dead of that night are still on their marks, stuck in the scene until someone plays it through correctly."
+        },
+        {
+          "title": "The Night at Callow Ford",
+          "text": "The anniversary, on bare grass, with a script the player has assembled only from versions they dared to perform. The house holds survivors, soldiers, the man who gave the order, and the dead. Get it right and they take their bow and go. What the town builds on the meadow afterwards is what the kingdom will be allowed to remember."
+        }
+      ]
     },
     {
       "id": "p04",
@@ -46,7 +118,31 @@
       "player_role": "Chief surveyor. Walk the ground, hear both claims, set the marker, and live with what the line does next.",
       "mechanic": "You draw the world map. Each boundary stone decides which kingdom a village, well or shrine falls in, and that changes its shops, its language, its garrison, and which of your own party can walk into it unarmed.",
       "hook": "A village that has already chalked a line down the middle of its own tavern and would like you to make it official and leave.",
-      "why_game": "Authorship. The player cannot blame the plot for the border, because the pen was in their hand."
+      "why_game": "Authorship. The player cannot blame the plot for the border, because the pen was in their hand.",
+      "party": "A commission of old enemies: a chief surveyor both crowns distrust equally, a northern chainman who fought in these hills, a southern cartographer of good family, a priest of the boundary rite, and a hill shepherd who belongs to neither kingdom and guides them for pay.",
+      "antagonist": "The two war ministers, who agree on exactly one thing: the commission must fail in a way that is the other side's fault. Against both stands the Reeve of No Man, who leads the border raiders and wants no line at all.",
+      "arc": [
+        {
+          "title": "First Stone",
+          "text": "A procedural opening: villages, rival claims, a skirmish with reivers over a well. Each stone you set redraws the map on the spot, and the country on either side of it changes its shops, its speech and its garrison."
+        },
+        {
+          "title": "The Walk",
+          "text": "Into the high hills. Stones are moved in the night, a commissioner is found dead, and each escort blames the other. The old battlefields are full of the dead of both armies, who attack only those standing in enemy country, so your line decides who is haunted."
+        },
+        {
+          "title": "Sealed Orders",
+          "text": "Both crowns gave their own surveyors the same secret instruction: provoke an incident at the silver mine before first snow. The commission is a fuse. And the ancient markers you have been replacing are older than either kingdom. These hills were a country once, and it was removed by a line like yours."
+        },
+        {
+          "title": "No Man's Land",
+          "text": "The commission deserts together. Hunted by both escorts and sheltered by the reivers, you go on setting stones, but now on a line of your own, enclosing the hills as a third country while two armies converge on the mine. The cartographer sends the true map home."
+        },
+        {
+          "title": "The Last Stone",
+          "text": "The mine, two armies drawn up, one stone left. Where it goes gives the north its map, the south its map, or a new country that has to defend itself by morning. The last battle is fought on the map the player drew: every village you placed turns up on the field on the side you put it."
+        }
+      ]
     },
     {
       "id": "p05",
@@ -58,7 +154,31 @@
       "player_role": "The hero's surviving companions. Retrace the quest backwards and answer for it: the bridge you dropped, the dragon you orphaned, the town you promised to come back to.",
       "mechanic": "You start at level 99 with the legendary gear and nothing left worth using it on. Each place can be mended by leaving something behind: the sword to brace the bridge, a spell tier to relight a lighthouse, levels to a village militia. You arrive home at level 1.",
       "hook": "The victory feast is ending, and somebody has to carry the hero's boots home to his mother.",
-      "why_game": "It spends the one thing JRPG players hoard. Choosing to give away a maxed character is a feeling no cutscene can have for you."
+      "why_game": "It spends the one thing JRPG players hoard. Choosing to give away a maxed character is a feeling no cutscene can have for you.",
+      "party": "The dead hero's four companions: his shield-bearer, a court mage with no spell left worth casting, a thief who was promised a pardon, and the priest who blessed the quest. They carry his boots.",
+      "antagonist": "Whoever is walking a week behind them, taking back everything they leave.",
+      "arc": [
+        {
+          "title": "The Wake",
+          "text": "The feast ends and four people set off with a pair of boots. The first repair is the sword, left wedged in the bridge you dropped. Enemies on the road are what remains of the Dark Lord's army, starving and mostly trying to surrender, oddly eager to surrender to you."
+        },
+        {
+          "title": "The Reckoning Road",
+          "text": "The quest in reverse: the orphaned dragon that wants blood-price, the town you burned as a diversion, the forest you cut a road through. Each is mended by leaving power behind. Then word catches up from the places you have already left. The sword is gone from the bridge. Someone is collecting."
+        },
+        {
+          "title": "Footprints",
+          "text": "You turn round and catch him, and it is the hero. He walked out of the Black Gate after you ran, which is the thing the four of you have not said aloud. He says the Dark Lord is not dead, because it was never a person. It is a title, it goes to the strongest thing alive, and since the Gate that has been you. He means to take it all back and carry it himself."
+        },
+        {
+          "title": "Level One",
+          "text": "A race in two directions. You shed power as fast as places can take it, to starve the title. He gathers everything you shed, so that nobody else has to hold it, which is heroic and is going to end the world. One of the four goes over to him. The map behind you starts to darken."
+        },
+        {
+          "title": "Home",
+          "text": "The village, his mother's door, and the party at level 1. He arrives wearing everything you ever gave away. He cannot be beaten by you. The fight is won by who comes down the road behind him: every place you mended sends someone. Then the last question, which is where a title like that can be put so that it rests."
+        }
+      ]
     },
     {
       "id": "p06",
@@ -70,19 +190,67 @@
       "player_role": "Junior keeper. Feed, walk and doctor the old beasts, and when the remount officers come, decide who goes down the mountain, and go with them.",
       "mechanic": "Every summon has a fixed number of calls left in it, shown on screen and never restored. Their signature attacks still end a fight outright, and each use is gone for good. The rest of the time you fight with keepers' crooks and salves, and the beasts help in small tired ways that cost nothing.",
       "hook": "Morning rounds. You carry warm mash to a creature that once levelled a fortress and now needs its food cut up.",
-      "why_game": "The player holds the button. Every boss asks the same question a new way: is this worth one of Old Thunder's last three?"
+      "why_game": "The player holds the button. Every boss asks the same question a new way: is this worth one of Old Thunder's last three?",
+      "party": "Junior keeper Sol, the remount officer Captain Dessen, old head keeper Bede, and seven retired summons, of whom the drake, the tidal horse and the phoenix matter most.",
+      "antagonist": "The arithmetic of a siege, argued honestly by decent officers: forty thousand people against the last days of a few old animals.",
+      "arc": [
+        {
+          "title": "Rounds",
+          "text": "A week of chores on the Fell teaches thirty animals by their habits, and one peaceful death teaches the cairn. Then an officer rides up with a list of six and a lawful seal, and Sol goes down the mountain with them rather than let strangers lead them."
+        },
+        {
+          "title": "Down the Stair",
+          "text": "Four days of mountain at an old drake's pace, then a besieged city that adores its legends and wants a call spent on a parade. The fights are small and hard and the button that would end them is always on screen."
+        },
+        {
+          "title": "Sedge Flats",
+          "text": "The battle the campaign was for. The phoenix has one call and it is used or it is not. Then, with Sol trapped and nobody near, the sky breaks. Nobody called it. Thunder has acted on his own for the first time in thirty-eight years, and everyone who saw it is sure what it means, in three different ways."
+        },
+        {
+          "title": "Ledger",
+          "text": "The army concludes the drake is willing and the keeper is in the way, and moves the beasts to its stockade under handlers who will call on order. Bede confesses what he did at the last war. The three of them break in by night using the animals' harmless habits as tools, and Sol takes the tether unlawfully."
+        },
+        {
+          "title": "The Gate",
+          "text": "The last assault, and the best case anyone has made for a call. Call him, refuse, or drop the rope and let him choose. Then the mountain in the other direction, however many cairns, and morning rounds, which now take half as long."
+        }
+      ]
     },
     {
       "id": "p07",
       "title": "One Seat",
-      "logline": "Five friends spend a year in the examination city cramming for the imperial magistracy, knowing their province is granted exactly one seat.",
+      "logline": "Five candidates from one poor province walk the nine-hundred-mile Examination Road to the capital together, sitting a trial in every town, knowing their province is granted exactly one seat.",
       "theme": "Can a friendship survive a contest only one of you can win, and is the contest worth winning?",
-      "setting": "Lanting, a canal city that exists for the triennial exam: boarding houses, ink markets, hired essay-ghosts, cram temples, and the walled compound with its nine thousand cells.",
-      "tone": "Coming of age, warm and competitive, with a slow political chill.",
-      "player_role": "A candidate. Plan each week across study, paid work, friends and the city's troubles. In this empire rhetoric is literally magic, so a debate is a battle.",
-      "mechanic": "A calendar game in which your party members are also your rivals. Helping a friend study raises their rank against yours on a public board. The ending turns on who takes the seat, and you can spend the whole year making sure it is not you.",
-      "hook": "Arrival day. Five strangers split the last room in the boarding house and pin one shared timetable to the wall.",
-      "why_game": "The ranking board is real and the player moves it. Generosity has a number attached, and so does ambition."
+      "setting": "The Examination Road, from the frontier province of Sennan to Lanting, the canal capital. Nine trial-towns lie along it, where candidates must sit as acting magistrates and judge a real case. In this empire rhetoric is literally magic: an argument well made binds, and a verdict has force.",
+      "tone": "A road story of friends and rivals, warm and competitive, with a slow political chill.",
+      "player_role": "A candidate. Travel the road, fight with the spoken arts (Thesis, Rebuttal, Precedent) against bandits, rival candidates and things the old verdicts left behind, and decide a case in every town.",
+      "mechanic": "Your party members are your rivals, ranked on a public board at every post-house. A silent proctor walks with you and writes everything down. Doing right by a town usually means breaking a statute, and the player chooses which party member's hands do it, so every kindness goes on a named friend's record.",
+      "hook": "Dawn at the province gate. Five strangers are issued one cart, one lantern and one proctor between them.",
+      "why_game": "The player assigns the blame for every good deed. By the capital they have written a dossier on each friend with their own choices, and the game is about to use it.",
+      "party": "Five candidates: a farmer's child on a village subscription, a magistrate's bored heir, a former soldier, a temple prodigy, and a forger who should not be sitting at all. Behind them, always, the proctor.",
+      "antagonist": "The Chief Examiner, Sennan's last successful candidate, who holds the seat they are competing for and knows exactly what it cost.",
+      "arc": [
+        {
+          "title": "The Gate",
+          "text": "Departure and the first trial-town: a small case about a boundary ditch, a first fight with road bandits, and the first posting of the board, which puts one of the five at the bottom in front of the others."
+        },
+        {
+          "title": "The Road",
+          "text": "The cases grow: a flood, a grain riot, a village hiding a deserter. Each can be judged lawfully or well. Wealthy provinces' candidates travel with hired guards and are not above an ambush. The proctor never speaks and never stops writing."
+        },
+        {
+          "title": "The Failed Candidate",
+          "text": "A bandit-scholar taken in the hills sat this examination thirty years ago and tells them the final question. In the last cell each candidate is handed the proctor's dossiers on the other four and must pass sentence. The seat goes to whoever convicts their friends most ably. The empire is selecting for people who have betrayed someone and can never go home."
+        },
+        {
+          "title": "Lanting",
+          "text": "The capital. One of the five has been keeping her own notes for weeks. A raid on the proctors' archive shows every sitting magistrate's file contains the same thing: a friend convicted. The whole government is bound by one shared guilt, and the Chief Examiner's file names a boy from Sennan."
+        },
+        {
+          "title": "The Compound",
+          "text": "Nine thousand cells and the last question. Convict and take the seat. Refuse, and all five fail. Or submit one answer in five hands and argue it as a party against the Examiner himself, putting the examination on trial, with every town you judged well arriving as your Precedents."
+        }
+      ]
     },
     {
       "id": "p08",
@@ -94,7 +262,31 @@
       "player_role": "The elder sister. You escort her to the keep as the compact demands, with the neighbours who volunteered, and you get stronger the way JRPG parties do.",
       "mechanic": "Your sister is in the party and shares your experience. Every level you gain, she gains as the final boss: new forms and new phases, listed on her status page in advance. Grinding is safe today and paid for at the end. Somewhere on the same road, the Hero is levelling too.",
       "hook": "Harvest festival. The lot is drawn from the church bowl the way it is every year for the pig, and the children are laughing until the priest reads the name.",
-      "why_game": "The player builds the last boss out of their own habits. Every optional fight is a decision about how the ending will go."
+      "why_game": "The player builds the last boss out of their own habits. Every optional fight is a decision about how the ending will go.",
+      "party": "Two parties, played in alternate chapters. Edda Marsh, her sister Wynn, the parish priest and a neighbour walk to the keep. Izzy Farrant, a foundling handed a sword, walks there with the last Hero as her teacher.",
+      "antagonist": "The compact itself, kept by kind people who have a form of words for each step, and behind it whoever in the capital first worked out that a kingdom's fear could be kept in one place.",
+      "arc": [
+        {
+          "title": "The Bowl",
+          "text": "The lot falls on a twelve-year-old. A week of gifts and fittings, and the party leaves with the parish lining the lane. On the first mile something comes out of the hedge, attacks everyone else, and kneels to her."
+        },
+        {
+          "title": "Two Roads",
+          "text": "The game cuts to the capital and becomes a bright conventional adventure: a chosen orphan, a sword, villages to save from the monsters rising this year. Both parties level. The menu shows both bars filling toward the same night."
+        },
+        {
+          "title": "The Hero's Rest",
+          "text": "A blizzard puts both parties under one roof. The girls meet over a cat before either knows what the other is, and work it out in the middle of a conversation. The old Hero tells Edda what the pictures leave out: at the end it goes small again, and asks if it can go home."
+        },
+        {
+          "title": "Installation",
+          "text": "The parish that hosted last time jeers the little Demon King for sport and her power arrives early. At the keep, Edda's party furnishes the dungeon the Hero will have to climb. At the last door the priest breaks and admits the lot was never blind: the vestry chooses whoever the parish can best spare."
+        },
+        {
+          "title": "Midwinter and After",
+          "text": "At the top of the stairs the game asks which party you will control. Either girl can win and the harvests will come. If both refuse, which is only possible if the player kept both parties weak, the thing in the keep is loose with nobody to sit in, and the two parties go together to the capital cathedral where the first bowl was drawn, to find out who it was drawn for."
+        }
+      ]
     },
     {
       "id": "p09",
@@ -106,7 +298,31 @@
       "player_role": "Junior interpreter to the delegation. Spar to converse, translate for your ambassadors, and find out who is mistranslating on purpose.",
       "mechanic": "Battle commands are vocabulary. You learn a word by being hit with it, and a fight is graded on what you managed to say, so a win can be a diplomatic blunder and a well-chosen loss a courtesy. Party members are dialects: the fencer speaks court Vhar, the brawler speaks dockside.",
       "hook": "The Vhar envoy greets your ambassador by breaking his nose. Your first job is to explain that this was polite.",
-      "why_game": "Only a combat system can make the player fluent, and only fluency lets them catch the lie at the centre of the talks."
+      "why_game": "Only a combat system can make the player fluent, and only fluency lets them catch the lie at the centre of the talks.",
+      "party": "A junior interpreter; a duellist who speaks court Vhar; a dock brawler who speaks the harbour dialect; a ship's surgeon who has to keep them all able to talk; and Oreth, a Vhar under a vow of silence, which among her people means she will not raise a hand.",
+      "antagonist": "Halvard Rees, senior interpreter and the player's teacher, who understands the Vhar better than anyone alive and is mistranslating them on purpose.",
+      "arc": [
+        {
+          "title": "The Strand",
+          "text": "Six weeks of talks in a tidal citadel. Learn to greet, to bargain and to apologise with your fists. Small duels, a stolen treaty draft, and the first sign that what the ambassadors hear is not what was said."
+        },
+        {
+          "title": "Broken Sentence",
+          "text": "The league's ambassador is killed in a formal duel that every witness calls an insult. The player, who was close enough to read it, knows the stroke was forged: someone taught the Vhar champion a human phrase. The causeway floods, the talks collapse, and the interpreter is blamed."
+        },
+        {
+          "title": "The Fleet",
+          "text": "Flight by sea with the Vhar nomads, clan to clan, learning dialects by being beaten in them. Out here the truth is plain to anyone fluent. The Vhar never threatened war. Their opening demand, translated by Rees as an ultimatum, was a proposal of alliance, made in the only form they have for addressing an equal."
+        },
+        {
+          "title": "The Teacher",
+          "text": "Rees is found, and he denies nothing. In Vhar grammar, he says, there is no word for peace between peoples who have not fought, so a war is the kindest thing he could arrange, and he has made it a small one. The fleets are already sailing. Half the party thinks he has a point."
+        },
+        {
+          "title": "The War, Spoken Correctly",
+          "text": "A battle between two navies that has to be conducted as a sentence. The player commands the engagement and must say the right thing with it, which means winning some fights, conceding others and, at the centre, losing a duel to the right opponent in front of both fleets. Fluency decides whether the day ends as a massacre or a treaty."
+        }
+      ]
     },
     {
       "id": "p10",
@@ -118,7 +334,31 @@
       "player_role": "Shift lead turned organiser. Dig, fight what the Deep sends up, and talk gallery after gallery into walking out with you.",
       "mechanic": "The party is a picket line that grows. Fights are fought in a formation of up to twelve whose strength comes from adjacency: who stands next to whom, and who trusts whom. Bosses are negotiation rounds, the company's offers are status effects, and a member who takes the deal leaves a gap.",
       "hook": "The shift whistle blows for a crew that has not come up, and the lift operator is told to keep the lift running.",
-      "why_game": "Solidarity as a formation. The player feels the line get stronger with each person, and feels exactly where it breaks."
+      "why_game": "Solidarity as a formation. The player feels the line get stronger with each person, and feels exactly where it breaks.",
+      "party": "A night-shift crew: the shift lead, a lift operator, a blaster with nine fingers, a company clerk who changes sides, and a lamp-trimmer of eleven who knows every crawlway. The line that forms behind them reaches twelve in a fight and hundreds in the story.",
+      "antagonist": "The Resident Director, who has never raised his voice and can turn off the air. Later, and less simply, whatever the lost shift now speaks for.",
+      "arc": [
+        {
+          "title": "The Whistle",
+          "text": "A cave-in on the lowest gallery. The company seals the level and orders the lift kept running. One crew goes down anyway, finds the tunnel empty of bodies, and comes up to be dismissed. By morning their gallery has stopped work."
+        },
+        {
+          "title": "Gallery by Gallery",
+          "text": "Organising the town tier by tier, each with its own trade, its own grievance and its own reason to stay out of it. The company answers with strikebreakers, evictions and offers that land in battle as status effects. The line grows, and the lift is taken."
+        },
+        {
+          "title": "The Lost Shift",
+          "text": "Down into the Deep to find the buried crew. They are alive, changed, and singing with the ore. The moon is not rock. The ore is the bone of something enormous, the digging has been waking it, and the lost shift now speaks for it. It has a demand of its own, and it is not better pay. It is that the digging stop."
+        },
+        {
+          "title": "Lockout",
+          "text": "The company cuts the lamps and thins the air. The line splits three ways: those who will take the deal, those who hold for the strike's terms, and those who have heard the singing. Under that pressure the crew climbs the inner wall to the surface estates, where the owners live under a real sky no miner has ever seen."
+        },
+        {
+          "title": "The Table",
+          "text": "A three-sided negotiation on the surface between the company, the line and the Deep, fought as the final battle, where the number still standing in your formation is what you can ask for. Win the mine and keep waking the thing beneath it, or win the town's life and lose the only work it has, or find terms nobody at the table arrived with."
+        }
+      ]
     }
   ],
   "picks": [
